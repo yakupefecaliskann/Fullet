@@ -1,0 +1,1322 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head id="Head1"><link rel="stylesheet" type="text/css" href="/pompatest/DXR.axd?r=1_7,1_8,1_1,1_3,1_4,1_2,1_6,1_5-sLEF6"><title>
+
+</title><link rel="shortcut icon" href="http://s04.static-shell.com/etc/designs/shell/clientlibs/publish/img/favicon.ico">
+    <style type="text/css">    
+        .header1 {text-align: left; font-size:medium; font-weight:600; color:#616161;  }
+        .header2{color: #009999;line-height: 1.1em;font-family: Verdana, Arial, Helvetica, sans-serif;font-size: 0.9em;font-weight: bold;text-decoration: none;}
+        .label1 {text-align: left; font-size:medium; font-weight:600; color:#858585;  }
+        .label2 {color: #333333;line-height: 1.3em;font-family: Verdana, Arial, Helvetica, sans-serif;font-size: 0.69em;text-decoration: none; }
+        .label2_1 {color: #333333;line-height: 1.3em;font-family: Verdana, Arial, Helvetica, sans-serif;font-size: 0.69em;text-decoration: none; font-weight:bold}
+        .label3 {color: #009999;line-height: 1.3em;font-family: Verdana, Arial, Helvetica, sans-serif;font-size: 0.69em;text-decoration: none; font-weight:bold}
+        .grid_column1{ color: #333333; line-height: 1.3em; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 0.9em; font-weight:bold; text-decoration: none;  }
+        .grid_column3{ background-color:#73C8C8; color: #333333; line-height: 1.3em; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 0.9em; font-weight:bold; text-decoration: none; padding:0px; }
+        .back1{background-color: rgb(217, 240, 240);}
+        .ClassTxt1 { color: rgb(51, 51, 51); line-height: 1.3em; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 11px; text-decoration: none;}
+
+
+    </style>
+
+<style></style><link rel="stylesheet" type="text/css" href="/pompatest/DXR.axd?r=1_3,1_8,1_4,1_2-sLEF6"><link rel="stylesheet" type="text/css" href="/pompatest/DXR.axd?r=1_7,1_1-sLEF6"><link rel="stylesheet" type="text/css" href="/pompatest/DXR.axd?r=1_6,1_5-sLEF6"></head>
+<body>
+    <form method="post" action="./History.aspx" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUJMTk4NDEzNDY5D2QWAgIDD2QWAmYPZBYCZg9kFgJmD2QWAmYPZBYOAgEPPCsABgEADxYCHgVWYWx1ZQYAyPkgRJfeiGRkAgMPFCsABg8WAh8ABgBIdB/7m96IZGRkPCsACgEIPCsABgEAFgIeB01heERhdGUGAEh0H/ub3ohkZGQCBQ8UKwAGDxYEHwAFCFNlw6dpbml6Hg9EYXRhU291cmNlQm91bmRnZGRkPCsACQEIFCsABBYEHhJFbmFibGVDYWxsYmFja01vZGVoHidFbmFibGVTeW5jaHJvbml6YXRpb25PblBlcmZvcm1DYWxsYmFjayBoZA8WAh4KSXNTYXZlZEFsbGcPFCsAURQrAAEWCB4EVGV4dAUFQURBTkEfAAUDMDAxHghJbWFnZVVybGUeDlJ1bnRpbWVDcmVhdGVkZxQrAAEWCB8GBQhBRElZQU1BTh8ABQMwMDIfB2UfCGcUKwABFggfBgUFQUZZT04fAAUDMDAzHwdlHwhnFCsAARYIHwYFBEFHUkkfAAUDMDA0HwdlHwhnFCsAARYIHwYFBkFNQVNZQR8ABQMwMDUfB2UfCGcUKwABFggfBgUGQU5LQVJBHwAFAzAwNh8HZR8IZxQrAAEWCB8GBQdBTlRBTFlBHwAFAzAwNx8HZR8IZxQrAAEWCB8GBQZBUlRWSU4fAAUDMDA4HwdlHwhnFCsAARYIHwYFBUFZRElOHwAFAzAwOR8HZR8IZxQrAAEWCB8GBQlCQUxJS0VTSVIfAAUDMDEwHwdlHwhnFCsAARYIHwYFB0JJTEVDSUsfAAUDMDExHwdlHwhnFCsAARYIHwYFBkJJTkdPTB8ABQMwMTIfB2UfCGcUKwABFggfBgUGQklUTElTHwAFAzAxMx8HZR8IZxQrAAEWCB8GBQRCT0xVHwAFAzAxNB8HZR8IZxQrAAEWCB8GBQZCVVJEVVIfAAUDMDE1HwdlHwhnFCsAARYIHwYFBUJVUlNBHwAFAzAxNh8HZR8IZxQrAAEWCB8GBQlDQU5BS0tBTEUfAAUDMDE3HwdlHwhnFCsAARYIHwYFB0NBTktJUkkfAAUDMDE4HwdlHwhnFCsAARYIHwYFBUNPUlVNHwAFAzAxOR8HZR8IZxQrAAEWCB8GBQdERU5JWkxJHwAFAzAyMB8HZR8IZxQrAAEWCB8GBQpESVlBUkJBS0lSHwAFAzAyMR8HZR8IZxQrAAEWCB8GBQZFRElSTkUfAAUDMDIyHwdlHwhnFCsAARYIHwYFBkVMQVpJRx8ABQMwMjMfB2UfCGcUKwABFggfBgUIRVJaSU5DQU4fAAUDMDI0HwdlHwhnFCsAARYIHwYFB0VSWlVSVU0fAAUDMDI1HwdlHwhnFCsAARYIHwYFCUVTS0lTRUhJUh8ABQMwMjYfB2UfCGcUKwABFggfBgUJR0FaSUFOVEVQHwAFAzAyNx8HZR8IZxQrAAEWCB8GBQdHSVJFU1VOHwAFAzAyOB8HZR8IZxQrAAEWCB8GBQlHVU1VU0hBTkUfAAUDMDI5HwdlHwhnFCsAARYIHwYFB0hBS0tBUkkfAAUDMDMwHwdlHwhnFCsAARYIHwYFBUhBVEFZHwAFAzAzMR8HZR8IZxQrAAEWCB8GBQdJU1BBUlRBHwAFAzAzMh8HZR8IZxQrAAEWCB8GBQZNRVJTSU4fAAUDMDMzHwdlHwhnFCsAARYIHwYFCElTVEFOQlVMHwAFAzAzNB8HZR8IZxQrAAEWCB8GBQVJWk1JUh8ABQMwMzUfB2UfCGcUKwABFggfBgUES0FSUx8ABQMwMzYfB2UfCGcUKwABFggfBgUJS0FTVEFNT05VHwAFAzAzNx8HZR8IZxQrAAEWCB8GBQdLQVlTRVJJHwAFAzAzOB8HZR8IZxQrAAEWCB8GBQpLSVJLTEFSRUxJHwAFAzAzOR8HZR8IZxQrAAEWCB8GBQhLSVJTRUhJUh8ABQMwNDAfB2UfCGcUKwABFggfBgUHS09DQUVMSR8ABQMwNDEfB2UfCGcUKwABFggfBgUFS09OWUEfAAUDMDQyHwdlHwhnFCsAARYIHwYFB0tVVEFIWUEfAAUDMDQzHwdlHwhnFCsAARYIHwYFB01BTEFUWUEfAAUDMDQ0HwdlHwhnFCsAARYIHwYFBk1BTklTQR8ABQMwNDUfB2UfCGcUKwABFggfBgUHSy5NQVJBUx8ABQMwNDYfB2UfCGcUKwABFggfBgUGTUFSRElOHwAFAzA0Nx8HZR8IZxQrAAEWCB8GBQVNVUdMQR8ABQMwNDgfB2UfCGcUKwABFggfBgUDTVVTHwAFAzA0OR8HZR8IZxQrAAEWCB8GBQhORVZTRUhJUh8ABQMwNTAfB2UfCGcUKwABFggfBgUFTklHREUfAAUDMDUxHwdlHwhnFCsAARYIHwYFBE9SRFUfAAUDMDUyHwdlHwhnFCsAARYIHwYFBFJJWkUfAAUDMDUzHwdlHwhnFCsAARYIHwYFB1NBS0FSWUEfAAUDMDU0HwdlHwhnFCsAARYIHwYFBlNBTVNVTh8ABQMwNTUfB2UfCGcUKwABFggfBgUFU0lJUlQfAAUDMDU2HwdlHwhnFCsAARYIHwYFBVNJTk9QHwAFAzA1Nx8HZR8IZxQrAAEWCB8GBQVTSVZBUx8ABQMwNTgfB2UfCGcUKwABFggfBgUIVEVLSVJEQUcfAAUDMDU5HwdlHwhnFCsAARYIHwYFBVRPS0FUHwAFAzA2MB8HZR8IZxQrAAEWCB8GBQdUUkFCWk9OHwAFAzA2MR8HZR8IZxQrAAEWCB8GBQdUVU5DRUxJHwAFAzA2Mh8HZR8IZxQrAAEWCB8GBQlTQU5MSVVSRkEfAAUDMDYzHwdlHwhnFCsAARYIHwYFBFVTQUsfAAUDMDY0HwdlHwhnFCsAARYIHwYFA1ZBTh8ABQMwNjUfB2UfCGcUKwABFggfBgUGWU9aR0FUHwAFAzA2Nh8HZR8IZxQrAAEWCB8GBQlaT05HVUxEQUsfAAUDMDY3HwdlHwhnFCsAARYIHwYFB0FLU0FSQVkfAAUDMDY4HwdlHwhnFCsAARYIHwYFB0JBWUJVUlQfAAUDMDY5HwdlHwhnFCsAARYIHwYFB0tBUkFNQU4fAAUDMDcwHwdlHwhnFCsAARYIHwYFCUtJUklLS0FMRR8ABQMwNzEfB2UfCGcUKwABFggfBgUGQkFUTUFOHwAFAzA3Mh8HZR8IZxQrAAEWCB8GBQZTSVJOQUsfAAUDMDczHwdlHwhnFCsAARYIHwYFBkJBUlRJTh8ABQMwNzQfB2UfCGcUKwABFggfBgUHQVJEQUhBTh8ABQMwNzUfB2UfCGcUKwABFggfBgUFSUdESVIfAAUDMDc2HwdlHwhnFCsAARYIHwYFBllBTE9WQR8ABQMwNzcfB2UfCGcUKwABFggfBgUHS0FSQUJVSx8ABQMwNzgfB2UfCGcUKwABFggfBgUFS0lMSVMfAAUDMDc5HwdlHwhnFCsAARYIHwYFCE9TTUFOSVlFHwAFAzA4MB8HZR8IZxQrAAEWCB8GBQVEVVpDRR8ABQMwODEfB2UfCGdkZGRkZAIHDxQrAAYPFgIfAAUIU2XDp2luaXpkZGQ8KwAJAQg8KwAEAQAWBB8DaB8EaGRkZAINDzwrABgCAA8WBB8CZx4VQ2xpZW50VmlzaWJsZUludGVybmFsaGQVPCsABgEFFCsAAmRkZAIPDzwrAAYBAA8WAh8JaGRkAhEPPCsABgEADxYCHwloZGQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgoFE2NiX2FsbCRkZV9iZGF0ZSREREQFGWNiX2FsbCRkZV9iZGF0ZSREREQkQyRGTlAFE2NiX2FsbCRkZV9lZGF0ZSREREQFGWNiX2FsbCRkZV9lZGF0ZSREREQkQyRGTlAFFmNiX2FsbCRjYl9wcm92aW5jZSREREQFFGNiX2FsbCRjYl9jb3VudHkkREREBRJjYl9hbGwkQVNQeEJ1dHRvbjEFEGNiX2FsbCRncmRQcmljZXMFEGNiX2FsbCRidG5fcHJpbnQFEWNiX2FsbCRidG5fZXhwb3J0pf1oPvtyYDxK/H/a7RVDsBKAGa73x7R/0/ic8BT0Wqc=">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['form1'];
+if (!theForm) {
+    theForm = document.form1;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/pompatest/WebResource.axd?d=U-yLrPV_Vq8OrYrr_ShP8BEkR0c2PC6cZubRXMOgEZlpq1kfzMsBINt_Ees2dAkPUW0auK95StQ5ToYU9Xz9nrtvhO1Uoj-ppO7jTMKxM3I1&amp;t=638901644248157332" type="text/javascript"></script>
+
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="2280C5C4">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="/wEdAAehe/8bnEk3Y3tSgfTyBUYjwRlsNRn8/m7V4pjRumy3oNa/Nj1jEAsx1220kosRSDiDo1kbtLLybUhLaI3FVSRIXFuT4BFOc2QbmbHldF+lNeJjSx1SRh59KOmvCw5ASfRvm7bqwTDNIBtyHGFuUI1C90xyC5kHNbabH5CApuIKj9V4kySavS2L9KbmGW/W5V8=">
+</div>
+    
+    <script type="text/javascript" src="/pompatest/App_Themes/Default/js/ggsoft.client.jsaction.js"></script>
+    <script type="text/javascript" src="/pompatest/App_Themes/Default/js/json.js"></script>
+
+    <script type="text/javascript">
+
+        var JSActions = new function () {
+            this.OnFilter = "OnFilter";
+            this.OnProvinceSelect = "OnProvinceSelect";
+        }
+
+        var Criterias = function () {
+            this.bdate = null;
+            this.edate = null;
+            this.county_code = null;
+            this.province_code = null;
+
+            this.Collect = function () {
+                this.bdate = de_bdate.GetDate();
+                this.edate = de_edate.GetDate();
+                this.province_code = cb_province.GetValue();
+                this.county_code = cb_county.GetValue();
+
+                if (cb_province.GetText() == cb_province.GetValue()) this.province_code = null; //default text
+                if (cb_county.GetText()   == cb_county.GetValue()  ) this.county_code = null; //default text
+            }
+
+            this.Validate = function () {
+                var diff = this.edate - this.bdate;
+                var vdaysdiff = Math.floor(diff / 1000 / 60 / 60 / 24);
+
+                if (this.bdate > this.edate) {
+                    alert("Başlangıç tarihi bitiş tarihinden büyük olamaz");
+                    return false;
+                }
+                else if (vdaysdiff > 31) {
+                    alert("Lütfen tarih aralığını en fazla 31 gün olacak şekilde seçiniz.");
+                    return false;
+                }
+                else if (this.province_code == null) {
+                    alert("İl seçiniz.");
+                    return false;
+                }
+                else return true;
+            }
+        }
+
+        var PricingHelper = new function () {
+
+            this.criterias = new Criterias();
+
+            this.OnFilter = function (s, e) {
+                PricingHelper.criterias.Collect();
+                if (PricingHelper.criterias.Validate()) {
+                    var action = new JSAction(JSActions.OnFilter, PricingHelper.criterias);
+                    var str = JSON.stringify(action);
+                    CallbackHandler.Perform(str, "Fiyatlar Yükleniyor&hellip;");
+                }
+            }
+
+            this.OnProvinceSelect = function (s, e) {
+                PricingHelper.criterias.Collect();
+                var action = new JSAction(JSActions.OnProvinceSelect, PricingHelper.criterias);
+                var str = JSON.stringify(action);
+                CallbackHandler.Perform(str, "İlçeler Yükleniyor&hellip;");
+            }
+
+            this.OnPrint = function (s, e) {
+                e.processOnServer = false;
+                openNewWin('Print.aspx?typ=historical');
+            }
+
+
+        }
+
+        var CallbackHandler = new function () {
+
+            this.redirection_page = "Default.aspx";
+
+            this.Perform = function (action, loadingtext) {
+                cb_all.SetLoadingPanelText(loadingtext);
+                cb_all.PerformCallback(action);
+            }
+
+            this.OnBeginCallback = function (s, e) {
+                //                LoadingPanel.SetText("Lütfen bekleyiniz...");
+                //                LoadingPanel.Show();
+            }
+
+            this.OnEndCallback = function (s, e) {
+                //                LoadingPanel.Hide();
+            }
+
+            this.OnCallbackError = function (s, e) {
+                //                LoadingPanel.Hide();
+                //                e.handled = true;
+                //                messageBox.Show(msgType.Error, e.message);
+            }
+
+        }
+
+        //Open New Window - dimensions 760X480
+        function openNewWin(theFile) {
+            theWin = window.open(theFile, 'Win2', 'width=900,height=480,resizable=yes,status=no,scrollbars=yes')
+        }
+    
+    </script>
+
+    <script id="dxis_527247313" src="/pompatest/DXR.axd?r=1_142,1_80,1_135,1_79,1_98,1_105,1_84,1_109,1_97,1_77,1_128,1_126,1_92,1_100,1_91,1_104,1_90,1_113-sLEF6" type="text/javascript"></script><div id="cb_all" style="width:100%;">
+        <table style="width:100%; height:100%">
+            <tbody><tr><td class="header2">Akaryakıt ve Otogaz Pompa Satış Tavan Fiyatları (KDV Dahil)</td></tr>
+            <tr><td><hr style="width:100%; color:#009999"></td></tr>
+            <tr>
+                <td>
+                    <table class="back1" width="100%">
+                        <tbody><tr>
+                            <td class="label2_1" style="width:100px">Başlangıç&nbsp;Tarihi</td>
+                            <td class="label2_1" style="width:100px">Bitiş&nbsp;Tarihi</td>
+                            <td style="width:50px" class="label2_1">İl&nbsp;Seçiniz</td>
+                            <td class="label2_1" style="width:100px">İlçe&nbsp;Seçiniz</td> 
+                            <td style="width:100px">&nbsp;</td> 
+                            <td style="width:100%">&nbsp;</td>                          
+                        </tr>
+                        <tr>
+                            <td style="padding-right:10px;"><input type="hidden" id="cb_all_de_bdate_Raw" name="cb_all_de_bdate_Raw" value="1775865600000"><script id="dxss_1111342053" type="text/javascript">
+<!--
+(function(){var a = ({'currNegPattern':8,'currGroupSeparator':'.','abbrDayNames':['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'],'monthNames':['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık',''],'numGroupSeparator':'.','shortTime':'HH:mm','longTime':'HH:mm:ss','currDecimalPoint':',','currPosPattern':3,'longDate':'d MMMM yyyy dddd','abbrMonthNames':['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara',''],'pm':'ÖS','am':'ÖÖ','ds':'.','monthDay':'dd MMMM','currency':'₺','numDecimalPoint':',','percentPattern':2,'dayNames':['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'],'genMonthNames':['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık',''],'shortDate':'d.MM.yyyy'});for(var b in a) __aspxCultureInfo[b] = a[b];})();
+//-->
+</script><table class="dxeButtonEditSys dxeButtonEdit" cellspacing="1" cellpadding="0" id="cb_all_de_bdate" style="width:120px;">
+	<tbody><tr>
+		<td class="dxic" onmousedown="return aspxDDMC_MD('cb_all_de_bdate', event)" style="width:100%;"><input class="dxeEditArea dxeEditAreaSys" name="cb_all$de_bdate" onkeyup="aspxEKeyUp('cb_all_de_bdate', event)" value="11.04.2026" id="cb_all_de_bdate_I" onchange="aspxETextChanged('cb_all_de_bdate')" onblur="aspxELostFocus('cb_all_de_bdate')" onfocus="aspxEGotFocus('cb_all_de_bdate')" type="text" onkeydown="aspxEKeyDown('cb_all_de_bdate', event)" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;height:100%;" autocomplete="off"></td><td id="cb_all_de_bdate_B-1" class="dxeButtonEditButton" onmousedown="return aspxDDDropDown('cb_all_de_bdate', event)" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;-khtml-user-select:none;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;">
+			<tbody><tr>
+				<td class="dx"><img id="cb_all_de_bdate_B-1Img" class="dxEditors_edtDropDown" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="v"></td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table><input type="hidden" id="cb_all_de_bdate_DDDWS" name="cb_all_de_bdate_DDDWS" value="0:0:-1:-10000:-10000:0:-10000:-10000:1:0:0:0"><div id="cb_all_de_bdate_DDD_PW-1" style="position:absolute;left:0px;top:0px;z-index:10000;visibility:hidden;display:none;">
+	<table id="cb_all_de_bdate_DDD_PWST-1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;position:relative;">
+		<tbody><tr>
+			<td onmousedown="aspxPWMDown(event,'cb_all_de_bdate_DDD',-1,false)" style="width:200px;cursor:default;"><table id="cb_all_de_bdate_DDD_CLW-1" cellspacing="0" cellpadding="0" style="width:200px;border-collapse:collapse;border-collapse:separate;">
+				<tbody><tr>
+					<td id="cb_all_de_bdate_DDD_PWC-1" style="height:100%;"><div id="cb_all_de_bdate_DDD_CSD-1">
+						<table id="cb_all_de_bdate_DDD_C_LP" class="dxeLoadingPanelWithContent" cellspacing="0" cellpadding="0" style="border-collapse:collapse;left:0px;top:0px;z-index:30000;display:none;">
+							<tbody><tr>
+								<td class="dx"><img src="/pompatest/DXR.axd?r=1_32-sLEF6" alt="" align="middle"></td><td class="dx" style="padding-left:0px;"><span id="cb_all_de_bdate_DDD_C_TL">Loading…</span></td>
+							</tr>
+						</tbody></table><div id="cb_all_de_bdate_DDD_C_LD" class="dxeLoadingDivWithContent" style="left:0px;top:0px;z-index:29999;display:none;position:absolute;">
+
+						</div><table style="display:none;">
+							<tbody><tr>
+								<td id="cb_all_de_bdate_DDD_C_EC_D" class="dxeCalendarDay"></td><td id="cb_all_de_bdate_DDD_C_EC_DS" class="dxeCalendarSelected"></td><td id="cb_all_de_bdate_DDD_C_EC_DA" class="dxeCalendarOtherMonth"></td><td id="cb_all_de_bdate_DDD_C_EC_DW" class="dxeCalendarWeekend"></td><td id="cb_all_de_bdate_DDD_C_EC_DO" class="dxeCalendarOutOfRange"></td><td id="cb_all_de_bdate_DDD_C_EC_DT" class="dxeCalendarToday"></td><td id="cb_all_de_bdate_DDD_C_EC_DD" class="dxeDisabled"></td><td id="cb_all_de_bdate_DDD_C_EC_FNM" class="dxeCalendarFastNavMonth"></td><td id="cb_all_de_bdate_DDD_C_EC_FNMS" class="dxeCalendarFastNavMonthSelected"></td><td id="cb_all_de_bdate_DDD_C_EC_FNY" class="dxeCalendarFastNavYear"></td><td id="cb_all_de_bdate_DDD_C_EC_FNYS" class="dxeCalendarFastNavYearSelected"></td>
+							</tr>
+						</tbody></table><table class="dxeCalendar" cellspacing="0" cellpadding="0" id="cb_all_de_bdate_DDD_C" style="border-collapse:collapse;">
+							<tbody><tr>
+								<td valign="top"><table cellpadding="0" style="width:100%;border-collapse:collapse;">
+									<tbody><tr>
+										<td class="dxeCalendarHeader" style="border-top:0;"><table cellpadding="0" style="width:100%;border-collapse:collapse;">
+											<tbody><tr>
+												<td id="cb_all_de_bdate_DDD_C_PYC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_bdate_DDD_C', -12);"><img id="cb_all_de_bdate_DDD_C_PYCImg" class="dxEditors_edtCalendarPrevYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="<<"></td><td><div style="width:10px;font-size:0px;">
+
+												</div></td><td id="cb_all_de_bdate_DDD_C_PMC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_bdate_DDD_C', -1);"><img id="cb_all_de_bdate_DDD_C_PMCImg" class="dxEditors_edtCalendarPrevMonth" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="<"></td><td id="cb_all_de_bdate_DDD_C_TC" class="dxe" style="width:100%;cursor:default;"><span id="cb_all_de_bdate_DDD_C_T" onclick="aspxCalTitleClick('cb_all_de_bdate_DDD_C', 0, 0)" style="cursor:pointer;">Nisan 2026</span></td><td id="cb_all_de_bdate_DDD_C_NMC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_bdate_DDD_C', 1);"><img id="cb_all_de_bdate_DDD_C_NMCImg" class="dxEditors_edtCalendarNextMonth" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt=">"></td><td><div style="width:10px;font-size:0px;">
+
+												</div></td><td id="cb_all_de_bdate_DDD_C_NYC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_bdate_DDD_C', 12);"><img id="cb_all_de_bdate_DDD_C_NYCImg" class="dxEditors_edtCalendarNextYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt=">>"></td>
+											</tr>
+										</tbody></table></td>
+									</tr><tr>
+										<td id="cb_all_de_bdate_DDD_C_mc" class="dxMonthGridWithWeekNumbers" style="-khtml-user-select:none;"><table id="cb_all_de_bdate_DDD_C_mt" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;">
+											<tbody><tr align="center">
+												<td id="cb_all_de_bdate_DDD_C_AUX_0_0_0"></td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_1">Pzt</td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_2">Sal</td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_3">Çar</td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_4">Per</td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_5">Cum</td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_6">Cmt</td><td class="dxeCalendarDayHeader" id="cb_all_de_bdate_DDD_C_AUX_0_0_7">Paz</td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_bdate_DDD_C_AUX_0_0_8">14</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">30</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">31</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">1</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">2</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">3</td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">4</span></td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">5</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_bdate_DDD_C_AUX_0_0_9">15</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">6</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">7</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">8</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">9</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">10</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarSelected" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">11</span></td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">12</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_bdate_DDD_C_AUX_0_0_10">16</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">13</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">14</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">15</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">16</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">17</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarToday" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">18</span></td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">19</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_bdate_DDD_C_AUX_0_0_11">17</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">20</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">21</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">22</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">23</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">24</td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">25</span></td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">26</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_bdate_DDD_C_AUX_0_0_12">18</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">27</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">28</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">29</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">30</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">1</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">2</span></td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">3</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_bdate_DDD_C_AUX_0_0_13">19</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">4</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">5</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">6</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">7</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">8</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">9</span></td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">10</span></td>
+											</tr>
+										</tbody></table></td>
+									</tr>
+								</tbody></table></td>
+							</tr><tr>
+								<td class="dxeCalendarFooter"><table cellpadding="0" align="center" style="border-collapse:collapse;">
+									<tbody><tr>
+										<td><table cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+											<tbody><tr>
+												<td id="cb_all_de_bdate_DDD_C_BT" class="dxeCalendarButton" onclick="aspxCalTodayClick('cb_all_de_bdate_DDD_C');" style="width:37px;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="width:37px;border-collapse:collapse;border-collapse:separate;">
+													<tbody><tr>
+														<td class="dx" style="width:100%;">Bugün</td>
+													</tr>
+												</tbody></table></td>
+											</tr>
+										</tbody></table></td>
+									</tr>
+								</tbody></table></td>
+							</tr>
+						</tbody></table><input type="hidden" id="cb_all_de_bdate_DDD_C_FNPWS" name="cb_all_de_bdate_DDD_C_FNPWS" value="0:0:-1:-10000:-10000:0:0px:-10000:1:0:0:0"><div id="cb_all_de_bdate_DDD_C_FNP_PW-1" style="position:absolute;left:0px;top:0px;z-index:10000;visibility:hidden;display:none;">
+							<table id="cb_all_de_bdate_DDD_C_FNP_PWST-1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;position:relative;">
+								<tbody><tr>
+									<td onmousedown="aspxPWMDown(event,'cb_all_de_bdate_DDD_C_FNP',-1,false)" style="width:0px;cursor:default;"><table id="cb_all_de_bdate_DDD_C_FNP_CLW-1" cellspacing="0" cellpadding="0" style="width:0px;border-collapse:collapse;border-collapse:separate;">
+										<tbody><tr>
+											<td id="cb_all_de_bdate_DDD_C_FNP_PWC-1" style="height:100%;"><div id="cb_all_de_bdate_DDD_C_FNP_CSD-1">
+												<div class="dxeCalendarFastNav">
+													<div class="dxeCalendarFastNavMonthArea">
+														<table id="cb_all_de_bdate_DDD_C_FNP_m" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;">
+															<tbody><tr>
+																<td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M0">Oca</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M1">Şub</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M2">Mar</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M3">Nis</td>
+															</tr><tr>
+																<td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M4">May</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M5">Haz</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M6">Tem</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M7">Ağu</td>
+															</tr><tr>
+																<td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M8">Eyl</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M9">Eki</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M10">Kas</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_bdate_DDD_C_FNP_M11">Ara</td>
+															</tr>
+														</tbody></table>
+													</div><div class="dxeCalendarFastNavYearArea">
+														<table id="cb_all_de_bdate_DDD_C_FNP_y" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;margin-top:8px;">
+															<tbody><tr>
+																<td onclick="aspxCalFNYShuffle('cb_all_de_bdate_DDD_C', -10)" rowspan="2" style="padding-right:8px;cursor:pointer;"><img class="dxEditors_edtCalendarFNPrevYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="<"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y0"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y1"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y2"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y3"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y4"></td><td onclick="aspxCalFNYShuffle('cb_all_de_bdate_DDD_C', 10)" rowspan="2" style="padding-left:8px;cursor:pointer;"><img class="dxEditors_edtCalendarFNNextYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt=">"></td>
+															</tr><tr>
+																<td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y5"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y6"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y7"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y8"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_bdate_DDD_C_FNP_Y9"></td>
+															</tr>
+														</tbody></table>
+													</div>
+												</div><div class="dxeCalendarFastNavFooter" style="text-align:center;">
+													<table cellspacing="0" cellpadding="0" align="center" style="border-collapse:collapse;">
+														<tbody><tr>
+															<td id="cb_all_de_bdate_DDD_C_FNP_BO" class="dxeCalendarButton" onclick="aspxCalFNBClick('cb_all_de_bdate_DDD_C', 'ok')" style="width:37px;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="width:37px;border-collapse:collapse;border-collapse:separate;">
+																<tbody><tr>
+																	<td class="dx" style="width:100%;">Tamam</td>
+																</tr>
+															</tbody></table></td><td><div style="width:11px;">
+
+															</div></td><td id="cb_all_de_bdate_DDD_C_FNP_BC" class="dxeCalendarButton" onclick="aspxCalFNBClick('cb_all_de_bdate_DDD_C', 'cancel')" style="width:37px;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="width:37px;border-collapse:collapse;border-collapse:separate;">
+																<tbody><tr>
+																	<td class="dx" style="width:100%;">İptal</td>
+																</tr>
+															</tbody></table></td>
+														</tr>
+													</tbody></table>
+												</div>
+											</div></td>
+										</tr>
+									</tbody></table></td><td style="background:url('/pompatest/DXR.axd?r=1_62-sLEF6') no-repeat left top;"></td>
+								</tr><tr>
+									<td style="background:url('/pompatest/DXR.axd?r=1_61-sLEF6') no-repeat left top;"></td><td style="background:url('/pompatest/DXR.axd?r=1_63-sLEF6') no-repeat left top;"><div style="height:5px;width:5px;">
+
+									</div></td>
+								</tr>
+							</tbody></table>
+						</div><script id="dxss_2004262231" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientPopupControl('cb_all_de_bdate_DDD_C_FNP');
+window['cb_all_de_bdate_DDD_C_FNP'] = dxo;
+dxo.uniqueID = 'cb_all$de_bdate$DDD$C$FNP';
+dxo.adjustInnerControlsSizeOnShow=false;
+dxo.popupAnimationType='fade';
+dxo.height=0;
+aspxAddSelectedItems('cb_all_de_bdate_DDD_C_FNP',[[[''],[''],['HPB-1','HMNB-1','HMXB-1'],,[[''],[''],['']],['Img']]]);
+dxo.InlineInitialize();
+
+//-->
+</script><input id="cb_all_de_bdate_DDD_C_STATE" name="cb_all$de_bdate$DDD$C" type="hidden" value="04/11/2026:04/11/2026"><script id="dxss_130957044" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_de_bdate_DDD_C',[[['dxeCalendarButtonHover'],[''],['BT','BO','BCN','FNP_BO','FNP_BC']],[['dxeCalendarFastNavMonthHover'],[''],['FNP_M0','FNP_M1','FNP_M2','FNP_M3','FNP_M4','FNP_M5','FNP_M6','FNP_M7','FNP_M8','FNP_M9','FNP_M10','FNP_M11']],[['dxeCalendarFastNavYearHover'],[''],['FNP_Y0','FNP_Y1','FNP_Y2','FNP_Y3','FNP_Y4','FNP_Y5','FNP_Y6','FNP_Y7','FNP_Y8','FNP_Y9']]]);
+aspxAddPressedItems('cb_all_de_bdate_DDD_C',[[['dxeCalendarButtonPressed'],[''],['BT','BO','BCN','FNP_BO','FNP_BC']]]);
+
+var dxo = new ASPxClientCalendar('cb_all_de_bdate_DDD_C');
+window['cb_all_de_bdate_DDD_C'] = dxo;
+dxo.callBack = function(arg) { WebForm_DoCallback('cb_all$de_bdate$DDD$C',arg,aspxCallback,'cb_all_de_bdate_DDD_C',aspxCallbackError,true); };
+dxo.uniqueID = 'cb_all$de_bdate$DDD$C';
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.visibleDate = new Date(2026,3,11);
+dxo.selection.AddArray([new Date(2026,3,11,0,0,0,0)]);
+dxo.firstDayOfWeek = 1;
+dxo.customDraw = true;
+dxo.isDateEditCalendar = true;
+dxo.InlineInitialize();
+
+//-->
+</script>
+					</div></td>
+				</tr>
+			</tbody></table></td><td style="background:url('/pompatest/DXR.axd?r=1_62-sLEF6') no-repeat left top;"></td>
+		</tr><tr>
+			<td style="background:url('/pompatest/DXR.axd?r=1_61-sLEF6') no-repeat left top;"></td><td style="background:url('/pompatest/DXR.axd?r=1_63-sLEF6') no-repeat left top;"><div style="height:5px;width:5px;">
+
+			</div></td>
+		</tr>
+	</tbody></table>
+</div><script id="dxss_1628239035" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientPopupControl('cb_all_de_bdate_DDD');
+window['cb_all_de_bdate_DDD'] = dxo;
+dxo.uniqueID = 'cb_all$de_bdate$DDD';
+dxo.Shown.AddHandler(function (s, e) { aspxDDBPCShown('cb_all_de_bdate', e); });
+dxo.adjustInnerControlsSizeOnShow=false;
+dxo.popupAnimationType='slide';
+dxo.closeAction='CloseButton';
+dxo.popupHorizontalAlign='LeftSides';
+dxo.popupVerticalAlign='Below';
+dxo.width=0;
+dxo.height=0;
+aspxAddSelectedItems('cb_all_de_bdate_DDD',[[[''],[''],['HPB-1','HMNB-1','HMXB-1'],,[[''],[''],['']],['Img']]]);
+dxo.InlineInitialize();
+
+//-->
+</script><script id="dxss_1427251845" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_de_bdate',[[['dxeButtonEditButtonHover'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddPressedItems('cb_all_de_bdate',[[['dxeButtonEditButtonPressed'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddDisabledItems('cb_all_de_bdate',[[['dxeDisabled'],[''],['','I']],[['dxeDisabled dxeButtonDisabled'],[''],['B-1'],,[[{'spriteCssClass':'dxEditors_edtDropDownDisabled'}]],['Img']]]);
+document.getElementById("cb_all_de_bdate_I").setAttribute("autocomplete", "off");
+
+var dxo = new ASPxClientDateEdit('cb_all_de_bdate');
+window['de_bdate'] = dxo;
+dxo.uniqueID = 'cb_all$de_bdate';
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.displayFormat='{0:dd.MM.yyyy}';
+dxo.date = new Date(2026,3,11);
+dxo.allowNull = false;
+dxo.dateFormatter = ASPxDateFormatter.Create('dd.MM.yyyy');
+dxo.InlineInitialize();
+
+//-->
+</script></td>
+                            <td style="padding-right:10px;"><input type="hidden" id="cb_all_de_edate_Raw" name="cb_all_de_edate_Raw" value="1776384000000"><table class="dxeButtonEditSys dxeButtonEdit" cellspacing="1" cellpadding="0" id="cb_all_de_edate" style="width:120px;">
+	<tbody><tr>
+		<td class="dxic" onmousedown="return aspxDDMC_MD('cb_all_de_edate', event)" style="width:100%;"><input class="dxeEditArea dxeEditAreaSys" name="cb_all$de_edate" onkeyup="aspxEKeyUp('cb_all_de_edate', event)" value="17.04.2026" id="cb_all_de_edate_I" onchange="aspxETextChanged('cb_all_de_edate')" onblur="aspxELostFocus('cb_all_de_edate')" onfocus="aspxEGotFocus('cb_all_de_edate')" type="text" onkeydown="aspxEKeyDown('cb_all_de_edate', event)" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;height:100%;" autocomplete="off"></td><td id="cb_all_de_edate_B-1" class="dxeButtonEditButton" onmousedown="return aspxDDDropDown('cb_all_de_edate', event)" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;-khtml-user-select:none;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;">
+			<tbody><tr>
+				<td class="dx"><img id="cb_all_de_edate_B-1Img" class="dxEditors_edtDropDown" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="v"></td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table><input type="hidden" id="cb_all_de_edate_DDDWS" name="cb_all_de_edate_DDDWS" value="0:0:-1:-10000:-10000:0:-10000:-10000:1:0:0:0"><div id="cb_all_de_edate_DDD_PW-1" style="position:absolute;left:0px;top:0px;z-index:10000;visibility:hidden;display:none;">
+	<table id="cb_all_de_edate_DDD_PWST-1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;position:relative;">
+		<tbody><tr>
+			<td onmousedown="aspxPWMDown(event,'cb_all_de_edate_DDD',-1,false)" style="width:200px;cursor:default;"><table id="cb_all_de_edate_DDD_CLW-1" cellspacing="0" cellpadding="0" style="width:200px;border-collapse:collapse;border-collapse:separate;">
+				<tbody><tr>
+					<td id="cb_all_de_edate_DDD_PWC-1" style="height:100%;"><div id="cb_all_de_edate_DDD_CSD-1">
+						<table id="cb_all_de_edate_DDD_C_LP" class="dxeLoadingPanelWithContent" cellspacing="0" cellpadding="0" style="border-collapse:collapse;left:0px;top:0px;z-index:30000;display:none;">
+							<tbody><tr>
+								<td class="dx"><img src="/pompatest/DXR.axd?r=1_32-sLEF6" alt="" align="middle"></td><td class="dx" style="padding-left:0px;"><span id="cb_all_de_edate_DDD_C_TL">Loading…</span></td>
+							</tr>
+						</tbody></table><div id="cb_all_de_edate_DDD_C_LD" class="dxeLoadingDivWithContent" style="left:0px;top:0px;z-index:29999;display:none;position:absolute;">
+
+						</div><table style="display:none;">
+							<tbody><tr>
+								<td id="cb_all_de_edate_DDD_C_EC_D" class="dxeCalendarDay"></td><td id="cb_all_de_edate_DDD_C_EC_DS" class="dxeCalendarSelected"></td><td id="cb_all_de_edate_DDD_C_EC_DA" class="dxeCalendarOtherMonth"></td><td id="cb_all_de_edate_DDD_C_EC_DW" class="dxeCalendarWeekend"></td><td id="cb_all_de_edate_DDD_C_EC_DO" class="dxeCalendarOutOfRange"></td><td id="cb_all_de_edate_DDD_C_EC_DT" class="dxeCalendarToday"></td><td id="cb_all_de_edate_DDD_C_EC_DD" class="dxeDisabled"></td><td id="cb_all_de_edate_DDD_C_EC_FNM" class="dxeCalendarFastNavMonth"></td><td id="cb_all_de_edate_DDD_C_EC_FNMS" class="dxeCalendarFastNavMonthSelected"></td><td id="cb_all_de_edate_DDD_C_EC_FNY" class="dxeCalendarFastNavYear"></td><td id="cb_all_de_edate_DDD_C_EC_FNYS" class="dxeCalendarFastNavYearSelected"></td>
+							</tr>
+						</tbody></table><table class="dxeCalendar" cellspacing="0" cellpadding="0" id="cb_all_de_edate_DDD_C" style="border-collapse:collapse;">
+							<tbody><tr>
+								<td valign="top"><table cellpadding="0" style="width:100%;border-collapse:collapse;">
+									<tbody><tr>
+										<td class="dxeCalendarHeader" style="border-top:0;"><table cellpadding="0" style="width:100%;border-collapse:collapse;">
+											<tbody><tr>
+												<td id="cb_all_de_edate_DDD_C_PYC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_edate_DDD_C', -12);"><img id="cb_all_de_edate_DDD_C_PYCImg" class="dxEditors_edtCalendarPrevYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="<<"></td><td><div style="width:10px;font-size:0px;">
+
+												</div></td><td id="cb_all_de_edate_DDD_C_PMC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_edate_DDD_C', -1);"><img id="cb_all_de_edate_DDD_C_PMCImg" class="dxEditors_edtCalendarPrevMonth" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="<"></td><td id="cb_all_de_edate_DDD_C_TC" class="dxe" style="width:100%;cursor:default;"><span id="cb_all_de_edate_DDD_C_T" onclick="aspxCalTitleClick('cb_all_de_edate_DDD_C', 0, 0)" style="cursor:pointer;">Nisan 2026</span></td><td id="cb_all_de_edate_DDD_C_NMC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_edate_DDD_C', 1);"><img id="cb_all_de_edate_DDD_C_NMCImg" class="dxEditors_edtCalendarNextMonth" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt=">"></td><td><div style="width:10px;font-size:0px;">
+
+												</div></td><td id="cb_all_de_edate_DDD_C_NYC" class="dxe" onclick="aspxCalShiftMonth('cb_all_de_edate_DDD_C', 12);"><img id="cb_all_de_edate_DDD_C_NYCImg" class="dxEditors_edtCalendarNextYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt=">>"></td>
+											</tr>
+										</tbody></table></td>
+									</tr><tr>
+										<td id="cb_all_de_edate_DDD_C_mc" class="dxMonthGridWithWeekNumbers" style="-khtml-user-select:none;"><table id="cb_all_de_edate_DDD_C_mt" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;">
+											<tbody><tr align="center">
+												<td id="cb_all_de_edate_DDD_C_AUX_0_0_0"></td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_1">Pzt</td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_2">Sal</td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_3">Çar</td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_4">Per</td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_5">Cum</td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_6">Cmt</td><td class="dxeCalendarDayHeader" id="cb_all_de_edate_DDD_C_AUX_0_0_7">Paz</td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_edate_DDD_C_AUX_0_0_8">14</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">30</td><td class="dxeCalendarDay dxeCalendarOtherMonth" savedcursor="[object Object]" style="cursor: pointer;">31</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">1</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">2</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">3</td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">4</span></td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">5</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_edate_DDD_C_AUX_0_0_9">15</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">6</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">7</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">8</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">9</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">10</td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">11</span></td><td class="dxeCalendarDay dxeCalendarWeekend" savedcursor="[object Object]" style="cursor: pointer;"><span style="color:Black;">12</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_edate_DDD_C_AUX_0_0_10">16</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">13</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">14</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">15</td><td class="dxeCalendarDay" savedcursor="[object Object]" style="cursor: pointer;">16</td><td class="dxeCalendarDay dxeCalendarSelected" savedcursor="[object Object]" style="cursor: pointer;">17</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOutOfRange dxeCalendarToday"><span style="color:Black;">18</span></td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOutOfRange"><span style="color:Black;">19</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_edate_DDD_C_AUX_0_0_11">17</td><td class="dxeCalendarDay dxeCalendarOutOfRange">20</td><td class="dxeCalendarDay dxeCalendarOutOfRange">21</td><td class="dxeCalendarDay dxeCalendarOutOfRange">22</td><td class="dxeCalendarDay dxeCalendarOutOfRange">23</td><td class="dxeCalendarDay dxeCalendarOutOfRange">24</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOutOfRange"><span style="color:Black;">25</span></td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOutOfRange"><span style="color:Black;">26</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_edate_DDD_C_AUX_0_0_12">18</td><td class="dxeCalendarDay dxeCalendarOutOfRange">27</td><td class="dxeCalendarDay dxeCalendarOutOfRange">28</td><td class="dxeCalendarDay dxeCalendarOutOfRange">29</td><td class="dxeCalendarDay dxeCalendarOutOfRange">30</td><td class="dxeCalendarDay dxeCalendarOtherMonth dxeCalendarOutOfRange">1</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth dxeCalendarOutOfRange"><span style="color:Black;">2</span></td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth dxeCalendarOutOfRange"><span style="color:Black;">3</span></td>
+											</tr><tr>
+												<td class="dxeCalendarWeekNumber" id="cb_all_de_edate_DDD_C_AUX_0_0_13">19</td><td class="dxeCalendarDay dxeCalendarOtherMonth dxeCalendarOutOfRange">4</td><td class="dxeCalendarDay dxeCalendarOtherMonth dxeCalendarOutOfRange">5</td><td class="dxeCalendarDay dxeCalendarOtherMonth dxeCalendarOutOfRange">6</td><td class="dxeCalendarDay dxeCalendarOtherMonth dxeCalendarOutOfRange">7</td><td class="dxeCalendarDay dxeCalendarOtherMonth dxeCalendarOutOfRange">8</td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth dxeCalendarOutOfRange"><span style="color:Black;">9</span></td><td class="dxeCalendarDay dxeCalendarWeekend dxeCalendarOtherMonth dxeCalendarOutOfRange"><span style="color:Black;">10</span></td>
+											</tr>
+										</tbody></table></td>
+									</tr>
+								</tbody></table></td>
+							</tr><tr>
+								<td class="dxeCalendarFooter"><table cellpadding="0" align="center" style="border-collapse:collapse;">
+									<tbody><tr>
+										<td><table cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+											<tbody><tr>
+												<td id="cb_all_de_edate_DDD_C_BT" class="dxeCalendarButton" onclick="aspxCalTodayClick('cb_all_de_edate_DDD_C');" style="width:37px;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="width:37px;border-collapse:collapse;border-collapse:separate;">
+													<tbody><tr>
+														<td class="dx" style="width:100%;">Bugün</td>
+													</tr>
+												</tbody></table></td>
+											</tr>
+										</tbody></table></td>
+									</tr>
+								</tbody></table></td>
+							</tr>
+						</tbody></table><input type="hidden" id="cb_all_de_edate_DDD_C_FNPWS" name="cb_all_de_edate_DDD_C_FNPWS" value="0:0:-1:-10000:-10000:0:0px:-10000:1:0:0:0"><div id="cb_all_de_edate_DDD_C_FNP_PW-1" style="position:absolute;left:0px;top:0px;z-index:10000;visibility:hidden;display:none;">
+							<table id="cb_all_de_edate_DDD_C_FNP_PWST-1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;position:relative;">
+								<tbody><tr>
+									<td onmousedown="aspxPWMDown(event,'cb_all_de_edate_DDD_C_FNP',-1,false)" style="width:0px;cursor:default;"><table id="cb_all_de_edate_DDD_C_FNP_CLW-1" cellspacing="0" cellpadding="0" style="width:0px;border-collapse:collapse;border-collapse:separate;">
+										<tbody><tr>
+											<td id="cb_all_de_edate_DDD_C_FNP_PWC-1" style="height:100%;"><div id="cb_all_de_edate_DDD_C_FNP_CSD-1">
+												<div class="dxeCalendarFastNav">
+													<div class="dxeCalendarFastNavMonthArea">
+														<table id="cb_all_de_edate_DDD_C_FNP_m" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;">
+															<tbody><tr>
+																<td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M0">Oca</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M1">Şub</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M2">Mar</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M3">Nis</td>
+															</tr><tr>
+																<td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M4">May</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M5">Haz</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M6">Tem</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M7">Ağu</td>
+															</tr><tr>
+																<td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M8">Eyl</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M9">Eki</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M10">Kas</td><td class="dxeCalendarFastNavMonth" id="cb_all_de_edate_DDD_C_FNP_M11">Ara</td>
+															</tr>
+														</tbody></table>
+													</div><div class="dxeCalendarFastNavYearArea">
+														<table id="cb_all_de_edate_DDD_C_FNP_y" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;margin-top:8px;">
+															<tbody><tr>
+																<td onclick="aspxCalFNYShuffle('cb_all_de_edate_DDD_C', -10)" rowspan="2" style="padding-right:8px;cursor:pointer;"><img class="dxEditors_edtCalendarFNPrevYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="<"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y0"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y1"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y2"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y3"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y4"></td><td onclick="aspxCalFNYShuffle('cb_all_de_edate_DDD_C', 10)" rowspan="2" style="padding-left:8px;cursor:pointer;"><img class="dxEditors_edtCalendarFNNextYear" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt=">"></td>
+															</tr><tr>
+																<td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y5"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y6"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y7"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y8"></td><td class="dxeCalendarFastNavYear" id="cb_all_de_edate_DDD_C_FNP_Y9"></td>
+															</tr>
+														</tbody></table>
+													</div>
+												</div><div class="dxeCalendarFastNavFooter" style="text-align:center;">
+													<table cellspacing="0" cellpadding="0" align="center" style="border-collapse:collapse;">
+														<tbody><tr>
+															<td id="cb_all_de_edate_DDD_C_FNP_BO" class="dxeCalendarButton" onclick="aspxCalFNBClick('cb_all_de_edate_DDD_C', 'ok')" style="width:37px;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="width:37px;border-collapse:collapse;border-collapse:separate;">
+																<tbody><tr>
+																	<td class="dx" style="width:100%;">Tamam</td>
+																</tr>
+															</tbody></table></td><td><div style="width:11px;">
+
+															</div></td><td id="cb_all_de_edate_DDD_C_FNP_BC" class="dxeCalendarButton" onclick="aspxCalFNBClick('cb_all_de_edate_DDD_C', 'cancel')" style="width:37px;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="width:37px;border-collapse:collapse;border-collapse:separate;">
+																<tbody><tr>
+																	<td class="dx" style="width:100%;">İptal</td>
+																</tr>
+															</tbody></table></td>
+														</tr>
+													</tbody></table>
+												</div>
+											</div></td>
+										</tr>
+									</tbody></table></td><td style="background:url('/pompatest/DXR.axd?r=1_62-sLEF6') no-repeat left top;"></td>
+								</tr><tr>
+									<td style="background:url('/pompatest/DXR.axd?r=1_61-sLEF6') no-repeat left top;"></td><td style="background:url('/pompatest/DXR.axd?r=1_63-sLEF6') no-repeat left top;"><div style="height:5px;width:5px;">
+
+									</div></td>
+								</tr>
+							</tbody></table>
+						</div><script id="dxss_1793025075" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientPopupControl('cb_all_de_edate_DDD_C_FNP');
+window['cb_all_de_edate_DDD_C_FNP'] = dxo;
+dxo.uniqueID = 'cb_all$de_edate$DDD$C$FNP';
+dxo.adjustInnerControlsSizeOnShow=false;
+dxo.popupAnimationType='fade';
+dxo.height=0;
+aspxAddSelectedItems('cb_all_de_edate_DDD_C_FNP',[[[''],[''],['HPB-1','HMNB-1','HMXB-1'],,[[''],[''],['']],['Img']]]);
+dxo.InlineInitialize();
+
+//-->
+</script><input id="cb_all_de_edate_DDD_C_STATE" name="cb_all$de_edate$DDD$C" type="hidden" value="04/17/2026:04/17/2026"><script id="dxss_1175128655" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_de_edate_DDD_C',[[['dxeCalendarButtonHover'],[''],['BT','BO','BCN','FNP_BO','FNP_BC']],[['dxeCalendarFastNavMonthHover'],[''],['FNP_M0','FNP_M1','FNP_M2','FNP_M3','FNP_M4','FNP_M5','FNP_M6','FNP_M7','FNP_M8','FNP_M9','FNP_M10','FNP_M11']],[['dxeCalendarFastNavYearHover'],[''],['FNP_Y0','FNP_Y1','FNP_Y2','FNP_Y3','FNP_Y4','FNP_Y5','FNP_Y6','FNP_Y7','FNP_Y8','FNP_Y9']]]);
+aspxAddPressedItems('cb_all_de_edate_DDD_C',[[['dxeCalendarButtonPressed'],[''],['BT','BO','BCN','FNP_BO','FNP_BC']]]);
+
+var dxo = new ASPxClientCalendar('cb_all_de_edate_DDD_C');
+window['cb_all_de_edate_DDD_C'] = dxo;
+dxo.callBack = function(arg) { WebForm_DoCallback('cb_all$de_edate$DDD$C',arg,aspxCallback,'cb_all_de_edate_DDD_C',aspxCallbackError,true); };
+dxo.uniqueID = 'cb_all$de_edate$DDD$C';
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.visibleDate = new Date(2026,3,17);
+dxo.selection.AddArray([new Date(2026,3,17,0,0,0,0)]);
+dxo.firstDayOfWeek = 1;
+dxo.maxDate = new Date(2026,3,17);
+dxo.customDraw = true;
+dxo.isDateEditCalendar = true;
+dxo.InlineInitialize();
+
+//-->
+</script>
+					</div></td>
+				</tr>
+			</tbody></table></td><td style="background:url('/pompatest/DXR.axd?r=1_62-sLEF6') no-repeat left top;"></td>
+		</tr><tr>
+			<td style="background:url('/pompatest/DXR.axd?r=1_61-sLEF6') no-repeat left top;"></td><td style="background:url('/pompatest/DXR.axd?r=1_63-sLEF6') no-repeat left top;"><div style="height:5px;width:5px;">
+
+			</div></td>
+		</tr>
+	</tbody></table>
+</div><script id="dxss_1907437696" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientPopupControl('cb_all_de_edate_DDD');
+window['cb_all_de_edate_DDD'] = dxo;
+dxo.uniqueID = 'cb_all$de_edate$DDD';
+dxo.Shown.AddHandler(function (s, e) { aspxDDBPCShown('cb_all_de_edate', e); });
+dxo.adjustInnerControlsSizeOnShow=false;
+dxo.popupAnimationType='slide';
+dxo.closeAction='CloseButton';
+dxo.popupHorizontalAlign='LeftSides';
+dxo.popupVerticalAlign='Below';
+dxo.width=0;
+dxo.height=0;
+aspxAddSelectedItems('cb_all_de_edate_DDD',[[[''],[''],['HPB-1','HMNB-1','HMXB-1'],,[[''],[''],['']],['Img']]]);
+dxo.InlineInitialize();
+
+//-->
+</script><script id="dxss_1261982144" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_de_edate',[[['dxeButtonEditButtonHover'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddPressedItems('cb_all_de_edate',[[['dxeButtonEditButtonPressed'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddDisabledItems('cb_all_de_edate',[[['dxeDisabled'],[''],['','I']],[['dxeDisabled dxeButtonDisabled'],[''],['B-1'],,[[{'spriteCssClass':'dxEditors_edtDropDownDisabled'}]],['Img']]]);
+document.getElementById("cb_all_de_edate_I").setAttribute("autocomplete", "off");
+
+var dxo = new ASPxClientDateEdit('cb_all_de_edate');
+window['de_edate'] = dxo;
+dxo.uniqueID = 'cb_all$de_edate';
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.displayFormat='{0:dd.MM.yyyy}';
+dxo.date = new Date(2026,3,17);
+dxo.allowNull = false;
+dxo.dateFormatter = ASPxDateFormatter.Create('dd.MM.yyyy');
+dxo.InlineInitialize();
+
+//-->
+</script></td>
+                            <td style="padding-right:10px;"><table id="cb_all_cb_province_LP" class="dxeLoadingPanel" cellspacing="0" cellpadding="0" style="border-collapse:collapse;left:0px;top:0px;z-index:30000;display:none;">
+	<tbody><tr>
+		<td class="dx" style="padding-right:8px;"><img src="/pompatest/DXR.axd?r=1_32-sLEF6" alt="" align="middle"></td><td class="dx" style="padding-left:0px;"><span id="cb_all_cb_province_TL">Loading…</span></td>
+	</tr>
+</tbody></table><div id="cb_all_cb_province_LD" class="dxeLoadingDiv" style="left:0px;top:0px;z-index:29999;display:none;position:absolute;">
+
+</div><table class="dxeButtonEditSys dxeButtonEdit" cellspacing="1" cellpadding="0" id="cb_all_cb_province">
+	<tbody><tr>
+		<td style="display:none;"><input id="cb_all_cb_province_VI" name="cb_all_cb_province_VI" type="hidden" value="034"></td><td class="dxic" onmousedown="return aspxDDDropDown('cb_all_cb_province', event)" style="width:100%;"><input class="dxeEditArea dxeEditAreaSys" name="cb_all$cb_province" value="ISTANBUL" id="cb_all_cb_province_I" onchange="aspxETextChanged('cb_all_cb_province')" onblur="aspxELostFocus('cb_all_cb_province')" onfocus="aspxEGotFocus('cb_all_cb_province')" type="text" onkeydown="aspxEKeyDown('cb_all_cb_province', event)" readonly="readonly" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;height:100%;cursor:default;" autocomplete="off"></td><td id="cb_all_cb_province_B-1" class="dxeButtonEditButton" onmousedown="return aspxDDDropDown('cb_all_cb_province', event)" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;-khtml-user-select:none;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;">
+			<tbody><tr>
+				<td class="dx"><img id="cb_all_cb_province_B-1Img" class="dxEditors_edtDropDown" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="v"></td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table><input type="hidden" id="cb_all_cb_province_DDDWS" name="cb_all_cb_province_DDDWS" value="0:0:-1:-10000:-10000:0:-10000:-10000:1:0:0:0"><div id="cb_all_cb_province_DDD_PW-1" style="position:absolute;left:0px;top:0px;z-index:10000;visibility:hidden;display:none;">
+	<table id="cb_all_cb_province_DDD_PWST-1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;position:relative;">
+		<tbody><tr>
+			<td onmousedown="aspxPWMDown(event,'cb_all_cb_province_DDD',-1,false)" style="width:200px;cursor:default;"><table id="cb_all_cb_province_DDD_CLW-1" cellspacing="0" cellpadding="0" style="width:200px;border-collapse:collapse;border-collapse:separate;">
+				<tbody><tr>
+					<td id="cb_all_cb_province_DDD_PWC-1" style="height:100%;"><div id="cb_all_cb_province_DDD_CSD-1">
+						<input type="hidden" id="cb_all_cb_province_DDD_LDeletedItems" name="cb_all_cb_province_DDD_LDeletedItems" value=""><input type="hidden" id="cb_all_cb_province_DDD_LInsertedItems" name="cb_all_cb_province_DDD_LInsertedItems" value=""><input type="hidden" id="cb_all_cb_province_DDD_LCustomCallback" name="cb_all_cb_province_DDD_LCustomCallback" value=""><table class="dxeListBox" cellspacing="0" cellpadding="0" id="cb_all_cb_province_DDD_L" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;border-collapse:collapse;border-collapse:separate;">
+							<tbody><tr>
+								<td valign="top"><div id="cb_all_cb_province_DDD_L_D" class="dxlbd" style="width:100%;overflow-x:hidden;overflow-y:auto;">
+									<input id="cb_all_cb_province_DDD_L_VI" type="hidden" name="cb_all$cb_province$DDD$L" value="034"><table cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;visibility:hidden!important;display:none!important;">
+										<tbody><tr id="cb_all_cb_province_DDD_L_LBI-1" class="dxeListBoxItemRow">
+											<td id="cb_all_cb_province_DDD_L_LBI-1T0" class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;">&nbsp;</td>
+										</tr>
+									</tbody></table><table id="cb_all_cb_province_DDD_L_LBT" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;">
+										<tbody><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI0T0">ADANA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI1T0">ADIYAMAN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI2T0">AFYON</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI3T0">AGRI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI4T0">AMASYA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI5T0">ANKARA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI6T0">ANTALYA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI7T0">ARTVIN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI8T0">AYDIN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI9T0">BALIKESIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI10T0">BILECIK</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI11T0">BINGOL</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI12T0">BITLIS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI13T0">BOLU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI14T0">BURDUR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI15T0">BURSA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI16T0">CANAKKALE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI17T0">CANKIRI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI18T0">CORUM</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI19T0">DENIZLI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI20T0">DIYARBAKIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI21T0">EDIRNE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI22T0">ELAZIG</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI23T0">ERZINCAN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI24T0">ERZURUM</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI25T0">ESKISEHIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI26T0">GAZIANTEP</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI27T0">GIRESUN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI28T0">GUMUSHANE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI29T0">HAKKARI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI30T0">HATAY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI31T0">ISPARTA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI32T0">MERSIN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem dxeListBoxItemSelected" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI33T0">ISTANBUL</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI34T0">IZMIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI35T0">KARS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI36T0">KASTAMONU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI37T0">KAYSERI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI38T0">KIRKLARELI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI39T0">KIRSEHIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI40T0">KOCAELI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI41T0">KONYA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI42T0">KUTAHYA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI43T0">MALATYA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI44T0">MANISA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI45T0">K.MARAS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI46T0">MARDIN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI47T0">MUGLA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI48T0">MUS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI49T0">NEVSEHIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI50T0">NIGDE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI51T0">ORDU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI52T0">RIZE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI53T0">SAKARYA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI54T0">SAMSUN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI55T0">SIIRT</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI56T0">SINOP</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI57T0">SIVAS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI58T0">TEKIRDAG</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI59T0">TOKAT</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI60T0">TRABZON</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI61T0">TUNCELI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI62T0">SANLIURFA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI63T0">USAK</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI64T0">VAN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI65T0">YOZGAT</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI66T0">ZONGULDAK</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI67T0">AKSARAY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI68T0">BAYBURT</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI69T0">KARAMAN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI70T0">KIRIKKALE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI71T0">BATMAN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI72T0">SIRNAK</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI73T0">BARTIN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI74T0">ARDAHAN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI75T0">IGDIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI76T0">YALOVA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI77T0">KARABUK</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI78T0">KILIS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI79T0">OSMANIYE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_province_DDD_L_LBI80T0">DUZCE</td>
+										</tr>
+									</tbody></table>
+								</div></td>
+							</tr>
+						</tbody></table><script id="dxss_721357112" type="text/javascript">
+<!--
+aspxAddDisabledItems('cb_all_cb_province_DDD_L',[[['dxeDisabled'],[''],['']]]);
+
+var dxo = new ASPxClientListBox('cb_all_cb_province_DDD_L');
+window['cb_all_cb_province_DDD_L'] = dxo;
+dxo.uniqueID = 'cb_all$cb_province$DDD$L';
+dxo.SelectedIndexChanged.AddHandler(function (s, e) { aspxCBLBSelectedIndexChanged('cb_all_cb_province', e); });
+dxo.ItemClick.AddHandler(function (s, e) { aspxCBLBItemMouseUp('cb_all_cb_province', e); });
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.savedSelectedIndex = 33;
+dxo.itemsValue=['001','002','003','004','005','006','007','008','009','010','011','012','013','014','015','016','017','018','019','020','021','022','023','024','025','026','027','028','029','030','031','032','033','034','035','036','037','038','039','040','041','042','043','044','045','046','047','048','049','050','051','052','053','054','055','056','057','058','059','060','061','062','063','064','065','066','067','068','069','070','071','072','073','074','075','076','077','078','079','080','081'];
+dxo.isComboBoxList = true;
+dxo.hasSampleItem = true;
+dxo.hoverClasses=['dxeListBoxItemHover'];
+dxo.selectedClasses=['dxeListBoxItemSelected'];
+dxo.disabledClasses=['dxeDisabled'];
+dxo.InlineInitialize();
+
+//-->
+</script>
+					</div></td>
+				</tr>
+			</tbody></table></td><td style="background:url('/pompatest/DXR.axd?r=1_62-sLEF6') no-repeat left top;"></td>
+		</tr><tr>
+			<td style="background:url('/pompatest/DXR.axd?r=1_61-sLEF6') no-repeat left top;"></td><td style="background:url('/pompatest/DXR.axd?r=1_63-sLEF6') no-repeat left top;"><div style="height:5px;width:5px;">
+
+			</div></td>
+		</tr>
+	</tbody></table>
+</div><script id="dxss_244904517" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientPopupControl('cb_all_cb_province_DDD');
+window['cb_all_cb_province_DDD'] = dxo;
+dxo.uniqueID = 'cb_all$cb_province$DDD';
+dxo.Shown.AddHandler(function (s, e) { aspxDDBPCShown('cb_all_cb_province', e); });
+dxo.adjustInnerControlsSizeOnShow=false;
+dxo.popupAnimationType='slide';
+dxo.closeAction='CloseButton';
+dxo.popupHorizontalAlign='LeftSides';
+dxo.popupVerticalAlign='Below';
+dxo.width=0;
+dxo.height=0;
+aspxAddSelectedItems('cb_all_cb_province_DDD',[[[''],[''],['HPB-1','HMNB-1','HMXB-1'],,[[''],[''],['']],['Img']]]);
+dxo.InlineInitialize();
+
+//-->
+</script><script id="dxss_2093369159" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_cb_province',[[['dxeButtonEditButtonHover'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddPressedItems('cb_all_cb_province',[[['dxeButtonEditButtonPressed'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddDisabledItems('cb_all_cb_province',[[['dxeDisabled'],[''],['','I']],[['dxeDisabled dxeButtonDisabled'],[''],['B-1'],,[[{'spriteCssClass':'dxEditors_edtDropDownDisabled'}]],['Img']]]);
+document.getElementById("cb_all_cb_province_I").setAttribute("autocomplete", "off");
+
+var dxo = new ASPxClientComboBox('cb_all_cb_province');
+window['cb_province'] = dxo;
+dxo.callBack = function(arg) { WebForm_DoCallback('cb_all$cb_province',arg,aspxCallback,'cb_all_cb_province',aspxCallbackError,true); };
+dxo.uniqueID = 'cb_all$cb_province';
+dxo.SelectedIndexChanged.AddHandler(PricingHelper.OnProvinceSelect);
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.lastSuccessValue = '034';
+dxo.islastSuccessValueInit = true;
+dxo.InlineInitialize();
+
+//-->
+</script>
+                            </td>  
+                            <td><table id="cb_all_cb_county_LP" class="dxeLoadingPanel" cellspacing="0" cellpadding="0" style="border-collapse:collapse;left:0px;top:0px;z-index:30000;display:none;">
+	<tbody><tr>
+		<td class="dx" style="padding-right:8px;"><img src="/pompatest/DXR.axd?r=1_32-sLEF6" alt="" align="middle"></td><td class="dx" style="padding-left:0px;"><span id="cb_all_cb_county_TL">Loading…</span></td>
+	</tr>
+</tbody></table><div id="cb_all_cb_county_LD" class="dxeLoadingDiv" style="left:0px;top:0px;z-index:29999;display:none;position:absolute;">
+
+</div><table class="dxeButtonEditSys dxeButtonEdit" cellspacing="1" cellpadding="0" id="cb_all_cb_county">
+	<tbody><tr>
+		<td style="display:none;"><input id="cb_all_cb_county_VI" name="cb_all_cb_county_VI" type="hidden" value="Seçiniz"></td><td class="dxic" onmousedown="return aspxDDDropDown('cb_all_cb_county', event)" style="width:100%;"><input class="dxeEditArea dxeEditAreaSys" name="cb_all$cb_county" value="Seçiniz" id="cb_all_cb_county_I" onchange="aspxETextChanged('cb_all_cb_county')" onblur="aspxELostFocus('cb_all_cb_county')" onfocus="aspxEGotFocus('cb_all_cb_county')" type="text" onkeydown="aspxEKeyDown('cb_all_cb_county', event)" readonly="readonly" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;height:100%;cursor:default;" autocomplete="off"></td><td id="cb_all_cb_county_B-1" class="dxeButtonEditButton" onmousedown="return aspxDDDropDown('cb_all_cb_county', event)" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;-khtml-user-select:none;"><table class="dxbebt" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;">
+			<tbody><tr>
+				<td class="dx"><img id="cb_all_cb_county_B-1Img" class="dxEditors_edtDropDown" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="v"></td>
+			</tr>
+		</tbody></table></td>
+	</tr>
+</tbody></table><input type="hidden" id="cb_all_cb_county_DDDWS" name="cb_all_cb_county_DDDWS" value="0:0:-1:-10000:-10000:0:-10000:-10000:1:0:0:0"><div id="cb_all_cb_county_DDD_PW-1" style="position:absolute;left:0px;top:0px;z-index:10000;visibility:hidden;display:none;">
+	<table id="cb_all_cb_county_DDD_PWST-1" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;position:relative;">
+		<tbody><tr>
+			<td onmousedown="aspxPWMDown(event,'cb_all_cb_county_DDD',-1,false)" style="width:200px;cursor:default;"><table id="cb_all_cb_county_DDD_CLW-1" cellspacing="0" cellpadding="0" style="width:200px;border-collapse:collapse;border-collapse:separate;">
+				<tbody><tr>
+					<td id="cb_all_cb_county_DDD_PWC-1" style="height:100%;"><div id="cb_all_cb_county_DDD_CSD-1">
+						<input type="hidden" id="cb_all_cb_county_DDD_LDeletedItems" name="cb_all_cb_county_DDD_LDeletedItems" value=""><input type="hidden" id="cb_all_cb_county_DDD_LInsertedItems" name="cb_all_cb_county_DDD_LInsertedItems" value=""><input type="hidden" id="cb_all_cb_county_DDD_LCustomCallback" name="cb_all_cb_county_DDD_LCustomCallback" value=""><table class="dxeListBox" cellspacing="0" cellpadding="0" id="cb_all_cb_county_DDD_L" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;border-collapse:collapse;border-collapse:separate;">
+							<tbody><tr>
+								<td valign="top"><div id="cb_all_cb_county_DDD_L_D" class="dxlbd" style="width:100%;overflow-x:hidden;overflow-y:auto;">
+									<input id="cb_all_cb_county_DDD_L_VI" type="hidden" name="cb_all$cb_county$DDD$L" value=""><table cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-collapse:separate;visibility:hidden!important;display:none!important;">
+										<tbody><tr id="cb_all_cb_county_DDD_L_LBI-1" class="dxeListBoxItemRow">
+											<td id="cb_all_cb_county_DDD_L_LBI-1T0" class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;">&nbsp;</td>
+										</tr>
+									</tbody></table><table id="cb_all_cb_county_DDD_L_LBT" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;border-collapse:separate;">
+										<tbody><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI0T0">BOGAZKOY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI1T0">ISTANBUL_ANA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI2T0">ADALAR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI3T0">CATALCA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI4T0">SILE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI5T0">SILIVRI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI6T0">ISTANBUL_AVR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI7T0">TUZLA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI8T0">AVCILAR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI9T0">BAGCILAR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI10T0">BAHCELIEVLER</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI11T0">BAKIRKOY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI12T0">BAYRAMPASA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI13T0">BESIKTAS</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI14T0">BEYKOZ</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI15T0">BEYOGLU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI16T0">EMINONU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI17T0">ESENLER</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI18T0">EYUP</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI19T0">FATIH</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI20T0">GAZIOSMANPASA</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI21T0">GUNGOREN</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI22T0">KADIKOY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI23T0">KAGITHANE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI24T0">KARTAL</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI25T0">KUCUKCEKMECE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI26T0">MALTEPE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI27T0">PENDIK</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI28T0">SARIYER</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI29T0">SISLI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI30T0">UMRANIYE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI31T0">USKUDAR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI32T0">ZEYTINBURNU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI33T0">BUYUKCEKMECE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI34T0">SULTANBEYLI</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI35T0">ESENYURT</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI36T0">SANCAKTEPE</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI37T0">ATASEHIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI38T0">ARNAVUTKOY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI39T0">CEKMEKOY</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI40T0">BASAKSEHIR</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI41T0">BEYLIKDUZU</td>
+										</tr><tr class="dxeListBoxItemRow">
+											<td class="dxeListBoxItem" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:11px;" id="cb_all_cb_county_DDD_L_LBI42T0">SULTANGAZI</td>
+										</tr>
+									</tbody></table>
+								</div></td>
+							</tr>
+						</tbody></table><script id="dxss_1904510834" type="text/javascript">
+<!--
+aspxAddDisabledItems('cb_all_cb_county_DDD_L',[[['dxeDisabled'],[''],['']]]);
+
+var dxo = new ASPxClientListBox('cb_all_cb_county_DDD_L');
+window['cb_all_cb_county_DDD_L'] = dxo;
+dxo.uniqueID = 'cb_all$cb_county$DDD$L';
+dxo.SelectedIndexChanged.AddHandler(function (s, e) { aspxCBLBSelectedIndexChanged('cb_all_cb_county', e); });
+dxo.ItemClick.AddHandler(function (s, e) { aspxCBLBItemMouseUp('cb_all_cb_county', e); });
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.itemsValue=['034000','034001','034002','034003','034004','034005','034006','034007','034008','034009','034010','034011','034012','034013','034014','034015','034016','034017','034018','034019','034020','034021','034022','034023','034024','034025','034026','034027','034028','034029','034030','034031','034032','034033','034034','034035','034036','034037','034038','034039','034040','034444','034445'];
+dxo.isComboBoxList = true;
+dxo.hasSampleItem = true;
+dxo.hoverClasses=['dxeListBoxItemHover'];
+dxo.selectedClasses=['dxeListBoxItemSelected'];
+dxo.disabledClasses=['dxeDisabled'];
+dxo.InlineInitialize();
+
+//-->
+</script>
+					</div></td>
+				</tr>
+			</tbody></table></td><td style="background:url('/pompatest/DXR.axd?r=1_62-sLEF6') no-repeat left top;"></td>
+		</tr><tr>
+			<td style="background:url('/pompatest/DXR.axd?r=1_61-sLEF6') no-repeat left top;"></td><td style="background:url('/pompatest/DXR.axd?r=1_63-sLEF6') no-repeat left top;"><div style="height:5px;width:5px;">
+
+			</div></td>
+		</tr>
+	</tbody></table>
+</div><script id="dxss_1926808011" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientPopupControl('cb_all_cb_county_DDD');
+window['cb_all_cb_county_DDD'] = dxo;
+dxo.uniqueID = 'cb_all$cb_county$DDD';
+dxo.Shown.AddHandler(function (s, e) { aspxDDBPCShown('cb_all_cb_county', e); });
+dxo.adjustInnerControlsSizeOnShow=false;
+dxo.popupAnimationType='slide';
+dxo.closeAction='CloseButton';
+dxo.popupHorizontalAlign='LeftSides';
+dxo.popupVerticalAlign='Below';
+dxo.width=0;
+dxo.height=0;
+aspxAddSelectedItems('cb_all_cb_county_DDD',[[[''],[''],['HPB-1','HMNB-1','HMXB-1'],,[[''],[''],['']],['Img']]]);
+dxo.InlineInitialize();
+
+//-->
+</script><script id="dxss_1303176421" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_cb_county',[[['dxeButtonEditButtonHover'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddPressedItems('cb_all_cb_county',[[['dxeButtonEditButtonPressed'],[''],['B-1'],,[['']],['Img']]]);
+aspxAddDisabledItems('cb_all_cb_county',[[['dxeDisabled'],[''],['','I']],[['dxeDisabled dxeButtonDisabled'],[''],['B-1'],,[[{'spriteCssClass':'dxEditors_edtDropDownDisabled'}]],['Img']]]);
+document.getElementById("cb_all_cb_county_I").setAttribute("autocomplete", "off");
+
+var dxo = new ASPxClientComboBox('cb_all_cb_county');
+window['cb_county'] = dxo;
+dxo.callBack = function(arg) { WebForm_DoCallback('cb_all$cb_county',arg,aspxCallback,'cb_all_cb_county',aspxCallbackError,true); };
+dxo.uniqueID = 'cb_all$cb_county';
+dxo.RequireStyleDecoration();
+dxo.styleDecoration.AddStyle('F','dxeFocused','');
+dxo.lastSuccessValue = 'Seçiniz';
+dxo.islastSuccessValueInit = true;
+dxo.InlineInitialize();
+
+//-->
+</script></td>                          
+                            <td><table cellspacing="0" cellpadding="0" id="cb_all_ASPxButton1" style="width:100px;border-collapse:collapse;border-collapse:separate;-khtml-user-select:none;">
+	<tbody><tr>
+		<td id="cb_all_ASPxButton1_B" class="dxbButton" align="center" style="color:#333333;background-color:#D9F0F0;font-size:11px;font-weight:bold;"><div style="border-width:0;width:0;height:0;opacity:0;padding:0;margin:0;overflow:hidden;">
+			<input value="" onfocus="aspxBGotFocus('cb_all_ASPxButton1')" type="submit" name="cb_all$ASPxButton1" readonly="readonly" style="border-width:0px;height:0px;width:0px;padding:0;border-width:0;width:1px;height:1px;opacity:0;margin:0;position:relative;">
+		</div><div id="cb_all_ASPxButton1_CD" class="dxb">
+			<span>Fiyatları&nbsp;Göster</span>
+		</div></td>
+	</tr>
+</tbody></table><script id="dxss_1777056413" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_ASPxButton1',[[['dxbButtonHover'],[''],['B'],['','TC'],[['']],['Img']]]);
+aspxAddPressedItems('cb_all_ASPxButton1',[[['dxbButtonPressed'],[''],['B'],['','TC'],[['']],['Img']]]);
+aspxAddDisabledItems('cb_all_ASPxButton1',[[['dxbDisabled'],[''],['B'],['','TC'],[['']],['Img']]]);
+
+var dxo = new ASPxClientButton('cb_all_ASPxButton1');
+window['btn_filter'] = dxo;
+dxo.uniqueID = 'cb_all$ASPxButton1';
+dxo.Click.AddHandler(PricingHelper.OnFilter);
+aspxAddSelectedItems('cb_all_ASPxButton1',[[['dxbf'],[''],['CD']]]);
+dxo.InlineInitialize();
+
+//-->
+</script></td>
+                            <td>&nbsp;</td>                          
+                        </tr>
+                        <tr>
+                                <td colspan="6" style="color: red; font-size: small;">Otogaz fiyatlarını görüntülemek için İLÇE seçimini boş bırakabilirsiniz</td>
+                        </tr>
+                    </tbody></table>    
+                </td>
+            </tr>
+            <tr><td>&nbsp;</td></tr>
+            <tr><td><span class="dxeBase label3" id="cb_all_lb_msg" style="font-family:Verdana,Arial,Helvetica,sans-serif;font-size:0.69em;font-weight:bold;">11.04.2026-17.04.2026 tarihleri arasında ISTANBUL ili için tavan fiyatları : </span><script id="dxss_1027370469" type="text/javascript">
+<!--
+aspxAddDisabledItems('cb_all_lb_msg',[[['dxeDisabled'],[''],['']]]);
+
+var dxo = new ASPxClientLabel('cb_all_lb_msg');
+window['lb_msg'] = dxo;
+dxo.uniqueID = 'cb_all$lb_msg';
+dxo.InlineInitialize();
+
+//-->
+</script></td></tr>
+            <tr><td>&nbsp;</td></tr>
+            <tr>
+                <td>
+                            <table class="dxgvControl" cellspacing="0" cellpadding="0" id="cb_all_grdPrices" style="border-collapse:collapse;border-collapse:separate;">
+	<tbody><tr>
+		<td><table id="cb_all_grdPrices_DXMainTable" class="dxgvTable" cellspacing="0" cellpadding="0" onclick="aspxGVTableClick('cb_all_grdPrices', event);" style="width:100%;border-collapse:collapse;empty-cells:show;">
+			<tbody><tr id="cb_all_grdPrices_DXHeadersRow0">
+				<td id="cb_all_grdPrices_col0" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Tarih</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col1" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">İl</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col2" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">İlçe</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col3" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">K.Benzin&nbsp;95&nbsp;Oktan&nbsp;<br>(TL/Lt)&nbsp;&nbsp;<br>Shell&nbsp;Fuelsave&nbsp;</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col4" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">K.Benzin&nbsp;95&nbsp;Oktan<br>(TL/Lt)&nbsp;<br>Shell&nbsp;V-Power&nbsp;</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col5" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Motorin&nbsp;<br>(TL/Lt)&nbsp;<br>Shell&nbsp;Fuelsave&nbsp;<br>Diesel</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col6" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Motorin&nbsp;<br>(TL/Lt)&nbsp;<br>Shell&nbsp;V-Power&nbsp;Diesel&nbsp;</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col7" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">VP&nbsp;Diesel<br>+GTL<br>(Motorin)<br>(TL/Lt)</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col8" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Gaz<br>Yagı<br>(TL/Lt)</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col9" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Kalyak<br>(TL/Kg)</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col10" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Yüksek<br>Kükürtlü<br>Fuel&nbsp;Oil<br>(TL/Kg)</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col11" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;border-top-width:0px;border-left-width:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Fuel&nbsp;Oil<br>(TL/Kg)</td>
+					</tr>
+				</tbody></table></td><td id="cb_all_grdPrices_col12" class="dxgvHeader grid_column3" onmousedown="aspxGVHeaderMouseDown('cb_all_grdPrices', this, event);" style="color:#333333;background-color:#73C8C8;font-weight:bold;padding-bottom:0px;text-align:Center;border-top-width:0px;vertical-align:Bottom;border-left-width:0px;padding-right:0px;padding-left:0px;border-right-width:0px;padding-top:0px;"><table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+					<tbody><tr>
+						<td style="color:#333333;font-weight:bold;text-align:Center;vertical-align:Bottom;padding-left:0px;padding-right:0px;padding-top:0px;padding-bottom:0px;">Otogaz&nbsp;<br>(TL/Lt)<br>Shell&nbsp;Autogas&nbsp;LPG</td>
+					</tr>
+				</tbody></table></td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow0" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center">11.04.2026</td><td class="ClassTxt1 dxgv" align="center">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center">MERKEZ</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;">36,350</td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow1" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center">12.04.2026</td><td class="ClassTxt1 dxgv" align="center">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center">MERKEZ</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;">36,350</td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow2" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center">13.04.2026</td><td class="ClassTxt1 dxgv" align="center">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center">MERKEZ</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;">36,350</td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow3" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center">14.04.2026</td><td class="ClassTxt1 dxgv" align="center">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center">MERKEZ</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;">36,350</td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow4" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center">15.04.2026</td><td class="ClassTxt1 dxgv" align="center">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center">MERKEZ</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;">36,350</td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow5" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center">16.04.2026</td><td class="ClassTxt1 dxgv" align="center">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center">MERKEZ</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;">36,350</td>
+			</tr><tr id="cb_all_grdPrices_DXDataRow6" class="dxgvDataRow">
+				<td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">17.04.2026</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">ISTANBUL</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">MERKEZ</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-bottom-width:0px;">-</td><td class="ClassTxt1 dxgv" align="center" style="border-right-width:0px;border-bottom-width:0px;">36,350</td>
+			</tr>
+		</tbody></table><img id="cb_all_grdPrices_IADD" class="dxGridView_gvDragAndDropArrowDown" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="|" style="position:absolute;visibility:hidden;top:-100px;"><img id="cb_all_grdPrices_IADU" class="dxGridView_gvDragAndDropArrowUp" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="|" style="position:absolute;visibility:hidden;top:-100px;"><img id="cb_all_grdPrices_IDHF" class="dxGridView_gvDragAndDropHideColumn" src="/pompatest/DXR.axd?r=1_9-sLEF6" alt="Hide" style="position:absolute;visibility:hidden;top:-100px;"><table id="cb_all_grdPrices_LP" class="dxgvLoadingPanel" cellspacing="0" cellpadding="0" style="border-collapse:collapse;left:0px;top:0px;z-index:30000;display:none;">
+			<tbody><tr>
+				<td class="dx"><img src="/pompatest/DXR.axd?r=1_43-sLEF6" alt="" align="middle"></td><td class="dx" style="padding-left:0px;"><span id="cb_all_grdPrices_TL">Loading…</span></td>
+			</tr>
+		</tbody></table><div id="cb_all_grdPrices_LD" class="dxgvLoadingDiv" style="display:none;z-index:29999;position:absolute;">
+
+		</div><input type="hidden" name="cb_all$grdPrices$DXSelInput" id="cb_all_grdPrices_DXSelInput"><input type="hidden" name="cb_all$grdPrices$DXKVInput" id="cb_all_grdPrices_DXKVInput" value="[]"><table id="cb_all_grdPrices_DXStyleTable" style="display:none;">
+			<tbody><tr>
+				<td></td>
+			</tr><tr class="dxgvEditingErrorRow">
+				<td class="dxgv" colspan="13" style="border-right-width:0px;"></td>
+			</tr><tr class="dxgvSelectedRow">
+				<td></td>
+			</tr><tr class="dxgvFocusedRow">
+				<td></td>
+			</tr><tr class="dxgvFocusedGroupRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr><tr class="dxgvDataRow">
+				<td></td>
+			</tr>
+		</tbody></table><input type="hidden" name="cb_all$grdPrices$CallbackState" id="cb_all_grdPrices_CallbackState" value="BwIHAgIERGF0YQawBAAAAAAHAAAABwAAAAAAAAAHAAAAAA0AAAANZmNyZWF0aW9uZGF0ZQVUYXJpaAgAAAPEsGwDxLBsBwAABsSwbMOnZQbEsGzDp2UHAAAIZnVlbDAwMDFXSy5CZW56aW4mbmJzcDs5NSZuYnNwO09rdGFuJm5ic3A7PC9icj4oVEwvTHQpJm5ic3A7Jm5ic3A7PC9icj5TaGVsbCZuYnNwO0Z1ZWxzYXZlJm5ic3A7BQAACGZ1ZWwwMDM3SksuQmVuemluJm5ic3A7OTUmbmJzcDtPa3RhbjwvYnI+KFRML0x0KSZuYnNwOzwvYnI+U2hlbGwmbmJzcDtWLVBvd2VyJm5ic3A7BQAACGZ1ZWwwMDM5SE1vdG9yaW4mbmJzcDs8L2JyPihUTC9MdCkmbmJzcDs8L2JyPlNoZWxsJm5ic3A7RnVlbHNhdmUmbmJzcDs8L2JyPkRpZXNlbAUAAAhmdWVsMDAzNEhNb3RvcmluJm5ic3A7PC9icj4oVEwvTHQpJm5ic3A7PC9icj5TaGVsbCZuYnNwO1YtUG93ZXImbmJzcDtEaWVzZWwmbmJzcDsFAAAIZnVlbDAwMzgxVlAmbmJzcDtEaWVzZWw8L2JyPitHVEw8L2JyPihNb3RvcmluKTwvYnI+KFRML0x0KQUAAAhmdWVsMDA3MRlHYXo8L2JyPllhZ8SxPC9icj4oVEwvTHQpBQAACGZ1ZWwwMDcyEkthbHlhazwvYnI+KFRML0tnKQUAAAhmdWVsMDA3MzVZw7xrc2VrPC9icj5Lw7xrw7xydGzDvDwvYnI+RnVlbCZuYnNwO09pbDwvYnI+KFRML0tnKQUAAAhmdWVsMDA3NRlGdWVsJm5ic3A7T2lsPC9icj4oVEwvS2cpBQAACGZ1ZWwwMDA1OE90b2dheiZuYnNwOzwvYnI+KFRML0x0KTwvYnI+U2hlbGwmbmJzcDtBdXRvZ2FzJm5ic3A7TFBHBQAAAAAAAAcABwAHAAcABv//CAIEAABHRl2X3ggHAghJU1RBTkJVTAcCBk1FUktFWgwMDAwMDAwMDAUD/o0AAAAAAAAAAAAAAAADAAcABwAG//8IAgQAwLBwJpjeCAcCCElTVEFOQlVMBwIGTUVSS0VaDAwMDAwMDAwMBQP+jQAAAAAAAAAAAAAAAAMABwAHAAb//wgCBACAGpvvmN4IBwIISVNUQU5CVUwHAgZNRVJLRVoMDAwMDAwMDAwFA/6NAAAAAAAAAAAAAAAAAwAHAAcABv//CAIEAECExbiZ3ggHAghJU1RBTkJVTAcCBk1FUktFWgwMDAwMDAwMDAUD/o0AAAAAAAAAAAAAAAADAAcABwAG//8IAgQAAO7vgZreCAcCCElTVEFOQlVMBwIGTUVSS0VaDAwMDAwMDAwMBQP+jQAAAAAAAAAAAAAAAAMABwAHAAb//wgCBADAVxpLm94IBwIISVNUQU5CVUwHAgZNRVJLRVoMDAwMDAwMDAwFA/6NAAAAAAAAAAAAAAAAAwAHAAcABv//CAIEAIDBRBSc3ggHAghJU1RBTkJVTAcCBk1FUktFWgwMDAwMDAwMDAUD/o0AAAAAAAAAAAAAAAADAAIFU3RhdGUHYAcNBwACAQcBAgEHAgIBBwMCAQcEAgEHBQIBBwYCAQcHAgEHCAIBBwkCAQcKAgEHCwIBBwwCAQcABwAHAAcAAgAFAAAAgAkCAAkCAAIAAwcEAgAHAAIBBwcHAAIBBwAHAA=="></td>
+	</tr>
+</tbody></table><script id="dxss_965342609" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientGridView('cb_all_grdPrices');
+window['cb_all_grdPrices'] = dxo;
+dxo.callBack = function(arg) { WebForm_DoCallback('cb_all$grdPrices',arg,aspxCallback,'cb_all_grdPrices',aspxCallbackError,true); };
+dxo.uniqueID = 'cb_all$grdPrices';
+dxo.callBacksEnabled=true;
+dxo.pageRowCount=7;
+dxo.pageRowSize=10;
+dxo.pageIndex=-1;
+dxo.pageCount=1;
+dxo.selectedWithoutPageRowCount=0;
+dxo.visibleStartIndex=0;
+dxo.focusedRowIndex=-1;
+dxo.allowFocusedRow=false;
+dxo.allowSelectByRowClick=false;
+dxo.allowSelectSingleRowOnly=false;
+dxo.indentColumnCount=0;
+dxo.callbackOnFocusedRowChanged=false;
+dxo.callbackOnSelectionChanged=false;
+dxo.autoFilterDelay='1200';
+dxo.columns = [new ASPxClientGridViewColumn('',0,-1,'fcreationdate',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',1,-1,'İl',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',2,-1,'İlçe',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',3,-1,'fuel0001',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',4,-1,'fuel0037',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',5,-1,'fuel0039',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',6,-1,'fuel0034',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',7,-1,'fuel0038',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',8,-1,'fuel0071',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',9,-1,'fuel0072',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',10,-1,'fuel0073',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',11,-1,'fuel0075',1,'',0,1,1,1,0,0,0),
+new ASPxClientGridViewColumn('',12,-1,'fuel0005',1,'',0,1,1,1,0,0,0)];
+dxo.editState=0;
+dxo.InlineInitialize();
+
+//-->
+</script>
+                </td>
+            </tr>
+                    <tr>
+                        <td>
+                            <table>
+                                <tbody><tr>
+                                    <td>
+                                        <table cellspacing="0" cellpadding="0" id="cb_all_btn_print" style="border-collapse:collapse;border-collapse:separate;-khtml-user-select:none;">
+	<tbody><tr>
+		<td id="cb_all_btn_print_B" class="dxbButton" align="center" style="color:#333333;background-color:#D9F0F0;font-size:11px;font-weight:bold;"><div style="border-width:0;width:0;height:0;opacity:0;padding:0;margin:0;overflow:hidden;">
+			<input value="" onfocus="aspxBGotFocus('cb_all_btn_print')" type="submit" name="cb_all$btn_print" readonly="readonly" style="border-width:0px;height:0px;width:0px;padding:0;border-width:0;width:1px;height:1px;opacity:0;margin:0;position:relative;">
+		</div><div id="cb_all_btn_print_CD" class="dxb">
+			<span>Yazdır</span>
+		</div></td>
+	</tr>
+</tbody></table><script id="dxss_1502085384" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_btn_print',[[['dxbButtonHover'],[''],['B'],['','TC'],[['']],['Img']]]);
+aspxAddPressedItems('cb_all_btn_print',[[['dxbButtonPressed'],[''],['B'],['','TC'],[['']],['Img']]]);
+aspxAddDisabledItems('cb_all_btn_print',[[['dxbDisabled'],[''],['B'],['','TC'],[['']],['Img']]]);
+
+var dxo = new ASPxClientButton('cb_all_btn_print');
+window['cb_all_btn_print'] = dxo;
+dxo.autoPostBack = true;
+dxo.uniqueID = 'cb_all$btn_print';
+dxo.Click.AddHandler(PricingHelper.OnPrint);
+aspxAddSelectedItems('cb_all_btn_print',[[['dxbf'],[''],['CD']]]);
+dxo.InlineInitialize();
+
+//-->
+</script>
+                                    </td>
+                                    <td>
+                                        <table cellspacing="0" cellpadding="0" id="cb_all_btn_export" style="border-collapse:collapse;border-collapse:separate;-khtml-user-select:none;">
+	<tbody><tr>
+		<td id="cb_all_btn_export_B" class="dxbButton" align="center" style="color:#333333;background-color:#D9F0F0;font-size:11px;font-weight:bold;"><div style="border-width:0;width:0;height:0;opacity:0;padding:0;margin:0;overflow:hidden;">
+			<input value="" onfocus="aspxBGotFocus('cb_all_btn_export')" type="submit" name="cb_all$btn_export" readonly="readonly" style="border-width:0px;height:0px;width:0px;padding:0;border-width:0;width:1px;height:1px;opacity:0;margin:0;position:relative;">
+		</div><div id="cb_all_btn_export_CD" class="dxb">
+			<span>Excel'e Kaydet</span>
+		</div></td>
+	</tr>
+</tbody></table><script id="dxss_197220992" type="text/javascript">
+<!--
+aspxAddHoverItems('cb_all_btn_export',[[['dxbButtonHover'],[''],['B'],['','TC'],[['']],['Img']]]);
+aspxAddPressedItems('cb_all_btn_export',[[['dxbButtonPressed'],[''],['B'],['','TC'],[['']],['Img']]]);
+
+var dxo = new ASPxClientButton('cb_all_btn_export');
+window['cb_all_btn_export'] = dxo;
+dxo.autoPostBack = true;
+dxo.uniqueID = 'cb_all$btn_export';
+dxo.RegisterServerEventAssigned(['Click']);
+aspxAddSelectedItems('cb_all_btn_export',[[['dxbf'],[''],['CD']]]);
+dxo.InlineInitialize();
+
+//-->
+</script>
+                                    </td>
+                                </tr>
+                            </tbody></table>
+                        </td>
+                    </tr>
+        </tbody></table>
+    
+                        </div><table id="cb_all_LP" class="dxcpLoadingPanelWithContent" cellspacing="0" cellpadding="0" style="border-collapse:collapse;left:0px;top:0px;z-index:30000;display:none;">
+	<tbody><tr>
+		<td class="dx" style="padding-right:8px;"><img src="/pompatest/DXR.axd?r=1_48-sLEF6" alt="" align="middle"></td><td class="dx" style="padding-left:0px;"><span id="cb_all_TL">Fiyatlar Yükleniyor…</span></td>
+	</tr>
+</tbody></table><div id="cb_all_LD" class="dxcpLoadingDiv" style="left:0px;top:0px;z-index:29999;display:none;position:absolute;">
+
+</div><script id="dxss_1207931333" type="text/javascript">
+<!--
+
+var dxo = new ASPxClientCallbackPanel('cb_all');
+window['cb_all'] = dxo;
+dxo.callBack = function(arg) { WebForm_DoCallback('cb_all',arg,aspxCallback,'cb_all',aspxCallbackError,true); };
+dxo.hideContentOnCallback=false;
+dxo.InlineInitialize();
+
+//-->
+</script>
+    
+
+<script type="text/javascript">
+//<![CDATA[
+
+var callBackFrameUrl='/pompatest/WebResource.axd?d=rQcK4D1jJ3G0XIlHD6bkUvsy_XJIxhm_-8a6yzusIh7IpFI9DRh_4SNp0Re_x4UrMKrbMZ2UgkrtqkOQNg_KaeRXXes8LY71Zr5ZPBQRN-Y1&t=638901644248157332';
+WebForm_InitCallback();//]]>
+</script>
+<input type="hidden" name="DXScript" id="DXScript" value="1_142,1_80,1_135,1_79,1_98,1_105,1_84,1_109,1_97,1_77,1_128,1_126,1_92,1_100,1_91,1_104,1_90,1_113"></form>
+
+
+
+<div style="width: 0px; height: 0px; overflow: visible; display: none;">ISTANBUL</div></body></html>

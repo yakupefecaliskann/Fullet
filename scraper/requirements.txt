@@ -1,0 +1,5 @@
+requests==2.31.0
+supabase==2.3.4
+python-dotenv==1.0.0
+playwright==1.41.0
+geopy==2.4.1

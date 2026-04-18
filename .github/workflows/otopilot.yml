@@ -1,0 +1,44 @@
+name: Otopilot (Fullet Bot) 🤖
+
+on:
+  schedule:
+    # 3 saatte bir çalıştır (00:00, 03:00, 06:00...)
+    - cron: '0 */3 * * *'
+  # GitHub uzerinden manuel tiklayip test edebilmen icin:
+  workflow_dispatch: 
+
+jobs:
+  scrape-and-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodları İndir (Checkout)
+        uses: actions/checkout@v3
+
+      - name: Python Kurulumu
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Gerekli Kütüphaneleri Yükle
+        working-directory: ./scraper
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+          
+      - name: Fiyat ve Haber Botlarını Çalıştır!
+        working-directory: ./scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "==== AKARYAKIT BOTLARI BASLIYOR ===="
+          python shell_bot.py || echo "Shell botunda hata, pas gecildi."
+          python opet_bot.py || echo "Opet botunda hata, pas gecildi."
+          python po_bot.py || echo "PO botunda hata, pas gecildi."
+          python aytemiz_bot.py || echo "Aytemiz botunda hata, pas gecildi."
+          python total_bot.py || echo "Total botunda hata, pas gecildi."
+          python bp_bot.py || echo "BP botunda hata, pas gecildi."
+          
+          echo "==== HABER VE BİLDİRİM BOTU BASLIYOR ===="
+          python news_bot.py
