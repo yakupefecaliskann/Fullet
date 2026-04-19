@@ -9,13 +9,20 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@sentry/react-native": "~7.2.0",
     "@supabase/supabase-js": "^2.103.3",
     "expo": "~54.0.33",
+    "expo-device": "~8.0.10",
     "expo-location": "~19.0.8",
+    "expo-notifications": "~0.32.16",
     "expo-status-bar": "~3.0.9",
+    "expo-web-browser": "~15.0.10",
     "react": "19.1.0",
     "react-native": "0.81.5",
+    "react-native-map-clustering": "^4.0.0",
     "react-native-maps": "1.20.1",
+    "react-native-safe-area-context": "~5.6.0",
     "react-native-url-polyfill": "^3.0.0"
   },
   "private": true

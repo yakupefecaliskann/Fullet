@@ -1,15 +1,47 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Dimensions, Text, ActivityIndicator, TouchableOpacity, Platform, Linking, LayoutAnimation, UIManager, Animated, Image, Easing } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { StyleSheet, View, Dimensions, Text, ActivityIndicator, TouchableOpacity, Platform, Linking, LayoutAnimation, UIManager, Animated, Image, Easing, Modal, ScrollView, LogBox, StatusBar as RNStatusBar, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Device from 'expo-device';
+import MapView from 'react-native-map-clustering';
+import { Marker } from 'react-native-maps';
+import * as Sentry from '@sentry/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { carDatabase } from './utils/carDatabase';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  '`expo-notifications` functionality is not fully supported',
+  'LayoutAnimation'
+]);
+
+// Constants
 import * as Location from 'expo-location';
 import { supabase } from './utils/supabase';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from './utils/registerPush';
+import * as WebBrowser from 'expo-web-browser';
+import MarqueeBanner from './src/components/UI/MarqueeBanner';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const deg2rad = (deg) => deg * (Math.PI / 180);
+
+const getLastPriceChangeText = (station) => {
+  if (!station.fiyat_gecmisi || station.fiyat_gecmisi.length === 0) return "Yeni";
+  const latest = [...station.fiyat_gecmisi].sort((a, b) => new Date(b.degisim_tarihi) - new Date(a.degisim_tarihi))[0];
+  if (!latest || !latest.degisim_tarihi) return "Yeni";
+  const diffHours = Math.round((new Date() - new Date(latest.degisim_tarihi)) / (1000 * 60 * 60));
+  if (diffHours === 0) return "Güncel";
+  if (diffHours < 24) return `${diffHours}s önce`;
+  return `${Math.floor(diffHours / 24)}g önce`;
+};
 
 const getDistanceKm = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -20,63 +52,101 @@ const getDistanceKm = (lat1, lon1, lat2, lon2) => {
     Math.sin(dLat/2) * Math.sin(dLat/2) +
     Math.cos(deg2rad(parseFloat(lat1))) * Math.cos(deg2rad(parseFloat(lat2))) * 
     Math.sin(dLon/2) * Math.sin(dLon/2); 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
   return R * c; // KM cinsinden Mesafe
 };
 
-const MarqueeBanner = ({ news }) => {
-  const animatedValue = useRef(new Animated.Value(Dimensions.get('window').width)).current;
-  
-  // Metnin toplam uzunluğunu yaklaşık olarak hesapla ki animasyon süresini ve bitiş noktasını bilelim
-  const fullTextLength = news.reduce((acc, curr) => acc + (curr.baslik || '').length + (curr.kaynak || '').length + 15, 0);
+Sentry.init({
+  dsn: 'BURAYA_SENTRY_DSN_GELECEK', // TODO: Sentry.io panelinden alacağın DSN adresini buraya gir
+  debug: false, 
+  enableInExpoDevelopment: true,
+  tracesSampleRate: 1.0, // Performans takibi
+});
 
-  useEffect(() => {
-    if (news.length === 0) return;
-    const duration = fullTextLength * 80; 
-    const animate = () => {
-      animatedValue.setValue(Dimensions.get('window').width);
-      Animated.timing(animatedValue, {
-        toValue: -fullTextLength * 8.5, 
-        duration: duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(() => animate());
-    };
-    animate();
-  }, [news, fullTextLength]);
-
-  if (!news || news.length === 0) return null;
-
-  return (
-    <View style={styles.marqueeContainer}>
-      <View style={styles.marqueeLabelBox}>
-        <Text style={styles.marqueeLabelText}>SONDAKİKA</Text>
-      </View>
-      <View style={styles.marqueeTrack}>
-        <Animated.View style={{ flexDirection: 'row', transform: [{ translateX: animatedValue }] }}>
-          {news.map((n, i) => (
-            <TouchableOpacity 
-              key={i} 
-              activeOpacity={0.6}
-              onPress={() => Linking.openURL(n.link).catch(err => console.error("Link acilamadi:", err))}
-            >
-              <Text style={styles.marqueeText}>🔴 {n.baslik} [{n.kaynak}]   |   </Text>
-            </TouchableOpacity>
-          ))}
-        </Animated.View>
-      </View>
-    </View>
-  );
-};
-
-export default function App() {
+function App() {
   const [location, setLocation] = useState(null);
   const [stations, setStations] = useState([]);
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedFuel, setSelectedFuel] = useState('Kursunsuz 95');
   const [visibleStation, setVisibleStation] = useState(null);
+  const [garageVisible, setGarageVisible] = useState(false);
+  const [tankCapacity, setTankCapacity] = useState(50);
+  const [fuelConsumption, setFuelConsumption] = useState(7.0);
+  const [selectedMake, setSelectedMake] = useState(null);
+  const [selectedModel, setSelectedModel] = useState(null);
+  const [pickerMode, setPickerMode] = useState(null); 
   const slideAnim = useRef(new Animated.Value(500)).current;
+  const garageFuelAnim = useRef(new Animated.Value(0)).current;
+  const notificationListener = useRef();
+  const responseListener = useRef();
+
+  const smoothTransition = () => {
+    LayoutAnimation.configureNext({
+      duration: 300,
+      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      update: { type: LayoutAnimation.Types.easeInEaseOut }
+    });
+  };
+
+  useEffect(() => {
+    const idx = ['Kursunsuz 95', 'Motorin', 'LPG'].indexOf(selectedFuel);
+    Animated.spring(garageFuelAnim, {
+      toValue: idx >= 0 ? idx : 0,
+      useNativeDriver: false,
+      tension: 60,
+      friction: 8,
+    }).start();
+  }, [selectedFuel]);
+
+  const handleTankChange = async (val) => {
+    const newVal = Math.max(10, Math.min(200, tankCapacity + val));
+    setTankCapacity(newVal);
+    await AsyncStorage.setItem('tankCapacity', newVal.toString());
+  };
+
+  const handleConsChange = async (val) => {
+    const newVal = parseFloat(Math.max(1.0, Math.min(30.0, fuelConsumption + val)).toFixed(1));
+    setFuelConsumption(newVal);
+    await AsyncStorage.setItem('fuelConsumption', newVal.toString());
+  };
+
+  const handleGarageFuelChange = async (type) => {
+    smoothTransition();
+    setSelectedFuel(type);
+    await AsyncStorage.setItem('defaultFuel', type);
+  };
+
+  const handleMapFuelChange = (type) => {
+    smoothTransition();
+    setSelectedFuel(type);
+  };
+
+  const selectMake = async (make) => {
+    smoothTransition();
+    setSelectedMake(make);
+    setSelectedModel(null);
+    setPickerMode(null);
+    await AsyncStorage.setItem('selectedMake', make);
+    await AsyncStorage.removeItem('selectedModel');
+  };
+
+  const selectModel = async (modelName) => {
+    smoothTransition();
+    setSelectedModel(modelName);
+    setPickerMode(null);
+    await AsyncStorage.setItem('selectedModel', modelName);
+
+    if (selectedMake && carDatabase[selectedMake][modelName]) {
+      const carData = carDatabase[selectedMake][modelName];
+      setTankCapacity(carData.tank);
+      setFuelConsumption(carData.cons);
+      setSelectedFuel(carData.fuel);
+      
+      await AsyncStorage.setItem('tankCapacity', carData.tank.toString());
+      await AsyncStorage.setItem('fuelConsumption', carData.cons.toString());
+      await AsyncStorage.setItem('defaultFuel', carData.fuel);
+    }
+  };
 
   const openSheet = (station) => {
     if (visibleStation && visibleStation.id !== station.id) {
@@ -128,28 +198,103 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        // Lokasyon izni verilmezse varsayilan olarak Istanbul Merkez'i goster
-        setLocation({
-          latitude: 41.0082,
-          longitude: 28.9784,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        });
-      } else {
-        let loc = await Location.getCurrentPositionAsync({});
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
+      try {
+        const storedTank = await AsyncStorage.getItem('tankCapacity');
+        const storedCons = await AsyncStorage.getItem('fuelConsumption');
+        const storedFuel = await AsyncStorage.getItem('defaultFuel');
+        const storedMake = await AsyncStorage.getItem('selectedMake');
+        const storedModel = await AsyncStorage.getItem('selectedModel');
+
+        if (storedTank) setTankCapacity(parseFloat(storedTank));
+        if (storedCons) setFuelConsumption(parseFloat(storedCons));
+        if (storedFuel) setSelectedFuel(storedFuel);
+        if (storedMake) setSelectedMake(storedMake);
+        if (storedModel) setSelectedModel(storedModel);
+      } catch (err) {
+        console.error('Garage load error:', err);
       }
 
-      fetchStations();
+      const { status: locStatus } = await Location.getForegroundPermissionsAsync();
+      let locationGranted = locStatus === 'granted';
+
+      if (locStatus !== 'granted') {
+        const willAskLoc = await new Promise((resolve) => {
+          Alert.alert(
+            "Konum İzni Gerekli",
+            "Bulunduğunuz konuma göre en kârlı 'Mantıklı' istasyonları bulabilmemiz ve yol masrafınızı hesaplayabilmemiz için konum iznine ihtiyacımız var.",
+            [
+              { text: "Şimdi Değil", onPress: () => resolve(false), style: "cancel" },
+              { text: "İzin Ver", onPress: () => resolve(true) }
+            ]
+          );
+        });
+
+        if (willAskLoc) {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          locationGranted = status === 'granted';
+        }
+      }
+
+      let currentLat = 41.0082; // Varsayılan İstanbul Merkez
+      let currentLng = 28.9784;
+
+      if (!locationGranted) {
+        setLocation({ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.1, longitudeDelta: 0.1 });
+      } else {
+        try {
+          let loc = await Location.getCurrentPositionAsync({});
+          currentLat = loc.coords.latitude;
+          currentLng = loc.coords.longitude;
+          setLocation({
+            latitude: currentLat,
+            longitude: currentLng,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+        } catch (locErr) {
+          Alert.alert("Lokasyon Hatası", "Lütfen internet bağlantınızı ve cihazınızın konum servislerini (GPS) kontrol edin.");
+          setLocation({ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.1, longitudeDelta: 0.1 });
+        }
+      }
+
+      // FOMO Push Bildirim Kurulumu (Cihazı ZAM alarmlarına karsi kaydet)
+      if (Device.isDevice) {
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            // Eger tabloya bu token daha once kaydedilmediyse, ekle.
+            const { data } = await supabase.from('push_tokens').select('id').eq('token', token);
+            if (!data || data.length === 0) {
+              await supabase.from('push_tokens').insert({ token });
+            }
+          }
+        } catch (error) {
+          console.warn('Push notification initialization failed:', error);
+        }
+      } else {
+        console.log('Must use physical device for Push Notifications');
+      }
+
+      fetchStations(currentLat, currentLng);
       fetchNews();
     })();
+
+    // Notification listeners
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      // Foreground notification ops if needed
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data && data.url) {
+        WebBrowser.openBrowserAsync(data.url).catch(err => console.error("URL failed to open:", err));
+      }
+    });
+
+    return () => {
+      if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
+      if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
+    };
   }, []);
 
   const fetchNews = async () => {
@@ -168,11 +313,22 @@ export default function App() {
     }
   };
 
-  const fetchStations = async () => {
+  const fetchStations = async (lat, lng) => {
     try {
-      // istasyonlar ve iliskili fiyatlari (fiyatlar tablosu) cekiyoruz
+      // Eğer doğrudan lat/lng gönderilmişse onu kullan, yoksa state'tekini al
+      const targetLat = lat || location?.latitude;
+      const targetLng = lng || location?.longitude;
+
+      if (!targetLat || !targetLng) return;
+
+      // PostGIS Stored Procedure'ünü (get_nearby_stations) parametrelerle çağırıyoruz.
+      // Artık tüm veritabanını DEĞİL, sadece bu koordinatlara 20 km uzaklıktaki max 50 istasyonu çekiyoruz! Mükemmel Performans.
       const { data, error } = await supabase
-        .from('istasyonlar')
+        .rpc('get_nearby_stations', {
+          lat: targetLat,
+          lng: targetLng,
+          max_dist_meters: 20000 // 20 KM Çap
+        })
         .select(`
           id, 
           marka, 
@@ -183,17 +339,17 @@ export default function App() {
           boylam,
           fiyatlar (yakit_tipi, fiyat),
           fiyat_gecmisi (yakit_tipi, fiyat_farki, degisim_tarihi)
-        `)
-        .not('enlem', 'is', null)
-        .not('boylam', 'is', null);
+        `);
 
       if (error) {
         console.error('Supabase Error:', error);
+        Alert.alert("Bağlantı Hatası", "Lütfen internet bağlantınızı kontrol edip tekrar deneyin.");
       } else {
         setStations(data || []);
       }
     } catch (err) {
       console.error('Fetch Error:', err);
+      Alert.alert("Bağlantı Hatası", "Lütfen internet bağlantınızı kontrol edip tekrar deneyin.");
     } finally {
       setLoading(false);
     }
@@ -234,8 +390,8 @@ export default function App() {
 
         const distance = getDistanceKm(location.latitude, location.longitude, s.enlem, s.boylam);
         if (distance !== null) {
-          const costToFill = 50 * price;
-          const travelCost = distance * 0.07 * price;
+          const costToFill = tankCapacity * price;
+          const travelCost = distance * (fuelConsumption / 100) * price;
           const totalCost = costToFill + travelCost;
 
           if (totalCost < bestTotalCost) {
@@ -255,7 +411,7 @@ export default function App() {
     const myDistance = getDistanceKm(location.latitude, location.longitude, station.enlem, station.boylam);
     if (myDistance === null) return null;
 
-    const myTotalCost = (50 * price) + (myDistance * 0.07 * price);
+    const myTotalCost = (tankCapacity * price) + (myDistance * (fuelConsumption / 100) * price);
 
     if (station.id === mostLogicalStationId) {
       if (cheapestStationId && cheapestStationId !== mostLogicalStationId) {
@@ -263,7 +419,7 @@ export default function App() {
         if (cheapSt) {
           const cheapPrice = parseFloat(getPrice(cheapSt.fiyatlar, selectedFuel));
           const cheapDist = getDistanceKm(location.latitude, location.longitude, cheapSt.enlem, cheapSt.boylam);
-          const cheapTotal = (50 * cheapPrice) + (cheapDist * 0.07 * cheapPrice);
+          const cheapTotal = (tankCapacity * cheapPrice) + (cheapDist * (fuelConsumption / 100) * cheapPrice);
           const saved = cheapTotal - myTotalCost;
           if (saved > 0) {
             return { type: 'success', text: `🏆 Hem Yakın Hem Kârlı!\nEn ucuza gitmeye kıyasla net ${saved.toFixed(1)}₺ kazandırdı.` };
@@ -281,6 +437,54 @@ export default function App() {
     const loss = myTotalCost - bestTotalCost;
     return { type: 'warning', text: `📉 Daha Kârlısı Var!\nEn mantıklı yere kıyasla ${loss.toFixed(1)}₺ daha fazla masrafınız olur.` };
   };
+
+  const renderedMarkers = useMemo(() => stations.map((station) => {
+    const priceStr = getPrice(station.fiyatlar, selectedFuel);
+    const hasPrice = priceStr !== '-';
+    const priceNum = parseFloat(priceStr);
+    const isCheapest = (hasPrice && !isNaN(priceNum) && station.id === cheapestStationId);
+    const isMostLogical = (hasPrice && !isNaN(priceNum) && station.id === mostLogicalStationId);
+    
+    let bgColor = '#333';
+    let textColor = '#FFF';
+
+    if (!hasPrice) {
+      bgColor = '#E5E7EB'; 
+      textColor = '#9CA3AF'; 
+    } else {
+      if (isMostLogical) bgColor = '#00B84F'; // Altin yildizli kazanana YESIL!
+      else if (isCheapest) bgColor = '#EF4444'; // Tuzaksa veya sadece ucuzsa KIRMIZI uyarisi
+      else if (station.marka === 'Shell') bgColor = '#FFCC00'; 
+      else if (station.marka === 'Opet') bgColor = '#004797'; 
+      else if (station.marka === 'Petrol Ofisi') bgColor = '#DF1B25'; 
+      else if (station.marka === 'BP') bgColor = '#009900'; 
+      else if (station.marka === 'TotalEnergies') bgColor = '#ED0000'; 
+
+      textColor = (bgColor === '#FFCC00' || bgColor === '#fef9c3') ? '#D6001C' : '#FFF';
+    }
+
+    return (
+      <Marker
+        key={`${station.id}-${selectedFuel}`}
+        coordinate={{
+          latitude: parseFloat(station.enlem),
+          longitude: parseFloat(station.boylam),
+        }}
+        opacity={hasPrice ? 1 : 0.65}
+        tracksViewChanges={false}
+        onPress={(e) => {
+          e.stopPropagation();
+          openSheet(station);
+        }}
+      >
+        <View style={[styles.customPin, { backgroundColor: bgColor, borderColor: hasPrice ? '#ffffff' : '#D1D5DB' }]}>
+          <Text style={[styles.pinText, { color: textColor }]} allowFontScaling={false}>
+            {hasPrice ? `${priceStr} ₺` : 'Yok'}
+          </Text>
+        </View>
+      </Marker>
+    );
+  }), [stations, selectedFuel, cheapestStationId, mostLogicalStationId]);
 
   if (loading || !location) {
     return (
@@ -301,27 +505,33 @@ export default function App() {
     
     Linking.openURL(url).catch(err => console.error("Navigasyon acilamadi:", err));
   };
-
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
       
-      {/* Sondakika Marquee (Kayan Yazi) */}
-      <MarqueeBanner news={news} />
+      <View style={{ position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40, width: '100%', alignItems: 'center', zIndex: 99, gap: 15 }}>
+        {/* Sondakika Marquee (Kayan Yazi) */}
+        <MarqueeBanner news={news} />
 
-      {/* Yakit Tipi Secici */}
-      <View style={styles.fuelSelector}>
-        {['Kursunsuz 95', 'Motorin', 'LPG'].map(fuel => (
-          <TouchableOpacity 
-            key={fuel}
-            style={[styles.fuelButton, selectedFuel === fuel && styles.fuelButtonActive]}
-            onPress={() => setSelectedFuel(fuel)}
-          >
-            <Text style={[styles.fuelButtonText, selectedFuel === fuel && styles.fuelButtonTextActive]}>
-              {fuel === 'Kursunsuz 95' ? 'Benzin' : fuel}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {/* Yakit Tipi Secici */}
+        <View style={styles.fuelSelector}>
+          {['Kursunsuz 95', 'Motorin', 'LPG'].map(fuel => (
+            <TouchableOpacity 
+              key={fuel}
+              style={[styles.fuelButton, selectedFuel === fuel && styles.fuelButtonActive]}
+              onPress={() => handleMapFuelChange(fuel)}
+            >
+              <Text style={[styles.fuelButtonText, selectedFuel === fuel && styles.fuelButtonTextActive]}>
+                {fuel === 'Kursunsuz 95' ? 'Benzin' : fuel}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Garajim FAB */}
+        <TouchableOpacity style={styles.garageFab} onPress={() => setGarageVisible(true)} activeOpacity={0.8}>
+          <Text style={styles.garageFabIcon}>🚗</Text>
+        </TouchableOpacity>
       </View>
 
       <MapView 
@@ -330,54 +540,145 @@ export default function App() {
         showsUserLocation={true}
         showsMyLocationButton={true}
         onPress={() => closeSheet()}
+        onRegionChangeComplete={(region) => {
+          // Kullanıcı haritayı kaydırdığında (sürükleme durunca) o bölgenin merkezine göre 20KM 
+          // alanındaki yeni istasyonları arka planda sessizce ("loading" döndürmeden) getir.
+          fetchStations(region.latitude, region.longitude);
+        }}
+        clusterColor="#FF5A5F" // Kırmızı fullet rengi
+        clusterTextColor="#FFFFFF"
+        radius={50} // Pinler bu mesafeye (piksel) girince kümelenir
+        animationEnabled={true} // Yakınlaştıkça açılsın/gruplaşsın animasyonu
+        spiderLineColor="#FF5A5F"
       >
-        {stations.map((station) => {
-          const priceStr = getPrice(station.fiyatlar, selectedFuel);
-          const hasPrice = priceStr !== '-';
-          const priceNum = parseFloat(priceStr);
-          const isCheapest = (hasPrice && !isNaN(priceNum) && station.id === cheapestStationId);
-          const isMostLogical = (hasPrice && !isNaN(priceNum) && station.id === mostLogicalStationId);
-          
-          let bgColor = '#333';
-          let textColor = '#FFF';
-
-          if (!hasPrice) {
-            bgColor = '#E5E7EB'; 
-            textColor = '#9CA3AF'; 
-          } else {
-            if (isMostLogical) bgColor = '#00B84F'; // Altin yildizli kazanana YESIL!
-            else if (isCheapest) bgColor = '#EF4444'; // Tuzaksa veya sadece ucuzsa KIRMIZI uyarisi
-            else if (station.marka === 'Shell') bgColor = '#FFCC00'; 
-            else if (station.marka === 'Opet') bgColor = '#004797'; 
-            else if (station.marka === 'Petrol Ofisi') bgColor = '#DF1B25'; 
-            else if (station.marka === 'BP') bgColor = '#009900'; 
-            else if (station.marka === 'TotalEnergies') bgColor = '#ED0000'; 
-
-            textColor = (bgColor === '#FFCC00' || bgColor === '#fef9c3') ? '#D6001C' : '#FFF';
-          }
-
-          return (
-            <Marker
-              key={`${station.id}-${selectedFuel}`}
-              coordinate={{
-                latitude: parseFloat(station.enlem),
-                longitude: parseFloat(station.boylam),
-              }}
-              opacity={hasPrice ? 1 : 0.65}
-              onPress={(e) => {
-                e.stopPropagation();
-                openSheet(station);
-              }}
-            >
-              <View style={[styles.customPin, { backgroundColor: bgColor, borderColor: hasPrice ? '#ffffff' : '#D1D5DB' }]}>
-                <Text style={[styles.pinText, { color: textColor }]}>
-                  {hasPrice ? `${priceStr} ₺` : 'Yok'}
-                </Text>
-              </View>
-            </Marker>
-          );
-        })}
+        {renderedMarkers}
       </MapView>
+
+      {/* Empty State Overlay */}
+      {(!loading && stations.length === 0) && (
+        <View style={styles.emptyStateContainer} pointerEvents="none">
+          <View style={styles.emptyStateBox}>
+            <Text style={styles.emptyStateText}>Şu an yakınınızda veri bulunamadı.</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Garajim Modal */}
+      <Modal visible={garageVisible} animationType="slide" transparent={true} onRequestClose={() => setGarageVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.garageSheet}>
+            <View style={styles.garageHeader}>
+              <Text style={styles.garageTitle}>🚗 Garajım</Text>
+              <TouchableOpacity onPress={() => { setPickerMode(null); setGarageVisible(false); }} style={styles.closeBtn}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.garageSubtitle}>Aracınızı seçin, gerisini asistanınıza bırakın.</Text>
+            
+            {pickerMode === 'make' ? (
+              <View style={{ height: 380 }}>
+                <TouchableOpacity onPress={() => { smoothTransition(); setPickerMode(null); }} style={styles.pickerBackBtn}>
+                  <Text style={styles.pickerBackText}>← Vazgeç</Text>
+                </TouchableOpacity>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {Object.keys(carDatabase).map(make => (
+                    <TouchableOpacity key={make} style={styles.pickerItem} onPress={() => selectMake(make)}>
+                      <Text style={styles.pickerItemText}>{make}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : pickerMode === 'model' ? (
+              <View style={{ height: 380 }}>
+                <TouchableOpacity onPress={() => { smoothTransition(); setPickerMode(null); }} style={styles.pickerBackBtn}>
+                  <Text style={styles.pickerBackText}>← Vazgeç</Text>
+                </TouchableOpacity>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {selectedMake && Object.keys(carDatabase[selectedMake]).map(model => (
+                    <TouchableOpacity key={model} style={styles.pickerItem} onPress={() => selectModel(model)}>
+                      <Text style={styles.pickerItemText}>{model}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : (
+              <>
+                <View style={styles.carPickerContainer}>
+                  <TouchableOpacity style={styles.carPickerBox} onPress={() => { smoothTransition(); setPickerMode('make'); }}>
+                    <Text style={styles.carPickerLabel}>MARKANIZ</Text>
+                    <Text style={styles.carPickerValue}>{selectedMake || 'Seçin'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.carPickerBox, !selectedMake && {opacity: 0.5}]} disabled={!selectedMake} onPress={() => { smoothTransition(); setPickerMode('model'); }}>
+                    <Text style={styles.carPickerLabel}>MODELİNİZ</Text>
+                    <Text style={styles.carPickerValue}>{selectedModel || 'Seçin'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.garageSettingsBlock}>
+                  <View style={styles.settingRow}>
+                    <Text style={styles.settingLabel}>Depo Hacmi (L)</Text>
+                    <View style={styles.stepperControl}>
+                      <TouchableOpacity style={styles.stepperBtn} onPress={() => handleTankChange(-1)}>
+                        <Text style={styles.stepperBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.stepperValue}>{tankCapacity}</Text>
+                      <TouchableOpacity style={styles.stepperBtn} onPress={() => handleTankChange(1)}>
+                        <Text style={styles.stepperBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.settingRow}>
+                    <Text style={styles.settingLabel}>Şehir İçi (L/100km)</Text>
+                    <View style={styles.stepperControl}>
+                      <TouchableOpacity style={styles.stepperBtn} onPress={() => handleConsChange(-0.1)}>
+                        <Text style={styles.stepperBtnText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.stepperValue}>{fuelConsumption.toFixed(1)}</Text>
+                      <TouchableOpacity style={styles.stepperBtn} onPress={() => handleConsChange(0.1)}>
+                        <Text style={styles.stepperBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.settingRowCol}>
+                    <Text style={styles.settingLabelCentered}>Yakıt Tipi</Text>
+                    <View style={styles.garageFuelSelector}>
+                      <Animated.View style={{
+                        position: 'absolute',
+                        top: 4, bottom: 4,
+                        width: '32%',
+                        left: garageFuelAnim.interpolate({
+                          inputRange: [0, 1, 2],
+                          outputRange: ['1.5%', '34%', '66.5%']
+                        }),
+                        backgroundColor: '#10b981',
+                        borderRadius: 10,
+                      }} />
+                      {['Kursunsuz 95', 'Motorin', 'LPG'].map(fuel => (
+                        <TouchableOpacity 
+                          key={`g-${fuel}`}
+                          style={styles.garageFuelBtn}
+                          onPress={() => handleGarageFuelChange(fuel)}
+                        >
+                          <Text style={[styles.garageFuelBtnText, selectedFuel === fuel && styles.garageFuelBtnTextActive]}>
+                            {fuel === 'Kursunsuz 95' ? 'Benzin' : fuel}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+                
+                <TouchableOpacity style={styles.saveGarageBtn} onPress={() => setGarageVisible(false)}>
+                  <Text style={styles.saveGarageBtnText}>Güncelle ve Kapat</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Animated Bottom Sheet */}
       {visibleStation && (
@@ -404,11 +705,14 @@ export default function App() {
                 <View>
                   <Text style={styles.bottomBrand}>{visibleStation.marka}</Text>
                   <Text style={styles.bottomName}>{visibleStation.isim}</Text>
-                  {location && visibleStation.enlem && visibleStation.boylam && (
-                    <Text style={styles.distanceText}>
-                      🚘 {(getDistanceKm(location.latitude, location.longitude, visibleStation.enlem, visibleStation.boylam)).toFixed(1)} KM Uzaklıkta
-                    </Text>
-                  )}
+                  <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
+                    <Text style={{fontSize: 10, color: '#6B7280', fontWeight: 'bold', marginRight: 10}}>🕒 {getLastPriceChangeText(visibleStation)}</Text>
+                    {location && visibleStation.enlem && visibleStation.boylam && (
+                      <Text style={styles.distanceText}>
+                        🚘 {(getDistanceKm(location.latitude, location.longitude, visibleStation.enlem, visibleStation.boylam)).toFixed(1)} KM Uzaklıkta
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </View>
               <TouchableOpacity 
@@ -463,7 +767,27 @@ export default function App() {
   );
 }
 
+export default Sentry.wrap(App);
+
 const styles = StyleSheet.create({
+  emptyStateContainer: {
+    position: 'absolute',
+    top: '35%',
+    width: '100%',
+    alignItems: 'center',
+    zIndex: 90,
+  },
+  emptyStateBox: {
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  emptyStateText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -485,14 +809,10 @@ const styles = StyleSheet.create({
     height: Dimensions.get('window').height,
   },
   fuelSelector: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 110 : 85,
-    alignSelf: 'center',
     flexDirection: 'row',
     backgroundColor: 'white',
     borderRadius: 25,
     padding: 4,
-    zIndex: 10,
     elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.15,
@@ -516,8 +836,6 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   customPin: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#ffffff',
@@ -526,10 +844,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 3,
+    width: 90,
+    height: 35,
+    overflow: 'hidden',
   },
   pinText: {
-    fontWeight: '900',
-    fontSize: 13,
+    width: 90,
+    height: 35,
+    lineHeight: 35,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
   },
   bottomSheet: {
     position: 'absolute',
@@ -656,51 +982,201 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 0.5,
   },
-  marqueeContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 65 : 45, 
-    width: '92%',
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 99,
-    elevation: 10,
-    shadowColor: '#dc2626', 
-    shadowOpacity: 0.8,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 15,
-    overflow: 'hidden',
-    height: 34,
-    borderWidth: 1,
-    borderColor: '#991b1b', 
-  },
-  marqueeLabelBox: {
-    backgroundColor: '#dc2626', 
-    paddingHorizontal: 8,
-    height: '100%',
+  garageFab: {
+    backgroundColor: '#111827',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
-    zIndex: 2,
-    borderTopLeftRadius: 7,
-    borderBottomLeftRadius: 7,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#10b981',
+    shadowOpacity: 0.6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#10b981',
   },
-  marqueeLabelText: {
-    color: '#fff',
+  garageFabIcon: {
+    fontSize: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  garageSheet: {
+    backgroundColor: '#111827',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+  },
+  garageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  garageTitle: {
+    fontSize: 24,
     fontWeight: '900',
-    fontSize: 11,
+    color: '#10b981',
     letterSpacing: 0.5,
   },
-  marqueeTrack: {
-    flex: 1,
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-  marqueeText: {
-    color: '#fff',
-    fontWeight: '700',
+  garageSubtitle: {
     fontSize: 13,
-    width: 9999, // Tasmayi garantiye almak icin genis
+    color: '#9ca3af',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  garageSettingsBlock: {
+    backgroundColor: '#1f2937',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 24,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  settingRowCol: {
+    paddingVertical: 16,
+  },
+  settingLabel: {
+    fontSize: 15,
+    color: '#e5e7eb',
+    fontWeight: '700',
+  },
+  settingLabelCentered: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  stepperControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  stepperBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#4b5563',
+  },
+  stepperBtnText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  stepperValue: {
+    width: 65,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#10b981',
+  },
+  garageFuelSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#374151',
+    borderRadius: 14,
+    padding: 4,
+  },
+  garageFuelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  garageFuelBtnActive: {
+    backgroundColor: '#10b981',
+  },
+  garageFuelBtnText: {
+    fontWeight: '800',
+    fontSize: 13,
+    color: '#9ca3af',
+  },
+  garageFuelBtnTextActive: {
+    color: '#111827',
+  },
+  saveGarageBtn: {
+    backgroundColor: '#10b981',
+    paddingVertical: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  saveGarageBtnText: {
+    color: '#111827',
+    fontWeight: '900',
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  carPickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  carPickerBox: {
+    flex: 1,
+    backgroundColor: '#1f2937',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  carPickerLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  carPickerValue: {
+    fontSize: 16,
+    color: '#10b981',
+    fontWeight: '900',
+  },
+  pickerBackBtn: {
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  pickerBackText: {
+    color: '#10b981',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  pickerItem: {
+    backgroundColor: '#1f2937',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  pickerItemText: {
+    color: '#e5e7eb',
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 

@@ -11,7 +11,7 @@ load_dotenv()
 sys.stdout.reconfigure(encoding='utf-8')
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_KEY")
 
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
@@ -59,6 +59,38 @@ def scrape_fuel_news():
         print(f"Haber Cekme Hatasi: {e}")
         return []
 
+def send_push_notifications(message_body):
+    if not supabase: return
+    try:
+        res = supabase.table("push_tokens").select("token").execute()
+        tokens = [row["token"] for row in res.data if row.get("token")]
+        
+        if not tokens:
+            print("\n[-] ZAM TESPIT EDILDI fakat veritabaninda kayitli cihaz (token) yok.")
+            return
+            
+        print(f"\n[🔔] ZAM HABERİ TESPİT EDİLDİ! {len(tokens)} cihaza push atiliyor...")
+        
+        expo_url = "https://exp.host/--/api/v2/push/send"
+        messages = []
+        for t in tokens:
+            messages.append({
+                "to": t,
+                "sound": "default",
+                "title": "⚠️ AKARYAKITTA ZAM ALARMI!",
+                "body": message_body,
+                "data": {"type": "fomo_alert"}
+            })
+            
+        req = requests.post(expo_url, json=messages)
+        if req.status_code == 200:
+            print("[✓] Bildirim (Push) şovu başarıyla fırlatıldı!")
+        else:
+            print(f"[!] Push gönderim hatası: {req.text}")
+            
+    except Exception as e:
+        print(f"Push atilirken hata: {e}")
+
 def save_to_supabase(news_list):
     if not supabase:
         print("\n[!] Supabase baglantisi yok.")
@@ -76,6 +108,12 @@ def save_to_supabase(news_list):
                     "link": news["link"],
                     "kaynak": news["kaynak"]
                 }).execute()
+                
+                # Eger haber basliginda zam kelimesi geciyorsa, bu yeni bir haberdir, FOMO bildirimini at!
+                baslik_lower = news["baslik"].lower()
+                if "zam" in baslik_lower or "artış" in baslik_lower:
+                    send_push_notifications(news["baslik"])
+                    
         print("[✓] Sondakika Haberleri başarıyla veritabanına eklendi!")
         
     except Exception as e:
