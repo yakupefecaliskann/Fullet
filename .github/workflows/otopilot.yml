@@ -1,44 +1,110 @@
-name: Otopilot (Fullet Bot) 🤖
+name: Fullet Data Automation
 
 on:
   schedule:
-    # 3 saatte bir çalıştır (00:00, 03:00, 06:00...)
-    - cron: '0 */3 * * *'
-  # GitHub uzerinden manuel tiklayip test edebilmen icin:
-  workflow_dispatch: 
+    # Price refreshes: 06:20, 12:20, 18:20, 00:20 Turkey time.
+    - cron: "20 3,9,15,21 * * *"
+    # News refreshes: 08:50 and 20:50 Turkey time.
+    - cron: "50 5,17 * * *"
+    # Station inventory refresh: Sunday 04:40 Turkey time.
+    - cron: "40 1 * * 0"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Which bot group should run?"
+        required: true
+        default: "prices"
+        type: choice
+        options:
+          - prices
+          - stations
+          - news
+          - all
+      dry_run:
+        description: "Run without writing to Supabase"
+        required: false
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+
+concurrency:
+  group: fullet-data-automation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
-  scrape-and-notify:
+  scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - name: Kodları İndir (Checkout)
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Python Kurulumu
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          
-      - name: Gerekli Kütüphaneleri Yükle
+          python-version: "3.11"
+
+      - name: Install dependencies
         working-directory: ./scraper
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           playwright install chromium
-          
-      - name: Fiyat ve Haber Botlarını Çalıştır!
+
+      - name: Resolve bot mode
+        id: mode
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ inputs.mode }}"
+            DRY_RUN="${{ inputs.dry_run }}"
+          elif [ "${{ github.event.schedule }}" = "20 3,9,15,21 * * *" ]; then
+            MODE="prices"
+            DRY_RUN="0"
+          elif [ "${{ github.event.schedule }}" = "50 5,17 * * *" ]; then
+            MODE="news"
+            DRY_RUN="0"
+          elif [ "${{ github.event.schedule }}" = "40 1 * * 0" ]; then
+            MODE="stations"
+            DRY_RUN="0"
+          else
+            MODE="prices"
+            DRY_RUN="1"
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
+          echo "Resolved mode=$MODE dry_run=$DRY_RUN"
+
+      - name: Run scraper orchestrator
         working-directory: ./scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: |
-          echo "==== AKARYAKIT BOTLARI BASLIYOR ===="
-          python shell_bot.py || echo "Shell botunda hata, pas gecildi."
-          python opet_bot.py || echo "Opet botunda hata, pas gecildi."
-          python po_bot.py || echo "PO botunda hata, pas gecildi."
-          python aytemiz_bot.py || echo "Aytemiz botunda hata, pas gecildi."
-          python total_bot.py || echo "Total botunda hata, pas gecildi."
-          python bp_bot.py || echo "BP botunda hata, pas gecildi."
-          
-          echo "==== HABER VE BİLDİRİM BOTU BASLIYOR ===="
-          python news_bot.py
+          FULLET_DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+          FULLET_ALLOW_DB_WRITE: ${{ steps.mode.outputs.dry_run == '1' && '0' || '1' }}
+        run: python run_all_bots.py --mode "${{ steps.mode.outputs.mode }}"
+
+      - name: Backend health check
+        if: always() && steps.mode.outputs.mode != 'news'
+        working-directory: ./scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python backend_health_check.py
+
+      - name: Live operations report
+        if: always() && steps.mode.outputs.mode != 'news'
+        working-directory: ./scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python ops_report.py

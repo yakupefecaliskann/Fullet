@@ -1,141 +1,116 @@
 import os
 import sys
-import time
-import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from dotenv import load_dotenv
-from supabase import create_client, Client
+from email.utils import parsedate_to_datetime
 
-load_dotenv()
-sys.stdout.reconfigure(encoding='utf-8')
+import requests
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_KEY")
+from db_utils import clean_text, send_summary_push, supabase
 
-supabase: Client = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    except Exception as e:
-        print(f"Supabase baglanti hatasi: {e}")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except AttributeError:
+    pass
+
+RSS_URL = (
+    "https://news.google.com/rss/search?"
+    "q=akaryak%C4%B1t%20zamm%C4%B1%20OR%20benzin%20indirimi%20OR%20motorin&hl=tr&gl=TR&ceid=TR:tr"
+)
+
 
 def scrape_fuel_news():
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Sondakika Haber Botu Devrede! Google News taranıyor...")
-    
-    # Haberleri dondur
-    scraped_news = []
-    
-    # Benzin ve motorin zammı veya indirimi olan güncel haberlerin RSS bağlantısı
-    rss_url = "https://news.google.com/rss/search?q=akaryak%C4%B1t+zamm%C4%B1+OR+benzin+indirimi+OR+motorin&hl=tr&gl=TR&ceid=TR:tr"
-    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] News bot started.")
+    news_items = []
+
     try:
-        response = requests.get(rss_url, timeout=10)
+        response = requests.get(
+            RSS_URL,
+            headers={"User-Agent": "Mozilla/5.0 (Fullet news monitor)"},
+            timeout=15,
+        )
+        response.raise_for_status()
         root = ET.fromstring(response.content)
-        
         channel = root.find("channel")
-        items = channel.findall("item")
-        
-        print(f"[+] {len(items)} adet haber bulundu. Ayıklanıyor...")
-        
-        for item in items[:10]: # En guncel 10 haberi al
-            title = item.find("title").text
-            link = item.find("link").text
-            pubDate = item.find("pubDate").text
-            source = item.find("source").text if item.find("source") is not None else "Haber"
-            
-            # Formati sadelestir: "Haber Basligi - Kaynak Adi" seklinde gelen title'dan kaynagi cikar
-            clean_title = title.split(" - ")[0]
-            
-            scraped_news.append({
+        if channel is None:
+            return []
+
+        for item in channel.findall("item")[:12]:
+            title = clean_text(item.findtext("title"))
+            link = clean_text(item.findtext("link"))
+            source = clean_text(item.findtext("source")) or "Haber"
+            pub_date = clean_text(item.findtext("pubDate"))
+            if not title or not link:
+                continue
+
+            clean_title = title.split(" - ")[0].strip()
+            parsed_date = None
+            if pub_date:
+                try:
+                    parsed_date = parsedate_to_datetime(pub_date).isoformat()
+                except Exception:
+                    parsed_date = None
+
+            news_items.append({
                 "baslik": clean_title,
                 "link": link,
                 "kaynak": source,
-                "tarih": pubDate
+                "tarih": parsed_date,
             })
-            
-        return scraped_news
-    except Exception as e:
-        print(f"Haber Cekme Hatasi: {e}")
-        return []
+    except Exception as exc:
+        print(f"[WARN] News scrape failed: {exc}")
 
-def send_push_notifications(message_body):
-    if not supabase: return
-    try:
-        res = supabase.table("push_tokens").select("token").execute()
-        tokens = [row["token"] for row in res.data if row.get("token")]
-        
-        if not tokens:
-            print("\n[-] ZAM TESPIT EDILDI fakat veritabaninda kayitli cihaz (token) yok.")
-            return
-            
-        print(f"\n[🔔] ZAM HABERİ TESPİT EDİLDİ! {len(tokens)} cihaza push atiliyor...")
-        
-        expo_url = "https://exp.host/--/api/v2/push/send"
-        messages = []
-        for t in tokens:
-            messages.append({
-                "to": t,
-                "sound": "default",
-                "title": "⚠️ AKARYAKITTA ZAM ALARMI!",
-                "body": message_body,
-                "data": {"type": "fomo_alert"}
-            })
-            
-        req = requests.post(expo_url, json=messages)
-        if req.status_code == 200:
-            print("[✓] Bildirim (Push) şovu başarıyla fırlatıldı!")
-        else:
-            print(f"[!] Push gönderim hatası: {req.text}")
-            
-    except Exception as e:
-        print(f"Push atilirken hata: {e}")
+    return news_items
 
-def save_to_supabase(news_list):
+
+def save_news(news_items):
+    if os.environ.get("FULLET_DRY_RUN", "0") == "1":
+        print(f"[DRY] News items: {len(news_items)}")
+        return 0
+
     if not supabase:
-        print("\n[!] Supabase baglantisi yok.")
-        return
-        
-    print(f"\n[+] {len(news_list)} Haber Supabase'e yazilmaya calisiliyor...")
-    try:
-        # Table exist check? Supabase REST doesn't allow direct DDL. We just try to insert.
-        for news in news_list:
-            # Sadece ayni linke sahip haber yoksa insert et (on_conflict icin PK/Unique gerekebilir, biz basit bir kontrol yapalim)
-            res = supabase.table("haberler").select("id").eq("link", news["link"]).execute()
-            if len(res.data) == 0:
-                supabase.table("haberler").insert({
-                    "baslik": news["baslik"],
-                    "link": news["link"],
-                    "kaynak": news["kaynak"]
-                }).execute()
-                
-                # Eger haber basliginda zam kelimesi geciyorsa, bu yeni bir haberdir, FOMO bildirimini at!
-                baslik_lower = news["baslik"].lower()
-                if "zam" in baslik_lower or "artış" in baslik_lower:
-                    send_push_notifications(news["baslik"])
-                    
-        print("[✓] Sondakika Haberleri başarıyla veritabanına eklendi!")
-        
-    except Exception as e:
-        error_msg = str(e)
-        if "relation \"public.haberler\" does not exist" in error_msg:
-            print("\n[HATA] 'haberler' tablosu Supabase'de bulunamadi!")
-            print("Lutfen once 'database/create_haberler.sql' dosyasindaki kodu Supabase SQL Editor'e yapistirip calistirin.")
-        else:
-            print(f"\n[!] Supabase DB Hatasi: {error_msg}")
+        print("[WARN] Supabase env values are missing. News not written.")
+        return 0
+
+    inserted = 0
+    for news in news_items:
+        try:
+            payload = {
+                "baslik": news["baslik"],
+                "link": news["link"],
+                "kaynak": news["kaynak"],
+            }
+            if news.get("tarih"):
+                payload["tarih"] = news["tarih"]
+            existing = (
+                supabase.table("haberler")
+                .select("id")
+                .eq("link", news["link"])
+                .limit(1)
+                .execute()
+                .data
+            )
+            if existing:
+                response = (
+                    supabase.table("haberler")
+                    .update(payload)
+                    .eq("id", existing[0]["id"])
+                    .execute()
+                )
+            else:
+                response = supabase.table("haberler").insert(payload).execute()
+            if response.data:
+                inserted += len(response.data)
+        except Exception as exc:
+            print(f"[WARN] News write skipped: {exc}")
+
+    if inserted and os.environ.get("FULLET_NEWS_PUSH", "0") == "1":
+        send_summary_push("Akaryakit haberleri guncellendi.", is_zam=True)
+
+    return inserted
+
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("      FULLET FOMO HABER KAZIYICI (Google News RSS)")
-    print("=" * 60)
-    
-    haberler = scrape_fuel_news()
-    
-    if haberler:
-        print("\n--- ÇEKİLEN HABERLER ---")
-        for h in haberler:
-            print(f" 📰 [{h['kaynak']}] {h['baslik']}")
-            
-        save_to_supabase(haberler)
-    else:
-        print("[-] Haber bulunamadi veya cekilemedi.")
+    items = scrape_fuel_news()
+    count = save_news(items)
+    print(f"[OK] News bot finished. Processed: {count}.")

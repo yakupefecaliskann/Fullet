@@ -1,12 +1,15 @@
--- Fullet Aşama 4: Haberler Tablosu (FOMO Etkisi)
-CREATE TABLE haberler (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    baslik VARCHAR(255) NOT NULL,
+-- Haberler tablosu.
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS haberler (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    baslik TEXT NOT NULL,
     link TEXT NOT NULL,
-    kaynak VARCHAR(100) NOT NULL, -- Örn: 'NTV', 'Sözcü'
-    tarih TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    olusturulma_tarihi TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    kaynak TEXT,
+    tarih TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    olusturulma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Haberleri en yeniye göre sıralamak için indeks
-CREATE INDEX haberler_tarih_idx ON haberler(tarih DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS haberler_link_unique_idx ON haberler(link);
+CREATE INDEX IF NOT EXISTS haberler_tarih_idx ON haberler(tarih DESC);

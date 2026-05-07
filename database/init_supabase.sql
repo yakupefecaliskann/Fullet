@@ -1,49 +1,53 @@
--- Fullet Akaryakıt Uygulaması - Supabase İnitialize Dosyası
--- Bu kod Supabase SQL Editörüne yapıştırılarak çalıştırılmalıdır.
+-- Fullet Supabase base schema.
 
--- 1. PostGIS eklentisini aktif et (Konum bazlı aramalar için)
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. İstasyonlar Tablosu
-CREATE TABLE istasyonlar (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    marka VARCHAR(50) NOT NULL, -- Örn: 'Shell', 'Opet'
-    isim VARCHAR(255) NOT NULL,
-    il VARCHAR(100),
-    ilce VARCHAR(100),
+CREATE TABLE IF NOT EXISTS istasyonlar (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    marka TEXT NOT NULL,
+    isim TEXT NOT NULL,
+    il TEXT,
+    ilce TEXT,
     adres TEXT,
-    -- Basit sorgulama icin standart koordinatlar
-    enlem DECIMAL(10, 6),
-    boylam DECIMAL(10, 6),
-    -- PostGIS coğrafi nokta: (Boylam, Enlem)
-    konum GEOGRAPHY(POINT, 4326), 
-    olusturulma_tarihi TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    enlem DOUBLE PRECISION,
+    boylam DOUBLE PRECISION,
+    konum GEOGRAPHY(POINT, 4326),
+    aktif BOOLEAN NOT NULL DEFAULT TRUE,
+    veri_kaynagi TEXT,
+    olusturulma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    guncellenme_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT istasyonlar_lat_lng_valid CHECK (
+        (enlem IS NULL AND boylam IS NULL)
+        OR (enlem BETWEEN 35 AND 43 AND boylam BETWEEN 25 AND 46)
+    )
 );
 
--- Konum bazlı aramayı hızlandırmak için indeks (Haritada gezindikçe hızlı yanıt almak için)
-CREATE INDEX istasyonlar_konum_idx ON istasyonlar USING GIST(konum);
+CREATE INDEX IF NOT EXISTS istasyonlar_konum_idx ON istasyonlar USING GIST(konum);
+CREATE INDEX IF NOT EXISTS istasyonlar_brand_city_idx ON istasyonlar(marka, il, ilce);
 
--- 3. Anlık Fiyatlar Tablosu (Her istasyonun güncel fiyatları)
-CREATE TABLE fiyatlar (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    istasyon_id UUID REFERENCES istasyonlar(id) ON DELETE CASCADE,
-    yakit_tipi VARCHAR(50) NOT NULL, -- 'Kurşunsuz 95', 'Motorin', 'LPG' vb.
-    fiyat DECIMAL(10, 2) NOT NULL,
-    son_guncelleme TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(istasyon_id, yakit_tipi) -- Bir istasyonda bir yakıt tipinin sadece bir güncel fiyatı olur
+CREATE TABLE IF NOT EXISTS fiyatlar (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    istasyon_id UUID NOT NULL REFERENCES istasyonlar(id) ON DELETE CASCADE,
+    yakit_tipi TEXT NOT NULL,
+    fiyat NUMERIC(10, 2) NOT NULL CHECK (fiyat > 0 AND fiyat < 300),
+    son_guncelleme TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    veri_kaynagi TEXT,
+    CONSTRAINT fiyatlar_istasyon_yakit_unique UNIQUE(istasyon_id, yakit_tipi)
 );
 
--- 4. Fiyat Geçmişi Log Tablosu (Zam/İndirim bildirimleri için kritik)
-CREATE TABLE fiyat_gecmisi (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    istasyon_id UUID REFERENCES istasyonlar(id) ON DELETE CASCADE,
-    yakit_tipi VARCHAR(50) NOT NULL,
-    eski_fiyat DECIMAL(10, 2),
-    yeni_fiyat DECIMAL(10, 2) NOT NULL,
-    fiyat_farki DECIMAL(10, 2), -- Pozitifse ZAM, Negatifse İNDİRİM
-    degisim_tarihi TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE INDEX IF NOT EXISTS fiyatlar_istasyon_idx ON fiyatlar(istasyon_id);
+
+CREATE TABLE IF NOT EXISTS fiyat_gecmisi (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    istasyon_id UUID NOT NULL REFERENCES istasyonlar(id) ON DELETE CASCADE,
+    yakit_tipi TEXT NOT NULL,
+    eski_fiyat NUMERIC(10, 2),
+    yeni_fiyat NUMERIC(10, 2) NOT NULL,
+    fiyat_farki NUMERIC(10, 2),
+    degisim_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Hızlı sorgular için indeksler
-CREATE INDEX fiyat_gecmisi_tarih_idx ON fiyat_gecmisi(degisim_tarihi);
-CREATE INDEX fiyat_gecmisi_istasyon_idx ON fiyat_gecmisi(istasyon_id);
+CREATE INDEX IF NOT EXISTS fiyat_gecmisi_istasyon_tarih_idx
+ON fiyat_gecmisi(istasyon_id, degisim_tarihi DESC);
