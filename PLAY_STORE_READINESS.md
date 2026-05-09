@@ -1,14 +1,15 @@
 # Fullet Google Play Hazırlık Notları
 
-Son kontrol tarihi: 2026-05-07
+Son kontrol tarihi: 2026-05-09
 
 ## Teknik Durum
 
 - Paket adı: `com.fullet.app`
 - Minimum SDK: `21`
 - Target SDK: `35`
-- Release APK komutu: `flutter build apk --release`
-- Play için tercih edilen paket: `flutter build appbundle --release`
+- Uygulama sürümü: `1.0.1+2`
+- Release APK komutu: `flutter build apk --release --build-name 1.0.1 --build-number 2`
+- Play için tercih edilen paket: `flutter build appbundle --release --build-name 1.0.1 --build-number 2`
 - Yayın öncesi tam kontrol: `powershell -ExecutionPolicy Bypass -File .\scripts\release_check.ps1 -BuildAab`
 
 ## Yayın Öncesi Kırmızı Çizgiler
@@ -28,6 +29,7 @@ Son kontrol tarihi: 2026-05-07
 - Data safety formu, uygulamanın gerçek veri kullanımına göre doldurulmalı.
 - Privacy policy public, aktif, PDF olmayan, düzenlenemez bir URL'de yayınlanmalı ve uygulama içinden erişilebilir olmalı.
 - Store görselleri gerçek cihaz ekran görüntülerinden seçilmeli.
+- Launcher icon Flutter varsayılan logosu olmamalı; yayın öncesi Fullet markalı ikon hazırlanmalı.
 
 ## Data Safety Taslağı
 

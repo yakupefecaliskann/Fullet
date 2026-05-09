@@ -28,6 +28,14 @@ PRICE_BOTS = [
     "tp_bot.py",
 ]
 
+BOT_TIMEOUTS_SECONDS = {
+    "shell_station_bot.py": 600,
+    "shell_bot.py": 600,
+    "news_bot.py": 90,
+}
+
+DEFAULT_BOT_TIMEOUT_SECONDS = 300
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run Fullet scraper bots.")
@@ -77,11 +85,7 @@ def run_bot(script_name, env_overrides=None, timeout=180):
 
 def _run_bot_group(bots, *, failures, bot_env):
     for bot in bots:
-        timeout = 300
-        if bot == "shell_station_bot.py":
-            timeout = 600
-        elif bot == "shell_bot.py":
-            timeout = 3600
+        timeout = BOT_TIMEOUTS_SECONDS.get(bot, DEFAULT_BOT_TIMEOUT_SECONDS)
 
         try:
             ok = run_bot(bot, env_overrides=bot_env, timeout=timeout)
@@ -94,7 +98,7 @@ def _run_bot_group(bots, *, failures, bot_env):
 
 def _run_news_bot(*, failures):
     try:
-        news_ok = run_bot("news_bot.py", timeout=90)
+        news_ok = run_bot("news_bot.py", timeout=BOT_TIMEOUTS_SECONDS["news_bot.py"])
     except subprocess.TimeoutExpired:
         news_ok = False
         print("[FAIL] news_bot.py timed out.")

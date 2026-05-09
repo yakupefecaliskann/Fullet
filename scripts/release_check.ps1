@@ -9,6 +9,21 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $FlutterDir = Join-Path $Root "fullet_flutter"
 $ScraperDir = Join-Path $Root "scraper"
+$PubspecPath = Join-Path $FlutterDir "pubspec.yaml"
+
+$PubspecVersionLine = Select-String -Path $PubspecPath -Pattern '^\s*version:\s*([0-9A-Za-z\.\-\+]+)\s*$' | Select-Object -First 1
+if (-not $PubspecVersionLine -or $PubspecVersionLine.Matches.Count -eq 0) {
+    throw "pubspec.yaml version is missing"
+}
+
+$PubspecVersion = $PubspecVersionLine.Matches[0].Groups[1].Value
+$VersionParts = $PubspecVersion.Split("+")
+if ($VersionParts.Count -ne 2 -or -not ($VersionParts[1] -match '^\d+$')) {
+    throw "pubspec.yaml version must use semantic build format, for example 1.0.1+2"
+}
+
+$BuildName = $VersionParts[0]
+$BuildNumber = $VersionParts[1]
 
 function Invoke-Step {
     param(
@@ -69,14 +84,14 @@ try {
     if ($BuildApk) {
         Invoke-Step "Flutter release APK" {
             Push-Location $FlutterDir
-            try { flutter build apk --release } finally { Pop-Location }
+            try { flutter build apk --release --build-name $BuildName --build-number $BuildNumber } finally { Pop-Location }
         }
     }
 
     if ($BuildAab) {
         Invoke-Step "Flutter release App Bundle" {
             Push-Location $FlutterDir
-            try { flutter build appbundle --release } finally { Pop-Location }
+            try { flutter build appbundle --release --build-name $BuildName --build-number $BuildNumber } finally { Pop-Location }
         }
     }
 
