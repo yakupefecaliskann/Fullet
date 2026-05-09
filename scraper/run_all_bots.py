@@ -26,14 +26,14 @@ PRICE_BOTS = [
     "po_bot.py",
     "bp_bot.py",
     "aytemiz_bot.py",
-    "shell_bot.py",
     "total_bot.py",
     "tp_bot.py",
+    "shell_bot.py",
 ]
 
 BOT_TIMEOUTS_SECONDS = {
     "shell_station_bot.py": 600,
-    "shell_bot.py": 600,
+    "shell_bot.py": 180,
     "news_bot.py": 90,
 }
 
