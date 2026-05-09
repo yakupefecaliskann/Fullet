@@ -5,6 +5,12 @@
 -- is exposed through the Data API. This enables RLS without adding public
 -- policies, so anon/authenticated clients cannot read it directly.
 --
+-- Important: on some Supabase projects this table is owned by the PostGIS
+-- extension owner, not by the SQL Editor role. In that case this script fails
+-- with "must be owner of table spatial_ref_sys". That is expected and should not
+-- be worked around with DROP EXTENSION on a live app, because PostGIS backs the
+-- station location column and nearby-station RPCs.
+--
 -- After running this, click "Rerun linter" in Supabase Security Advisor.
 
 ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;
