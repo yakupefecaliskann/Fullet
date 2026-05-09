@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/user_preferences_provider.dart';
 import 'screens/map_screen.dart';
+import 'services/app_heartbeat_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,7 @@ Future<void> main() async {
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
+  AppHeartbeatService.start();
 
   runApp(
     MultiProvider(

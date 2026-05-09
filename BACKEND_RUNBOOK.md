@@ -102,3 +102,36 @@ python scraper\run_all_bots.py --mode all
 Fullet canlıya sahte fiyat veya tahmini istasyon basmaz. Fiyatlar resmi
 kaynaklardan, koordinatlar resmi istasyon envanteri/locator kaynaklarından
 gelmelidir.
+
+## 8. Admin Panel ve Observability
+
+Admin panel için önce Supabase SQL Editor içinde çalıştır:
+
+```text
+database/admin_observability.sql
+```
+
+Ardından kendi giriş e-postanı admin listesine ekle:
+
+```sql
+INSERT INTO public.admin_emails (email)
+VALUES ('senin-emailin@example.com')
+ON CONFLICT DO NOTHING;
+```
+
+Panel klasörü:
+
+```text
+admin_panel
+```
+
+Lokal çalışma:
+
+```powershell
+cd admin_panel
+npm install
+npm run dev
+```
+
+Bot çalışmaları `bot_runs`, açık sorunlar `system_alerts`, anonim cihaz
+heartbeat kayıtları `app_heartbeats` tablosundan takip edilir.

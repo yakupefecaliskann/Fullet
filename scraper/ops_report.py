@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 from db_utils import (
     OFFICIAL_REGIONAL_SOURCES,
     OFFICIAL_STATION_SOURCES,
+    create_system_alert,
     normalize_brand,
+    resolve_system_alerts,
     supabase,
 )
 
@@ -201,8 +203,16 @@ def main() -> int:
         print("\nWarnings")
         for warning in warnings:
             print(f"[WARN] {warning}")
+            create_system_alert(
+                severity="warning",
+                source="ops_report",
+                title=warning.split(":", 1)[0],
+                message=warning,
+                metadata={"report": "live_data"},
+            )
         return 1
 
+    resolve_system_alerts(source="ops_report")
     print("\n[OK] Live data operations report is clean.")
     return 0
 

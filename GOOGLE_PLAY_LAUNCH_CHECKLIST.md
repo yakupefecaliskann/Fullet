@@ -68,6 +68,7 @@ Son denetim: 2026-05-09
 - Lokal Flutter SDK `3.16.5`; güncel paketlere çıkmak için Flutter SDK yükseltme planı yapılmalı.
 - `flutter pub outdated` çıktısında güncel majör sürümü olan paketler var: `google_maps_flutter`, `geolocator`, `supabase_flutter`, `shared_preferences`.
 - Bu yükseltme tester APK'yi engellemiyor ama uzun vadeli kalite hedefi için ayrı bir modernizasyon sprinti olmalı.
+- Admin panel altyapısı repo içinde hazırdır. Canlı panel için `database/admin_observability.sql` çalıştırılmalı, admin e-postası eklenmeli ve `admin_panel` ücretsiz bir statik host üzerinde yayınlanmalıdır.
 
 ## Yayın Öncesi Komut
 

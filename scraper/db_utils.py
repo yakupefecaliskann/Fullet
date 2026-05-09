@@ -163,6 +163,120 @@ except Exception as exc:
     supabase = None
 
 
+def _compact_log(value: Any, limit: int = 4000) -> str:
+    text = clean_text(value)
+    if len(text) <= limit:
+        return text
+    return text[:limit - 3] + "..."
+
+
+def _observability_table_missing(exc: Exception) -> bool:
+    text = str(exc)
+    return (
+        "system_alerts" in text
+        or "bot_runs" in text
+        or "Could not find the table" in text
+        or "relation" in text and "does not exist" in text
+        or "PGRST205" in text
+    )
+
+
+def record_bot_run(
+    *,
+    bot_name: str,
+    mode: str | None,
+    status: str,
+    started_at: datetime,
+    finished_at: datetime | None,
+    duration_seconds: float | None = None,
+    exit_code: int | None = None,
+    summary: str | None = None,
+    stdout: str | None = None,
+    stderr: str | None = None,
+) -> None:
+    if not supabase:
+        return
+    try:
+        supabase.table("bot_runs").insert({
+            "bot_name": clean_text(bot_name),
+            "mode": clean_text(mode),
+            "status": status,
+            "started_at": started_at.astimezone(timezone.utc).isoformat(),
+            "finished_at": finished_at.astimezone(timezone.utc).isoformat() if finished_at else None,
+            "duration_seconds": round(duration_seconds, 2) if duration_seconds is not None else None,
+            "exit_code": exit_code,
+            "summary": _compact_log(summary or "", 500),
+            "stdout_excerpt": _compact_log(stdout or ""),
+            "stderr_excerpt": _compact_log(stderr or ""),
+        }).execute()
+    except Exception as exc:
+        if not _observability_table_missing(exc):
+            print(f"[WARN] Bot run telemetry skipped: {exc}")
+
+
+def create_system_alert(
+    *,
+    severity: str,
+    source: str,
+    title: str,
+    message: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    if not supabase:
+        return
+    severity = severity if severity in {"info", "warning", "error", "critical"} else "warning"
+    source = clean_text(source)[:120]
+    title = clean_text(title)[:160]
+    payload = {
+        "severity": severity,
+        "source": source,
+        "title": title,
+        "message": _compact_log(message, 2000),
+        "status": "open",
+        "metadata": metadata or {},
+    }
+    try:
+        existing = (
+            supabase.table("system_alerts")
+            .select("id")
+            .eq("source", source)
+            .eq("title", title)
+            .eq("status", "open")
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if existing:
+            supabase.table("system_alerts").update(payload).eq("id", existing[0]["id"]).execute()
+        else:
+            supabase.table("system_alerts").insert(payload).execute()
+    except Exception as exc:
+        if not _observability_table_missing(exc):
+            print(f"[WARN] System alert skipped: {exc}")
+
+
+def resolve_system_alerts(*, source: str, title: str | None = None) -> None:
+    if not supabase:
+        return
+    try:
+        query = (
+            supabase.table("system_alerts")
+            .update({
+                "status": "resolved",
+                "resolved_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("source", clean_text(source)[:120])
+            .eq("status", "open")
+        )
+        if title:
+            query = query.eq("title", clean_text(title)[:160])
+        query.execute()
+    except Exception as exc:
+        if not _observability_table_missing(exc):
+            print(f"[WARN] System alert resolve skipped: {exc}")
+
+
 def is_dry_run() -> bool:
     return os.environ.get("FULLET_DRY_RUN", "0") == "1"
 
