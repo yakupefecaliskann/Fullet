@@ -16,6 +16,7 @@ import { hasSupabaseConfig, supabase } from './supabaseClient.js';
 const PRICE_STALE_HOURS = 48;
 const NEWS_STALE_HOURS = 48;
 const ACTIVE_NOW_MINUTES = 15;
+const PAGE_SIZE = 1000;
 const BRANDS = ['Shell', 'TotalEnergies', 'Türkiye Petrolleri', 'Opet', 'Petrol Ofisi', 'BP', 'Aytemiz'];
 
 function ageHours(value) {
@@ -36,6 +37,28 @@ function ageLabel(value) {
 function isAfter(value, cutoffMs) {
   const time = new Date(value || 0).getTime();
   return !Number.isNaN(time) && time >= cutoffMs;
+}
+
+function clearAuthErrorHash() {
+  if (!window.location.hash.includes('error=')) return;
+  const cleanUrl = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+  window.history.replaceState({}, document.title, cleanUrl);
+}
+
+async function fetchAllRows(createQuery, pageSize = PAGE_SIZE) {
+  const rows = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const result = await createQuery().range(from, to);
+    if (result.error) return { data: rows, error: result.error };
+
+    const page = result.data || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return { data: rows, error: null };
 }
 
 function normalizeStationRows(rows) {
@@ -75,6 +98,22 @@ function statusTone({ openAlerts, staleBrands, latestNews }) {
   return 'good';
 }
 
+function latestRunsByBot(runs) {
+  const seen = new Set();
+  return runs.filter((run) => {
+    const key = `${run.bot_name}:${run.run_mode || '-'}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function runTone(status) {
+  if (status === 'success') return 'good';
+  if (status === 'timeout' || status === 'skipped') return 'warn';
+  return 'bad';
+}
+
 function App() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
@@ -100,11 +139,13 @@ function App() {
 
     supabase.auth.getSession().then(({ data: authData }) => {
       setSession(authData.session || null);
+      if (authData.session) clearAuthErrorHash();
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      if (nextSession) clearAuthErrorHash();
     });
 
     return () => listener.subscription.unsubscribe();
@@ -207,18 +248,19 @@ function App() {
         {
           key: 'stations',
           label: 'İstasyonlar',
-          query: supabase
-          .from('istasyonlar')
-          .select('id, marka, il, aktif')
-          .limit(6000),
+          query: fetchAllRows(() => supabase
+            .from('istasyonlar')
+            .select('id, marka, il, aktif')
+            .order('marka', { ascending: true })
+            .order('id', { ascending: true })),
         },
         {
           key: 'prices',
           label: 'Fiyatlar',
-          query: supabase
-          .from('fiyatlar')
-          .select('istasyon_id, yakit_tipi, son_guncelleme')
-          .limit(12000),
+          query: fetchAllRows(() => supabase
+            .from('fiyatlar')
+            .select('istasyon_id, yakit_tipi, son_guncelleme')
+            .order('id', { ascending: true })),
         },
       ];
 
@@ -280,6 +322,7 @@ function App() {
       openAlerts,
       latestNews,
       staleBrands,
+      latestBotRuns: latestRunsByBot(data.botRuns),
       tone: statusTone({ openAlerts, staleBrands, latestNews }),
     };
   }, [data]);
@@ -394,18 +437,18 @@ function App() {
           </table>
         </Panel>
 
-        <Panel title="Son Bot Çalışmaları">
+        <Panel title="Son Bot Durumu">
           <div className="run-list">
-            {data.botRuns.slice(0, 12).map((run) => (
+            {metrics.latestBotRuns.slice(0, 12).map((run) => (
               <div className="run-row" key={run.id}>
                 <div>
                   <strong>{run.bot_name}</strong>
                   <span>{run.run_mode || '-'} · {ageLabel(run.finished_at || run.started_at)}</span>
                 </div>
-                <Badge tone={run.status === 'success' ? 'good' : 'bad'}>{run.status}</Badge>
+                <Badge tone={runTone(run.status)}>{run.status}</Badge>
               </div>
             ))}
-            {data.botRuns.length === 0 && <p className="muted">Henüz bot logu yok.</p>}
+            {metrics.latestBotRuns.length === 0 && <p className="muted">Henüz bot logu yok.</p>}
           </div>
         </Panel>
 
