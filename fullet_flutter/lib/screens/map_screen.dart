@@ -37,6 +37,9 @@ class _MapScreenState extends State<MapScreen> {
     'Türkiye Petrolleri',
     'Aytemiz',
   ];
+  static const double _drivingFetchRadiusMeters = 30000;
+  static const double _drivingFetchMoveMeters = 1200;
+  static const Duration _drivingFetchInterval = Duration(seconds: 45);
 
   GoogleMapController? _mapController;
   LatLng _currentLocation =
@@ -58,11 +61,17 @@ class _MapScreenState extends State<MapScreen> {
 
   Timer? _fetchDebouncer;
   Timer? _markerDebouncer;
+  StreamSubscription<Position>? _drivingPositionSubscription;
   int _stationFetchSerial = 0;
   int _markerBuildSerial = 0;
   int? _renderedZoomBucket;
   LatLng? _lastFetchCenter;
   double? _lastFetchRadiusMeters;
+  bool _drivingModeEnabled = false;
+  bool _isStartingDrivingMode = false;
+  String? _drivingError;
+  LatLng? _lastDrivingFetchLocation;
+  DateTime? _lastDrivingFetchAt;
 
   @override
   void initState() {
@@ -86,26 +95,11 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _getLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _setDefaultLocation(_LocationState.serviceOff);
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+    final permissionGranted = await _ensureLocationPermission();
+    if (!permissionGranted) {
+      if (_locationState == _LocationState.checking) {
         _setDefaultLocation(_LocationState.denied);
-        return;
       }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      _setDefaultLocation(_LocationState.denied);
       return;
     }
 
@@ -113,14 +107,14 @@ class _MapScreenState extends State<MapScreen> {
       final position = await Geolocator.getCurrentPosition(
               desiredAccuracy: LocationAccuracy.high)
           .timeout(const Duration(seconds: 5));
+      final location = _locationFromPosition(position);
       if (!mounted) return;
       setState(() {
-        // Emülatörler genelde Amerika konumu döndürür. Türkiye sınırları dışındaysa İstanbul'u zorla:
-        if (position.longitude < 25 || position.longitude > 45) {
+        if (location == null) {
           _currentLocation = const LatLng(41.0082, 28.9784);
           _locationState = _LocationState.fallback;
         } else {
-          _currentLocation = LatLng(position.latitude, position.longitude);
+          _currentLocation = location;
           _locationState = _LocationState.precise;
         }
       });
@@ -130,6 +124,40 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       _setDefaultLocation(_LocationState.fallback);
     }
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _setDefaultLocation(_LocationState.serviceOff);
+      return false;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _setDefaultLocation(_LocationState.denied);
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _setDefaultLocation(_LocationState.denied);
+      return false;
+    }
+
+    return true;
+  }
+
+  LatLng? _locationFromPosition(Position position) {
+    if (position.latitude < 35 ||
+        position.latitude > 43 ||
+        position.longitude < 25 ||
+        position.longitude > 46) {
+      return null;
+    }
+    return LatLng(position.latitude, position.longitude);
   }
 
   void _setDefaultLocation(_LocationState state) {
@@ -181,13 +209,19 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   List<Station> _filteredStations({required String fuelType}) {
-    return _stations.where((station) {
+    return _stationsWithFuel(fuelType).where((station) {
       if (_selectedBrands.isNotEmpty &&
           !_selectedBrands.contains(station.brand)) {
         return false;
       }
-      return station.priceValueFor(fuelType) != null;
+      return true;
     }).toList(growable: false);
+  }
+
+  List<Station> _stationsWithFuel(String fuelType) {
+    return _stations
+        .where((station) => station.priceValueFor(fuelType) != null)
+        .toList(growable: false);
   }
 
   String? _nearestStationIdFor(List<Station> stations) {
@@ -205,6 +239,203 @@ class _MapScreenState extends State<MapScreen> {
       nearestId = station.id;
     }
     return nearestId;
+  }
+
+  Station? _nearestStationFor(List<Station> stations) {
+    Station? nearest;
+    double bestDistance = double.infinity;
+    for (final station in stations) {
+      final distance = getDistanceKm(
+        _currentLocation.latitude,
+        _currentLocation.longitude,
+        station.latitude,
+        station.longitude,
+      );
+      if (distance == null || distance >= bestDistance) continue;
+      bestDistance = distance;
+      nearest = station;
+    }
+    return nearest;
+  }
+
+  Station? _drivingTargetStation(String fuelType) {
+    return _nearestStationFor(_stationsWithFuel(fuelType));
+  }
+
+  double? _distanceToStation(Station? station) {
+    if (station == null) return null;
+    return getDistanceKm(
+      _currentLocation.latitude,
+      _currentLocation.longitude,
+      station.latitude,
+      station.longitude,
+    );
+  }
+
+  Future<void> _toggleDrivingMode() async {
+    if (_drivingModeEnabled) {
+      _stopDrivingMode();
+      return;
+    }
+    await _startDrivingMode();
+  }
+
+  Future<void> _startDrivingMode() async {
+    if (_isStartingDrivingMode) return;
+    setState(() {
+      _isStartingDrivingMode = true;
+      _drivingError = null;
+    });
+
+    final permissionGranted = await _ensureLocationPermission();
+    if (!mounted) return;
+    if (!permissionGranted) {
+      setState(() {
+        _isStartingDrivingMode = false;
+        _drivingError = 'Konum izni olmadan sürüş takibi açılamaz.';
+      });
+      return;
+    }
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 6));
+      final location = _locationFromPosition(position);
+      if (!mounted) return;
+      if (location == null) {
+        setState(() {
+          _isStartingDrivingMode = false;
+          _drivingError = 'Geçerli Türkiye konumu alınamadı.';
+        });
+        return;
+      }
+
+      setState(() {
+        _currentLocation = location;
+        _locationState = _LocationState.precise;
+        _drivingModeEnabled = true;
+        _isStartingDrivingMode = false;
+        _lastDrivingFetchLocation = location;
+        _lastDrivingFetchAt = DateTime.now();
+      });
+      _updateCalculationsAndMarkers(forceMarkerRefresh: true);
+      unawaited(_fetchStationsForRegion(
+        location,
+        maxDistMeters: _drivingFetchRadiusMeters,
+        maxResults: 300,
+      ));
+      _followDrivingCamera(location);
+      _listenToDrivingPosition();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isStartingDrivingMode = false;
+        _drivingError = 'Canlı konum başlatılamadı.';
+      });
+    }
+  }
+
+  void _listenToDrivingPosition() {
+    _drivingPositionSubscription?.cancel();
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 100,
+    );
+    _drivingPositionSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      _handleDrivingPosition,
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _drivingError = 'Canlı konum geçici olarak alınamıyor.';
+        });
+      },
+    );
+  }
+
+  void _handleDrivingPosition(Position position) {
+    final location = _locationFromPosition(position);
+    if (location == null || !mounted) return;
+    setState(() {
+      _currentLocation = location;
+      _locationState = _LocationState.precise;
+      _drivingError = null;
+    });
+    _updateCalculationsAndMarkers(forceMarkerRefresh: true);
+    _followDrivingCamera(location);
+    _refreshDrivingRegionIfNeeded(location);
+  }
+
+  void _followDrivingCamera(LatLng location) {
+    final zoom = _currentZoom < 14 ? 14.0 : _currentZoom;
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: location, zoom: zoom),
+      ),
+    );
+  }
+
+  void _refreshDrivingRegionIfNeeded(LatLng location) {
+    final lastLocation = _lastDrivingFetchLocation;
+    final lastFetchAt = _lastDrivingFetchAt;
+    final now = DateTime.now();
+    if (lastLocation != null && lastFetchAt != null) {
+      final movedKm = getDistanceKm(
+        lastLocation.latitude,
+        lastLocation.longitude,
+        location.latitude,
+        location.longitude,
+      );
+      final movedMeters = (movedKm ?? 0) * 1000;
+      final tooSoon = now.difference(lastFetchAt) < _drivingFetchInterval;
+      if (movedMeters < _drivingFetchMoveMeters || tooSoon) return;
+    }
+
+    _lastDrivingFetchLocation = location;
+    _lastDrivingFetchAt = now;
+    unawaited(_fetchStationsForRegion(
+      location,
+      maxDistMeters: _drivingFetchRadiusMeters,
+      maxResults: 300,
+    ));
+  }
+
+  void _stopDrivingMode() {
+    _drivingPositionSubscription?.cancel();
+    _drivingPositionSubscription = null;
+    if (!mounted) return;
+    setState(() {
+      _drivingModeEnabled = false;
+      _isStartingDrivingMode = false;
+      _drivingError = null;
+      _lastDrivingFetchLocation = null;
+      _lastDrivingFetchAt = null;
+    });
+  }
+
+  Future<void> _openDirectionsToStation(Station station) async {
+    final latitude = station.latitude;
+    final longitude = station.longitude;
+    if (latitude == null || longitude == null) return;
+
+    final uri = Uri.parse('google.navigation:q=$latitude,$longitude&mode=d');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+      final webUri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude',
+      );
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yol tarifi açılamadı.')),
+      );
+    }
   }
 
   void _scheduleMarkerRefresh({
@@ -508,6 +739,7 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _fetchDebouncer?.cancel();
     _markerDebouncer?.cancel();
+    _drivingPositionSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
@@ -580,6 +812,48 @@ class _MapScreenState extends State<MapScreen> {
             color: Colors.white,
             size: 23,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrivingButton() {
+    final isActive = _drivingModeEnabled;
+    return GestureDetector(
+      onTap: _toggleDrivingMode,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF10B981) : Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isActive ? const Color(0xFF047857) : const Color(0xFFE5E7EB),
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.14),
+              offset: const Offset(0, 5),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Center(
+          child: _isStartingDrivingMode
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: isActive ? Colors.white : const Color(0xFF10B981),
+                  ),
+                )
+              : Icon(
+                  Icons.navigation_rounded,
+                  color: isActive ? Colors.white : const Color(0xFF111827),
+                  size: 24,
+                ),
         ),
       ),
     );
@@ -699,6 +973,7 @@ class _MapScreenState extends State<MapScreen> {
 
   String? get _statusMessage {
     if (_stationLoadError != null) return _stationLoadError;
+    if (_drivingError != null) return _drivingError;
     switch (_locationState) {
       case _LocationState.serviceOff:
         return 'Konum kapalı, İstanbul çevresi gösteriliyor.';
@@ -715,7 +990,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildStatusBanner() {
     final message = _statusMessage;
     if (message == null) return const SizedBox.shrink();
-    final isError = _stationLoadError != null;
+    final isError = _stationLoadError != null || _drivingError != null;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 22),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -757,7 +1032,9 @@ class _MapScreenState extends State<MapScreen> {
           if (isError) ...[
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: _retryStationFetch,
+              onTap: _drivingError != null
+                  ? _startDrivingMode
+                  : _retryStationFetch,
               child: const Text(
                 'Tekrar dene',
                 style: TextStyle(
@@ -769,6 +1046,122 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildDrivingBanner(UserPreferencesProvider prefs) {
+    if (!_drivingModeEnabled) return const SizedBox.shrink();
+    final station = _drivingTargetStation(prefs.selectedFuel);
+    final distance = _distanceToStation(station);
+    final priceText = station?.priceTextFor(prefs.selectedFuel);
+    final stationLine = station == null
+        ? (_isFetchingStations
+            ? 'Yakındaki istasyonlar güncelleniyor'
+            : 'Seçili yakıt için yakın istasyon aranıyor')
+        : '${station.brand} • ${distance?.toStringAsFixed(1) ?? '-'} km • ${priceText ?? '-'} TL';
+
+    return GestureDetector(
+      onTap:
+          station == null ? null : () => _selectStation(station, animate: true),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827).withOpacity(0.96),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFF10B981), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.20),
+              offset: const Offset(0, 8),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(
+                color: Color(0xFF10B981),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.navigation_rounded,
+                color: Colors.white,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Sürüş takibi açık',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    stationLine,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFD1FAE5),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (station != null) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _openDirectionsToStation(station),
+                child: Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'Git',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: _stopDrivingMode,
+              child: const SizedBox(
+                width: 30,
+                height: 34,
+                child: Icon(
+                  Icons.close_rounded,
+                  color: Color(0xFFD1D5DB),
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1137,6 +1530,10 @@ class _MapScreenState extends State<MapScreen> {
                   const SizedBox(height: 10),
                   _buildStatusBanner(),
                 ],
+                if (_drivingModeEnabled) ...[
+                  const SizedBox(height: 10),
+                  _buildDrivingBanner(prefs),
+                ],
                 if (_isFetchingStations) ...[
                   const SizedBox(height: 8),
                   Container(
@@ -1166,6 +1563,8 @@ class _MapScreenState extends State<MapScreen> {
                 _buildSearchButton(),
                 const SizedBox(height: 12),
                 _buildMapControlsButton(),
+                const SizedBox(height: 12),
+                _buildDrivingButton(),
                 const SizedBox(height: 12),
                 _buildGarageButton(),
               ],
