@@ -13,6 +13,8 @@ ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 ALTER TABLE public.admin_emails ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT ON public.admin_emails TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.is_fullet_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -55,6 +57,8 @@ ALTER TABLE public.app_heartbeats
 ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 ALTER TABLE public.app_heartbeats ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT ON public.app_heartbeats TO authenticated;
 
 DROP POLICY IF EXISTS "admins read app heartbeats" ON public.app_heartbeats;
 CREATE POLICY "admins read app heartbeats"
@@ -145,6 +149,8 @@ CREATE INDEX IF NOT EXISTS bot_runs_bot_name_idx ON public.bot_runs (bot_name, c
 
 ALTER TABLE public.bot_runs ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT ON public.bot_runs TO authenticated;
+
 DROP POLICY IF EXISTS "admins read bot runs" ON public.bot_runs;
 CREATE POLICY "admins read bot runs"
 ON public.bot_runs
@@ -202,6 +208,8 @@ ON public.system_alerts (source, title)
 WHERE status = 'open';
 
 ALTER TABLE public.system_alerts ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT ON public.system_alerts TO authenticated;
 
 DROP POLICY IF EXISTS "admins read system alerts" ON public.system_alerts;
 CREATE POLICY "admins read system alerts"

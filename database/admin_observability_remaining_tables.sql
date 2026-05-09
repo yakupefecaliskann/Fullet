@@ -45,6 +45,8 @@ CREATE INDEX IF NOT EXISTS bot_runs_bot_name_idx ON public.bot_runs (bot_name, c
 
 ALTER TABLE public.bot_runs ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT ON public.bot_runs TO authenticated;
+
 DROP POLICY IF EXISTS "admins read bot runs" ON public.bot_runs;
 CREATE POLICY "admins read bot runs"
 ON public.bot_runs
@@ -83,6 +85,8 @@ ON public.system_alerts (source, title)
 WHERE status = 'open';
 
 ALTER TABLE public.system_alerts ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT ON public.system_alerts TO authenticated;
 
 DROP POLICY IF EXISTS "admins read system alerts" ON public.system_alerts;
 CREATE POLICY "admins read system alerts"
