@@ -199,7 +199,7 @@ def record_bot_run(
     try:
         supabase.table("bot_runs").insert({
             "bot_name": clean_text(bot_name),
-            "mode": clean_text(mode),
+            "run_mode": clean_text(mode),
             "status": status,
             "started_at": started_at.astimezone(timezone.utc).isoformat(),
             "finished_at": finished_at.astimezone(timezone.utc).isoformat() if finished_at else None,

@@ -97,7 +97,7 @@ GRANT EXECUTE ON FUNCTION public.record_app_heartbeat(UUID, TEXT, TEXT) TO anon,
 CREATE TABLE IF NOT EXISTS public.bot_runs (
   id BIGSERIAL PRIMARY KEY,
   bot_name TEXT NOT NULL,
-  mode TEXT,
+  run_mode TEXT,
   status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'timeout', 'skipped')),
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   finished_at TIMESTAMPTZ,

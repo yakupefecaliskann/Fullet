@@ -180,7 +180,7 @@ function App() {
           .limit(5000),
         supabase
           .from('bot_runs')
-          .select('id, bot_name, mode, status, started_at, finished_at, duration_seconds, exit_code, summary')
+          .select('id, bot_name, run_mode, status, started_at, finished_at, duration_seconds, exit_code, summary')
           .order('created_at', { ascending: false })
           .limit(60),
         supabase
@@ -369,7 +369,7 @@ function App() {
               <div className="run-row" key={run.id}>
                 <div>
                   <strong>{run.bot_name}</strong>
-                  <span>{run.mode || '-'} · {ageLabel(run.finished_at || run.started_at)}</span>
+                  <span>{run.run_mode || '-'} · {ageLabel(run.finished_at || run.started_at)}</span>
                 </div>
                 <Badge tone={run.status === 'success' ? 'good' : 'bad'}>{run.status}</Badge>
               </div>
