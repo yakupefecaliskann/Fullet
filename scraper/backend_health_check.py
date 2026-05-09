@@ -4,6 +4,7 @@ import os
 import sys
 import base64
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -20,6 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATION_PATH = ROOT / "database" / "production_hardening.sql"
 RLS_PATH = ROOT / "database" / "rls_policies.sql"
 LIVE_FIX_PATH = ROOT / "database" / "live_public_schema_fix.sql"
+NEWS_STALE_WARN_HOURS = 24
+NEWS_STALE_FAIL_HOURS = 48
 load_dotenv(ROOT / "scraper" / ".env")
 load_dotenv(ROOT / "fullet_flutter" / ".env")
 
@@ -64,6 +67,18 @@ def _jwt_role(token: str | None) -> str | None:
 def _count(client, table: str) -> int:
     response = client.table(table).select("id", count="exact").limit(1).execute()
     return int(response.count or 0)
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _select_all(client, table: str, select: str, page_size: int = 1000):
@@ -117,6 +132,35 @@ def main() -> int:
         except Exception as exc:
             _fail(f"{table} service read", str(exc))
             failed = True
+
+    try:
+        latest_news = (
+            service.table("haberler")
+            .select("baslik,kaynak,tarih")
+            .order("tarih", desc=True)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        latest = latest_news[0] if latest_news else None
+        latest_at = _parse_datetime(latest.get("tarih") if latest else None)
+        if latest_at is None:
+            _fail("news freshness", "latest haberler.tarih is missing or invalid")
+            failed = True
+        else:
+            age_hours = (datetime.now(timezone.utc) - latest_at).total_seconds() / 3600
+            detail = f"{age_hours:.1f}h old; {latest.get('kaynak')}: {latest.get('baslik')}"
+            if age_hours > NEWS_STALE_FAIL_HOURS:
+                _fail("news freshness", detail)
+                failed = True
+            elif age_hours > NEWS_STALE_WARN_HOURS:
+                _warn("news freshness", detail)
+            else:
+                _ok("news freshness", detail)
+    except Exception as exc:
+        _fail("news freshness", str(exc))
+        failed = True
 
     schema_checks = {
         "istasyonlar": "id,aktif,veri_kaynagi,guncellenme_tarihi",

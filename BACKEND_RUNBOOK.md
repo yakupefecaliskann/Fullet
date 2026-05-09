@@ -76,6 +76,18 @@ GitHub Actions dosyası: `.github/workflows/otopilot.yml`
 - İstasyon envanteri: haftada 1 kez, pazar yaklaşık `04:40`.
 - Manuel çalıştırma: GitHub Actions > Fullet Data Automation > Run workflow.
 
+GitHub Actions secrets:
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_ANON_KEY
+```
+
+`SUPABASE_KEY` eski uyumluluk için fallback olarak kullanılabilir. Bu değer
+service-role key ise botlar yazabilir; anon key ise canlı yazma doğrulaması
+fail eder. RLS health check için `SUPABASE_ANON_KEY` ayrıca eklenmelidir.
+
 Manuel modlar:
 
 ```powershell

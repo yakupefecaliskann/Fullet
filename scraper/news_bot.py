@@ -6,7 +6,7 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from db_utils import clean_text, send_summary_push, supabase
+from db_utils import clean_text, is_write_allowed, send_summary_push, supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -68,11 +68,21 @@ def save_news(news_items):
         print(f"[DRY] News items: {len(news_items)}")
         return 0
 
-    if not supabase:
-        print("[WARN] Supabase env values are missing. News not written.")
+    if not news_items:
+        print("[FAIL] News source returned no items.")
+        return -1
+
+    if not is_write_allowed():
+        print("[SAFE] DB write blocked. Set FULLET_ALLOW_DB_WRITE=1 to write live news.")
+        print(f"[SAFE] Pending news items: {len(news_items)}")
         return 0
 
+    if not supabase:
+        print("[FAIL] Supabase env values are missing. News not written.")
+        return -1
+
     inserted = 0
+    write_errors = 0
     for news in news_items:
         try:
             payload = {
@@ -102,7 +112,12 @@ def save_news(news_items):
             if response.data:
                 inserted += len(response.data)
         except Exception as exc:
+            write_errors += 1
             print(f"[WARN] News write skipped: {exc}")
+
+    if write_errors == len(news_items):
+        print("[FAIL] All news writes failed.")
+        return -1
 
     if inserted and os.environ.get("FULLET_NEWS_PUSH", "0") == "1":
         send_summary_push("Akaryakit haberleri guncellendi.", is_zam=True)
@@ -113,4 +128,6 @@ def save_news(news_items):
 if __name__ == "__main__":
     items = scrape_fuel_news()
     count = save_news(items)
+    if count < 0:
+        raise SystemExit(1)
     print(f"[OK] News bot finished. Processed: {count}.")

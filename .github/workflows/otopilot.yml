@@ -80,31 +80,104 @@ jobs:
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"
           echo "Resolved mode=$MODE dry_run=$DRY_RUN"
 
-      - name: Run scraper orchestrator
-        working-directory: ./scraper
+      - name: Validate Supabase secrets
+        shell: bash
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_KEY:-${SUPABASE_KEY:-}}}"
+          export SERVICE_KEY
+          export ANON_KEY="${SUPABASE_ANON_KEY:-}"
+
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::error::SUPABASE_URL secret is missing."
+            exit 1
+          fi
+
+          if [ "${{ steps.mode.outputs.dry_run }}" != "1" ] && [ -z "$SERVICE_KEY" ]; then
+            echo "::error::A service-role Supabase key is required for live writes. Set SUPABASE_SERVICE_ROLE_KEY, or make SUPABASE_KEY the service_role key."
+            exit 1
+          fi
+
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import sys
+
+          def role(token):
+              if not token or token.count(".") < 2:
+                  return None
+              try:
+                  payload = token.split(".")[1]
+                  payload += "=" * (-len(payload) % 4)
+                  return json.loads(base64.urlsafe_b64decode(payload).decode("utf-8")).get("role")
+              except Exception:
+                  return None
+
+          service_role = role(os.environ.get("SERVICE_KEY"))
+          anon_role = role(os.environ.get("ANON_KEY"))
+          dry_run = "${{ steps.mode.outputs.dry_run }}" == "1"
+
+          if not dry_run and service_role != "service_role":
+              print(f"::error::Live bot writes require a service_role key, got {service_role or 'unknown'}.")
+              sys.exit(1)
+          if os.environ.get("ANON_KEY") and anon_role != "anon":
+              print(f"::error::SUPABASE_ANON_KEY must be the anon key, got {anon_role or 'unknown'}.")
+              sys.exit(1)
+          if not os.environ.get("ANON_KEY"):
+              print("::warning::SUPABASE_ANON_KEY is missing. Bots can write with service_role, but RLS health checks will fail until you add it.")
+          print("Supabase secret validation passed.")
+          PY
+
+      - name: Run scraper orchestrator
+        working-directory: ./scraper
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           FULLET_DRY_RUN: ${{ steps.mode.outputs.dry_run }}
-          FULLET_ALLOW_DB_WRITE: ${{ steps.mode.outputs.dry_run == '1' && '0' || '1' }}
-        run: python run_all_bots.py --mode "${{ steps.mode.outputs.mode }}"
+        run: |
+          SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_KEY:-${SUPABASE_KEY:-}}}"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"
+          if [ "${FULLET_DRY_RUN}" = "1" ]; then
+            export FULLET_ALLOW_DB_WRITE="0"
+          else
+            export FULLET_ALLOW_DB_WRITE="1"
+          fi
+          python run_all_bots.py --mode "${{ steps.mode.outputs.mode }}"
 
       - name: Backend health check
         if: always() && steps.mode.outputs.mode != 'news'
         working-directory: ./scraper
+        shell: bash
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: python backend_health_check.py
+        run: |
+          SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_KEY:-${SUPABASE_KEY:-}}}"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"
+          python backend_health_check.py
 
       - name: Live operations report
         if: always() && steps.mode.outputs.mode != 'news'
         working-directory: ./scraper
+        shell: bash
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python ops_report.py
+        run: |
+          SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_KEY:-${SUPABASE_KEY:-}}}"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"
+          python ops_report.py

@@ -53,9 +53,15 @@ Son denetim: 2026-05-09
 - Fiyat botları her gün Türkiye saatiyle yaklaşık 06:20, 12:20, 18:20 ve 00:20 çalışacak.
 - Haber botu her gün Türkiye saatiyle yaklaşık 08:50 ve 20:50 çalışacak.
 - İstasyon envanteri pazar günleri Türkiye saatiyle yaklaşık 04:40 çalışacak.
-- GitHub repository secrets içinde şu değerler dolu olmalı: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`.
+- GitHub repository secrets içinde şu değerler dolu olmalı:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY` veya service-role değerini taşıyan `SUPABASE_KEY`
+  - `SUPABASE_ANON_KEY`
+- En temiz kurulum: `SUPABASE_KEY` eski uyumluluk için kalabilir, ama service-role key ayrıca `SUPABASE_SERVICE_ROLE_KEY` adına da eklenmeli.
+- `SUPABASE_ANON_KEY` olmazsa botlar service-role ile yazabilir, fakat RLS ve public okuma health check'i kırmızıya düşer.
 - Workflow GitHub'a push edilmemişse veya Actions kapalıysa botlar otomatik çalışmaz.
 - Workflow ilk kez GitHub'da açıldığında manuel `workflow_dispatch` ile `mode=prices`, `dry_run=1` denemesi yapılmalı; sonra `dry_run=0` canlı yazma testi yapılmalı.
+- Haber tazeliği backend health check'e bağlı: en yeni haber 48 saati aşarsa sistem artık sağlıklı sayılmaz.
 
 ## Güçlü Ama Bloklamayan Teknik Borçlar
 
