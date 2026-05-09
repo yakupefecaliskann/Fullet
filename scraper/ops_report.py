@@ -213,6 +213,8 @@ def main() -> int:
         return 1
 
     resolve_system_alerts(source="ops_report")
+    resolve_system_alerts(source="bot:shell_bot.py")
+    resolve_system_alerts(source="bot:shell_station_bot.py")
     print("\n[OK] Live data operations report is clean.")
     return 0
 

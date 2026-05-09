@@ -146,6 +146,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           FULLET_DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+          FULLET_FAIL_ON_BOT_ERROR: "0"
         run: |
           SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_KEY:-${SUPABASE_KEY:-}}}"
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"

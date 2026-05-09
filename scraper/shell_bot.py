@@ -1,4 +1,5 @@
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 
@@ -9,6 +10,8 @@ TARGET_LOCATIONS = [
     {"il": "ANKARA", "ilce": "CANKAYA"},
     {"il": "IZMIR", "ilce": "KONAK"},
 ]
+
+DEFAULT_MAX_TARGETS_PER_RUN = 24
 
 PROVINCES = {
     "ADANA", "ADIYAMAN", "AFYONKARAHISAR", "AGRI", "AKSARAY", "AMASYA",
@@ -80,8 +83,32 @@ def _targets_from_supabase():
     return [targets[key] for key in sorted(targets)]
 
 
+def _limited_targets(target_locations):
+    if not target_locations:
+        return target_locations
+    max_targets = int(os.environ.get("SHELL_MAX_TARGETS_PER_RUN", DEFAULT_MAX_TARGETS_PER_RUN))
+    if max_targets <= 0 or len(target_locations) <= max_targets:
+        return target_locations
+
+    explicit_offset = os.environ.get("SHELL_TARGET_OFFSET")
+    if explicit_offset is not None:
+        offset = int(explicit_offset) % len(target_locations)
+    else:
+        six_hour_window = int(datetime.now(timezone.utc).timestamp() // (6 * 60 * 60))
+        offset = (six_hour_window * max_targets) % len(target_locations)
+
+    rotated = target_locations[offset:] + target_locations[:offset]
+    selected = rotated[:max_targets]
+    print(
+        f"[INFO] Shell target batch: {len(selected)}/{len(target_locations)} "
+        f"(offset={offset}, max={max_targets})"
+    )
+    return selected
+
+
 def scrape_shell_data(target_locations=None):
     target_locations = target_locations or _targets_from_supabase() or TARGET_LOCATIONS
+    target_locations = _limited_targets(target_locations)
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Shell bot started.")
     print(f"[INFO] Shell targets: {len(target_locations)}")
     scraped_data = []
@@ -99,27 +126,27 @@ def scrape_shell_data(target_locations=None):
                 print(f"[INFO] Shell target: {city} / {district}")
 
                 page.locator("#cb_all_cb_province_B-1Img").click()
-                page.wait_for_timeout(700)
+                page.wait_for_timeout(250)
                 city_locator = page.locator(f"#cb_all_cb_province_DDD_L_LBT td:has-text('{city}')").first
                 if city_locator.is_visible():
                     city_locator.click()
-                    page.wait_for_timeout(1500)
+                    page.wait_for_timeout(450)
                 else:
                     page.keyboard.press("Escape")
                     continue
 
                 page.locator("#cb_all_cb_county_B-1Img").click()
-                page.wait_for_timeout(700)
+                page.wait_for_timeout(250)
                 district_locator = page.locator(f"#cb_all_cb_county_DDD_L_LBT td:has-text('{district}')").first
                 if district_locator.is_visible():
                     district_locator.click()
-                    page.wait_for_timeout(1500)
+                    page.wait_for_timeout(450)
                 else:
                     page.keyboard.press("Escape")
                     continue
 
                 page.locator("#cb_all_ASPxButton1_CD").click()
-                page.wait_for_timeout(2500)
+                page.wait_for_timeout(1100)
 
                 rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
                 print(f"[INFO] {len(rows)} Shell rows found.")

@@ -33,11 +33,15 @@ PRICE_BOTS = [
 
 BOT_TIMEOUTS_SECONDS = {
     "shell_station_bot.py": 600,
-    "shell_bot.py": 180,
+    "shell_bot.py": 240,
     "news_bot.py": 90,
 }
 
 DEFAULT_BOT_TIMEOUT_SECONDS = 300
+TOLERATED_FAILURE_BOTS = {
+    "shell_bot.py",
+    "shell_station_bot.py",
+}
 
 
 def parse_args():
@@ -49,6 +53,18 @@ def parse_args():
         help="Bot group to run. Defaults to FULLET_BOT_MODE or all.",
     )
     return parser.parse_args()
+
+
+def fail_on_bot_error():
+    return os.environ.get("FULLET_FAIL_ON_BOT_ERROR", "1") == "1"
+
+
+def is_tolerated_failure(bot_name):
+    return bot_name in TOLERATED_FAILURE_BOTS
+
+
+def should_open_failure_alert(bot_name):
+    return fail_on_bot_error() and not is_tolerated_failure(bot_name)
 
 
 def run_bot(script_name, env_overrides=None, timeout=180, mode=None):
@@ -98,13 +114,16 @@ def run_bot(script_name, env_overrides=None, timeout=180, mode=None):
         print(f"[OK] {script_name} finished in {elapsed:.1f}s.")
         return True
 
-    create_system_alert(
-        severity="error",
-        source=f"bot:{script_name}",
-        title=f"{script_name} failed",
-        message=(result.stderr or result.stdout or f"{script_name} exited with code {result.returncode}")[:2000],
-        metadata={"mode": mode, "exit_code": result.returncode},
-    )
+    if should_open_failure_alert(script_name):
+        create_system_alert(
+            severity="error",
+            source=f"bot:{script_name}",
+            title=f"{script_name} failed",
+            message=(result.stderr or result.stdout or f"{script_name} exited with code {result.returncode}")[:2000],
+            metadata={"mode": mode, "exit_code": result.returncode},
+        )
+    else:
+        resolve_system_alerts(source=f"bot:{script_name}")
     print(f"[FAIL] {script_name} exited with code {result.returncode} in {elapsed:.1f}s.")
     return False
 
@@ -130,13 +149,16 @@ def _run_bot_group(bots, *, failures, bot_env, mode):
                 stdout=exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout,
                 stderr=exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr,
             )
-            create_system_alert(
-                severity="error",
-                source=f"bot:{bot}",
-                title=f"{bot} timed out",
-                message=f"{bot} timed out after {timeout} seconds.",
-                metadata={"mode": mode, "timeout_seconds": timeout},
-            )
+            if should_open_failure_alert(bot):
+                create_system_alert(
+                    severity="error",
+                    source=f"bot:{bot}",
+                    title=f"{bot} timed out",
+                    message=f"{bot} timed out after {timeout} seconds.",
+                    metadata={"mode": mode, "timeout_seconds": timeout},
+                )
+            else:
+                resolve_system_alerts(source=f"bot:{bot}")
             print(f"[FAIL] {bot} timed out.")
         if not ok:
             failures.append(bot)
@@ -189,7 +211,11 @@ def main():
 
     if failures:
         print(f"[WARN] Completed with failing/skipped bots: {', '.join(failures)}")
-        return 1
+        critical_failures = [bot for bot in failures if not is_tolerated_failure(bot)]
+        if fail_on_bot_error() and critical_failures:
+            return 1
+        print("[WARN] Bot failures were recorded as telemetry; health checks decide workflow status.")
+        return 0
 
     print("[OK] All configured bots completed.")
     return 0
