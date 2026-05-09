@@ -16,6 +16,7 @@ on:
         default: "prices"
         type: choice
         options:
+          - health
           - prices
           - stations
           - news
@@ -135,6 +136,7 @@ jobs:
           PY
 
       - name: Run scraper orchestrator
+        if: steps.mode.outputs.mode != 'health'
         working-directory: ./scraper
         shell: bash
         env:
