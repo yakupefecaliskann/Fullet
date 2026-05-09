@@ -1,6 +1,12 @@
 name: Fullet Admin Panel
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - admin_panel/**
+      - .github/workflows/admin-panel-pages.yml
   workflow_dispatch:
 
 permissions:

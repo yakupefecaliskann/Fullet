@@ -145,7 +145,9 @@ function App() {
     setError('');
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: {
+        emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString(),
+      },
     });
     if (signInError) {
       setError(signInError.message);
