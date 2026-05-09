@@ -3,6 +3,9 @@
 Web tabanli operasyon paneli. Bot durumu, veri tazeligi, haber tazeligi,
 anonim aktif cihaz metrikleri ve sistem alarmlarini gosterir.
 
+Canli panel: https://yakupefecaliskann.github.io/Fullet/
+Gizlilik politikasi: https://yakupefecaliskann.github.io/Fullet/privacy.html
+
 ## Kurulum
 
 1. Supabase SQL Editor icinde calistir:

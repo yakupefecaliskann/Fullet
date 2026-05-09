@@ -1,38 +1,38 @@
-# Fullet Gizlilik Politikası Taslağı
+# Fullet Gizlilik Politikası
 
-Bu metin Google Play'e yüklemeden önce public, aktif ve PDF olmayan bir URL'de yayınlanmalıdır.
+Canlı URL: https://yakupefecaliskann.github.io/Fullet/privacy.html
+
+Son güncelleme: 2026-05-09
+
+Bu metin Google Play için herkese açık, aktif ve PDF olmayan GitHub Pages sayfası olarak yayınlanır.
 
 ## Uygulama
 
-Fullet, Türkiye'deki akaryakıt istasyonlarını ve resmi kaynaklardan alınan yakıt fiyatlarını harita üzerinde gösteren bir mobil uygulamadır.
+Fullet, Türkiye'deki akaryakıt istasyonlarını, yakıt fiyatlarını ve akaryakıt piyasasına ilişkin haberleri kullanıcıya gösteren bir mobil uygulamadır. Uygulama hesap oluşturma, reklam izleme veya üçüncü taraf analiz SDK'sı kullanmaz.
 
 ## Toplanan ve Kullanılan Veriler
 
-Fullet kullanıcı hesabı oluşturmaz, kullanıcı profili tutmaz ve reklam/analytics SDK'sı kullanmaz.
-
-Uygulama aşağıdaki verileri kullanabilir:
-
-- Konum verisi: Yakındaki istasyonları bulmak, mesafe hesaplamak ve haritayı kullanıcının çevresine taşımak için kullanılır. Konum geçmişi tutulmaz.
-- Yakıt ve araç tercihleri: Seçili yakıt türü, yakıt tüketimi, depo hacmi ve garaj tercihleri cihazda yerel olarak saklanır.
-- Favoriler ve son bakılan istasyonlar: Uygulama deneyimini kişiselleştirmek için cihazda yerel olarak saklanır.
-- Ağ istekleri: İstasyon, fiyat ve haber verilerini göstermek için Supabase ve ilgili servislerden veri okunur.
+- Konum verisi: Yakındaki istasyonları bulmak, mesafe hesaplamak, haritayı kullanıcının çevresine taşımak ve yol tarifi akışını başlatmak için kullanılır. Fullet konum geçmişi tutmaz.
+- Yerel tercihler: Yakıt tipi, araç tüketimi, depo hacmi, favori istasyonlar ve son bakılan istasyonlar uygulama deneyimini kişiselleştirmek için cihazda saklanabilir.
+- Anonim uygulama sağlığı: Uygulama sürümü, platform ve anonim kurulum kimliği aktif cihaz sayısını ve uygulamanın çalışıp çalışmadığını ölçmek için Supabase'e gönderilebilir. Bu kimlik ad, telefon, e-posta veya reklam kimliği içermez.
+- Ağ verisi: İstasyon, fiyat ve haber verileri Supabase üzerinden okunur. Fiyatlar resmi veya doğrudan marka kaynaklarından alınan ham verilere dayanır.
 
 ## Verilerin Paylaşımı
 
-Yakındaki istasyonları hesaplamak için konum koordinatı backend sorgularında kullanılabilir. Fullet bu bilgiyi kullanıcı profili oluşturmak veya konum geçmişi tutmak için kullanmaz.
+Yakındaki istasyonları hesaplamak için konum koordinatı backend sorgularında kullanılabilir. Bu bilgi kullanıcı profili oluşturmak veya geçmiş konum listesi tutmak için kullanılmaz.
 
-Yol tarifi istendiğinde Google Maps açılabilir. Haber bağlantılarına tıklandığında dış tarayıcı veya ilgili haber sitesi açılabilir.
+Yol tarifi istendiğinde Google Maps açılabilir. Haber bağlantılarına dokunulduğunda dış tarayıcı veya ilgili haber sitesi açılabilir.
 
 ## Saklama ve Silme
 
-Yerel tercihler cihazda saklanır. Kullanıcı uygulama verilerini cihaz ayarlarından temizleyerek bu bilgileri silebilir.
+Yerel tercihler cihazda saklanır. Kullanıcı cihaz ayarlarından uygulama verilerini temizleyerek bu bilgileri silebilir.
+
+Anonim heartbeat kayıtları uygulama sağlığı ve aktif cihaz ölçümü için tutulur; kişisel iletişim bilgisi içermez.
 
 ## Güvenlik
 
-Uygulama ağ isteklerini HTTPS üzerinden yapar. Canlı fiyat ve istasyon verileri Supabase üzerinde tutulur. Supabase public erişimi sadece uygulamada gösterilmesi gereken okuma verileriyle sınırlanmalıdır.
+Uygulama ağ isteklerini HTTPS üzerinden yapar. Supabase veritabanında yayın verilerine erişim Row Level Security politikalarıyla sınırlandırılır. Servis anahtarları mobil uygulama veya web admin paneline konulmaz.
 
 ## İletişim
 
-Gizlilik soruları için yayın öncesinde geliştirici iletişim e-postası buraya eklenmelidir.
-
-Son güncelleme: 2026-05-07
+Gizlilik soruları için fulletapp@gmail.com adresinden iletişime geçilebilir.

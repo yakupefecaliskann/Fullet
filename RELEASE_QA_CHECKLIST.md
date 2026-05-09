@@ -34,8 +34,9 @@ Her yayın adayında bu liste bitmeden paket yüklenmez.
 ## Play Store
 
 - App Bundle üretildi: `fullet_flutter\build\app\outputs\bundle\release\app-release.aab`
-- Privacy policy URL hazır.
+- Privacy policy URL hazır: `https://yakupefecaliskann.github.io/Fullet/privacy.html`
 - Data safety formu uygulamadaki gerçek veri kullanımına göre dolduruldu.
 - Google Maps API key paket adı + SHA-1 ile kısıtlandı.
 - Store screenshots gerçek cihazdan alındı.
 - Store açıklamasında fiyatların resmi kaynaklardan geldiği ve tahmini/sahte fiyat gösterilmediği yazıldı.
+- Play icon kaynağı hazır: `fullet_flutter\assets\brand\fullet_play_icon_512.png`

@@ -6,14 +6,14 @@ Son denetim: 2026-05-09
 
 - Flutter release check geçti: backend health, ops report, backend unit test, `flutter analyze`, `flutter test`, release APK ve release AAB.
 - Paket adı: `com.fullet.app`
-- Sürüm: `1.0.1+2`
+- Sürüm: `1.0.2+3`
 - Minimum SDK: `21`
 - Target SDK: `35`
 - Compile SDK: `36`
-- Release APK: `C:\Users\yefec\Desktop\Fullet-1.0.1-build2-release.apk`
+- Release APK: `C:\Users\yefec\Desktop\Fullet-1.0.2-build3-release.apk`
 - Play'e yüklenecek ana dosya: `fullet_flutter\build\app\outputs\bundle\release\app-release.aab`
 - Release APK imzası doğrulandı: v1 ve v2 signature geçerli.
-- Backend canlı veri durumu temiz: 2223 aktif istasyon, 5422 aktif fiyat, pasif istasyonlar anon kullanıcıdan gizleniyor.
+- Backend canlı veri durumu temiz: 2224 aktif istasyon, 5425 aktif fiyat, pasif istasyonlar anon kullanıcıdan gizleniyor.
 
 ## Yayından Önce Bloklayan İşler
 
@@ -23,10 +23,10 @@ Son denetim: 2026-05-09
    - Play App Signing açıldıktan sonra Google Play'in verdiği App signing certificate SHA-1 de ayrıca eklenmeli.
    - Kota ve bütçe uyarısı açılmalı. Sıfır maliyet hedefi için sürpriz fatura riski bırakılmamalı.
 
-2. Gizlilik politikası public URL'ye alınmalı.
-   - `PRIVACY_POLICY_DRAFT.md` taslak olarak hazır.
+2. Gizlilik politikası public URL'de hazır tutulmalı.
+   - URL: `https://yakupefecaliskann.github.io/Fullet/privacy.html`
    - Play politikası PDF olmayan, herkese açık, aktif ve düzenlenemez bir URL istiyor.
-   - Uygulama içinde de gizlilik politikasına erişim olmalı.
+   - Uygulama içindeki gizlilik panelinden bu URL açılır.
 
 3. Data Safety formu doğru doldurulmalı.
    - Konum: yakındaki istasyonları bulmak ve mesafe hesaplamak için kullanılıyor.
@@ -35,9 +35,9 @@ Son denetim: 2026-05-09
    - Hesap sistemi yok.
    - Google Maps yol tarifi ve haber linkleri dış uygulama/site açabilir.
 
-4. App icon değişmeli.
-   - Şu an launcher icon Flutter varsayılan logosu.
-   - Play Store'a çıkmadan önce Fullet'e ait sade, okunaklı ve markalı ikon yapılmalı.
+4. App icon yayına hazır tutulmalı.
+   - Android launcher icon Fullet markalı ikonla değiştirildi.
+   - Play Store 512x512 ikon kaynağı: `fullet_flutter\assets\brand\fullet_play_icon_512.png`
 
 5. Store listing hazırlanmalı.
    - Kısa açıklama, uzun açıklama, kategori, iletişim e-postası, ekran görüntüleri ve feature graphic hazırlanmalı.
@@ -68,7 +68,7 @@ Son denetim: 2026-05-09
 - Lokal Flutter SDK `3.16.5`; güncel paketlere çıkmak için Flutter SDK yükseltme planı yapılmalı.
 - `flutter pub outdated` çıktısında güncel majör sürümü olan paketler var: `google_maps_flutter`, `geolocator`, `supabase_flutter`, `shared_preferences`.
 - Bu yükseltme tester APK'yi engellemiyor ama uzun vadeli kalite hedefi için ayrı bir modernizasyon sprinti olmalı.
-- Admin panel altyapısı repo içinde hazırdır. Canlı panel için `database/admin_observability.sql` çalıştırılmalı, admin e-postası eklenmeli ve `admin_panel` ücretsiz bir statik host üzerinde yayınlanmalıdır.
+- Admin panel altyapısı repo içinde hazırdır ve GitHub Pages üzerinden yayınlanır: `https://yakupefecaliskann.github.io/Fullet/`
 
 ## Yayın Öncesi Komut
 

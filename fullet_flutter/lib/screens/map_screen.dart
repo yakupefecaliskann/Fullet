@@ -40,6 +40,9 @@ class _MapScreenState extends State<MapScreen> {
   static const double _drivingFetchRadiusMeters = 30000;
   static const double _drivingFetchMoveMeters = 1200;
   static const Duration _drivingFetchInterval = Duration(seconds: 45);
+  static final Uri _privacyPolicyUri = Uri.parse(
+    'https://yakupefecaliskann.github.io/Fullet/privacy.html',
+  );
 
   GoogleMapController? _mapController;
   LatLng _currentLocation =
@@ -2034,6 +2037,20 @@ class _DeclutterConfig {
 class _PrivacyInfoSheet extends StatelessWidget {
   const _PrivacyInfoSheet();
 
+  Future<void> _openPrivacyPolicy(BuildContext context) async {
+    try {
+      await launchUrl(
+        _MapScreenState._privacyPolicyUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gizlilik politikası açılamadı.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -2109,12 +2126,29 @@ class _PrivacyInfoSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Detaylı gizlilik politikası mağaza yayını öncesinde Play Console alanına public URL olarak eklenmelidir.',
+            'Detaylı gizlilik politikası GitHub Pages üzerinde herkese açık olarak yayınlanır ve Play Console için kullanılabilir.',
             style: TextStyle(
               color: Color(0xFF6B7280),
               fontSize: 12,
               fontWeight: FontWeight.w700,
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: () => _openPrivacyPolicy(context),
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: const Text('Gizlilik politikasını aç'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF111827),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
             ),
           ),
         ],

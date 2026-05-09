@@ -7,9 +7,9 @@ Son kontrol tarihi: 2026-05-09
 - Paket adı: `com.fullet.app`
 - Minimum SDK: `21`
 - Target SDK: `35`
-- Uygulama sürümü: `1.0.1+2`
-- Release APK komutu: `flutter build apk --release --build-name 1.0.1 --build-number 2`
-- Play için tercih edilen paket: `flutter build appbundle --release --build-name 1.0.1 --build-number 2`
+- Uygulama sürümü: `1.0.2+3`
+- Release APK komutu: `flutter build apk --release --build-name 1.0.2 --build-number 3`
+- Play için tercih edilen paket: `flutter build appbundle --release --build-name 1.0.2 --build-number 3`
 - Yayın öncesi tam kontrol: `powershell -ExecutionPolicy Bypass -File .\scripts\release_check.ps1 -BuildAab`
 
 ## Yayın Öncesi Kırmızı Çizgiler
@@ -27,9 +27,9 @@ Son kontrol tarihi: 2026-05-09
 - Google Maps API key mutlaka Android paket adı `com.fullet.app` ve Play/App upload certificate SHA-1 değerleriyle kısıtlanmalı.
 - Google Maps için kota ve bütçe uyarısı açılmalı. "0 maliyet" hedefi için fatura sürprizi bırakılmayacak.
 - Data safety formu, uygulamanın gerçek veri kullanımına göre doldurulmalı.
-- Privacy policy public, aktif, PDF olmayan, düzenlenemez bir URL'de yayınlanmalı ve uygulama içinden erişilebilir olmalı.
+- Privacy policy public, aktif, PDF olmayan, düzenlenemez bir URL'de yayınlanmalı ve uygulama içinden erişilebilir olmalı: `https://yakupefecaliskann.github.io/Fullet/privacy.html`
 - Store görselleri gerçek cihaz ekran görüntülerinden seçilmeli.
-- Launcher icon Flutter varsayılan logosu olmamalı; yayın öncesi Fullet markalı ikon hazırlanmalı.
+- Launcher icon Fullet markalı ikonla değiştirildi. Play Store 512x512 ikon kaynağı: `fullet_flutter\assets\brand\fullet_play_icon_512.png`
 
 ## Data Safety Taslağı
 

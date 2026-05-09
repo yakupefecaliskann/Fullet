@@ -8,7 +8,7 @@ import 'supabase_service.dart';
 
 class AppHeartbeatService {
   static const _installIdKey = 'fullet_install_id';
-  static const _appVersion = '1.0.1';
+  static const _appVersion = '1.0.2';
   static const _heartbeatInterval = Duration(minutes: 15);
   static Timer? _timer;
   static bool _isSending = false;
@@ -53,7 +53,8 @@ class AppHeartbeatService {
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    final hex =
+        bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
     return [
       hex.substring(0, 8),
       hex.substring(8, 12),
