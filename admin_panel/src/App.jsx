@@ -167,56 +167,85 @@ function App() {
     setRefreshing(true);
     setError('');
     try {
-      const [
-        heartbeatsResult,
-        botRunsResult,
-        alertsResult,
-        newsResult,
-        stationsResult,
-        pricesResult,
-      ] = await Promise.all([
-        supabase
+      const queries = [
+        {
+          key: 'heartbeats',
+          label: 'Aktif cihazlar',
+          query: supabase
           .from('app_heartbeats')
           .select('install_id, first_seen, last_seen, app_version, platform, heartbeat_count')
           .order('last_seen', { ascending: false })
           .limit(5000),
-        supabase
+        },
+        {
+          key: 'botRuns',
+          label: 'Bot logları',
+          query: supabase
           .from('bot_runs')
           .select('id, bot_name, run_mode, status, started_at, finished_at, duration_seconds, exit_code, summary')
           .order('created_at', { ascending: false })
           .limit(60),
-        supabase
+        },
+        {
+          key: 'alerts',
+          label: 'Alarmlar',
+          query: supabase
           .from('system_alerts')
           .select('id, severity, source, title, message, status, created_at, resolved_at')
           .order('created_at', { ascending: false })
           .limit(80),
-        supabase
+        },
+        {
+          key: 'news',
+          label: 'Haberler',
+          query: supabase
           .from('haberler')
           .select('baslik, kaynak, tarih, link')
           .order('tarih', { ascending: false })
           .limit(20),
-        supabase
+        },
+        {
+          key: 'stations',
+          label: 'İstasyonlar',
+          query: supabase
           .from('istasyonlar')
           .select('id, marka, il, aktif')
           .limit(6000),
-        supabase
+        },
+        {
+          key: 'prices',
+          label: 'Fiyatlar',
+          query: supabase
           .from('fiyatlar')
           .select('istasyon_id, yakit_tipi, son_guncelleme')
           .limit(12000),
-      ]);
+        },
+      ];
 
-      const results = [heartbeatsResult, botRunsResult, alertsResult, newsResult, stationsResult, pricesResult];
-      const failed = results.find((result) => result.error);
-      if (failed) throw failed.error;
+      const results = await Promise.all(queries.map((item) => item.query));
+      const nextData = {
+        heartbeats: [],
+        botRuns: [],
+        alerts: [],
+        news: [],
+        stations: [],
+        prices: [],
+      };
+      const failedMessages = [];
 
-      setData({
-        heartbeats: heartbeatsResult.data || [],
-        botRuns: botRunsResult.data || [],
-        alerts: alertsResult.data || [],
-        news: newsResult.data || [],
-        stations: stationsResult.data || [],
-        prices: pricesResult.data || [],
+      results.forEach((result, index) => {
+        const query = queries[index];
+        if (result.error) {
+          failedMessages.push(`${query.label}: ${result.error.message}`);
+          return;
+        }
+        nextData[query.key] = result.data || [];
       });
+
+      setData(nextData);
+      if (failedMessages.length > 0) {
+        setError(`Bazı admin verileri okunamadı: ${failedMessages.join(' | ')}`);
+      }
     } catch (loadError) {
       setError(loadError.message || String(loadError));
     } finally {
