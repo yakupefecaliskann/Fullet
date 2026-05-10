@@ -26,17 +26,23 @@ class StationBottomSheet extends StatelessWidget {
   });
 
   String _getLogoPath(String marka) {
-    switch (marka) {
+    switch (marka.trim()) {
       case 'Shell':
-        return 'assets/shell.png.png';
+        return 'assets/logo_shell.png';
       case 'Opet':
-        return 'assets/opet.png.png';
+        return 'assets/logo_opet.png';
       case 'Petrol Ofisi':
-        return 'assets/po.png.png';
+        return 'assets/logo_petrol_ofisi.png';
       case 'BP':
-        return 'assets/bp.png.png';
+        return 'assets/logo_bp.png';
       case 'TotalEnergies':
-        return 'assets/total.png.png';
+        return 'assets/logo_totalenergies.png';
+      case 'Türkiye Petrolleri':
+      case 'Turkiye Petrolleri':
+      case 'TP':
+        return 'assets/logo_turkiye_petrolleri.png';
+      case 'Aytemiz':
+        return 'assets/logo_aytemiz.png';
       default:
         return 'assets/icon.png';
     }
@@ -149,12 +155,13 @@ class StationBottomSheet extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    // Note: We need to ensure assets exist. They will error if missing.
                     Container(
-                      width: 48,
+                      width: 72,
                       height: 48,
                       margin: const EdgeInsets.only(right: 16),
                       decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFE6E9E2)),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
@@ -164,13 +171,16 @@ class StationBottomSheet extends StatelessWidget {
                           ]),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(14),
-                        // Fallback icon icon if asset fails
-                        child: Image.asset(
-                          _getLogoPath(station.brand),
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.local_gas_station,
-                                  size: 30, color: Colors.grey),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: Image.asset(
+                            _getLogoPath(station.brand),
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(Icons.local_gas_station,
+                                    size: 30, color: Colors.grey),
+                          ),
                         ),
                       ),
                     ),
