@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fullet Veri Silme Talebi</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #0f172a;
+        --muted: #475569;
+        --line: #dbe4dc;
+        --accent: #0f7a4f;
+        --paper: #f7faf7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.65;
+      }
+
+      main {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+
+      article {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: clamp(24px, 4vw, 48px);
+        box-shadow: 0 20px 55px rgba(15, 23, 42, 0.08);
+      }
+
+      h1,
+      h2 {
+        line-height: 1.15;
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(32px, 6vw, 56px);
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 22px;
+        margin-top: 34px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      a {
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+      .meta {
+        color: #64748b;
+        font-weight: 800;
+        margin: 12px 0 28px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>Fullet Veri Silme Talebi</h1>
+        <p class="meta">Son güncelleme: 12 Mayıs 2026</p>
+
+        <p>
+          Fullet mobil uygulaması son kullanıcı hesabı oluşturmaz ve kullanıcı adı,
+          telefon numarası veya e-posta adresi istemez. Uygulama, yakındaki
+          istasyonları göstermek için konum izni kullanabilir ve uygulama sağlığını
+          ölçmek için anonim kurulum kimliğiyle heartbeat kaydı tutabilir.
+        </p>
+
+        <h2>Cihazdaki Verileri Silme</h2>
+        <p>
+          Favori istasyonlar, son seçimler ve benzeri yerel tercihler cihazda
+          tutulabilir. Bu verileri silmek için Android ayarlarından Fullet uygulama
+          verilerini temizleyebilir veya uygulamayı kaldırabilirsiniz.
+        </p>
+
+        <h2>Sunucudaki Anonim Verileri Silme</h2>
+        <p>
+          Anonim kurulum kimliği ve heartbeat kayıtlarının silinmesini istemek için
+          <a href="mailto:fulletapp@gmail.com">fulletapp@gmail.com</a> adresine
+          "Fullet veri silme talebi" başlığıyla e-posta gönderebilirsiniz.
+        </p>
+
+        <p>
+          Talebinizde mümkünse cihaz modelinizi, uygulama sürümünü ve yaklaşık talep
+          zamanını belirtin. Kişisel hesap bulunmadığı için talep, teknik olarak
+          eşleştirilebilen anonim kayıtlarla sınırlıdır.
+        </p>
+
+        <h2>Saklanmayan Veriler</h2>
+        <ul>
+          <li>Fullet kullanıcı hesabı oluşturmaz.</li>
+          <li>Ad, soyad, telefon numarası veya e-posta adresi toplamaz.</li>
+          <li>Konum geçmişi listesi tutmaz.</li>
+          <li>Reklam kimliği veya üçüncü taraf reklam/analitik SDK'sı kullanmaz.</li>
+        </ul>
+
+        <p>
+          Genel gizlilik politikası için
+          <a href="./privacy.html">Fullet Gizlilik Politikası</a> sayfasını
+          inceleyebilirsiniz.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>
