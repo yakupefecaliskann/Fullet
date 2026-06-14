@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
@@ -11,7 +12,8 @@ TARGET_LOCATIONS = [
     {"il": "IZMIR", "ilce": "KONAK"},
 ]
 
-DEFAULT_MAX_TARGETS_PER_RUN = 24
+DEFAULT_MAX_TARGETS_PER_RUN = 0  # 0 = no limit, tüm hedefler işlenir
+N_PARALLEL_WORKERS = 5
 
 PROVINCES = {
     "ADANA", "ADIYAMAN", "AFYONKARAHISAR", "AGRI", "AKSARAY", "AMASYA",
@@ -118,82 +120,112 @@ def _prices_from_row(cols):
     }
 
 
-def scrape_shell_data(target_locations=None):
-    target_locations = target_locations or _targets_from_supabase() or TARGET_LOCATIONS
-    target_locations = _limited_targets(target_locations)
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Shell bot started.")
-    print(f"[INFO] Shell targets: {len(target_locations)}")
-    scraped_data = []
+def _scrape_location(page, city, district):
+    """Tek bir il/ilçe kombinasyonunu scrape eder. Kendi exception'ını yönetir."""
+    try:
+        page.locator("#cb_all_cb_province_B-1Img").click(force=True)
+        page.wait_for_timeout(750)
+        city_locator = page.locator(
+            f"#cb_all_cb_province_DDD_L_LBT td:has-text('{city}')"
+        ).first
+        if city_locator.count() > 0:
+            city_locator.click(force=True)
+            page.wait_for_timeout(1000)
+        else:
+            page.keyboard.press("Escape")
+            return []
 
+        page.locator("#cb_all_cb_county_B-1Img").click(force=True)
+        page.wait_for_timeout(750)
+        district_locator = page.locator(
+            f"#cb_all_cb_county_DDD_L_LBT td:has-text('{district}')"
+        ).first
+        if district_locator.count() > 0:
+            district_locator.click(force=True)
+            page.wait_for_timeout(1000)
+        else:
+            page.keyboard.press("Escape")
+            return []
+
+        page.locator("#cb_all_ASPxButton1_CD").click(force=True)
+
+        try:
+            page.wait_for_selector("#cb_all_grdPrices_LD", state="hidden", timeout=20000)
+            page.wait_for_selector(".dxeLoadingDivWithContent", state="hidden", timeout=5000)
+        except Exception as exc:
+            print(f"[WARN] {city}/{district} loading wait: {exc}")
+
+        page.wait_for_timeout(1500)
+
+        rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
+        results = []
+        for row in rows:
+            cols = row.locator("td").all_inner_texts()
+            if len(cols) < 13:
+                continue
+            station_district = cols[2].strip()
+            prices = _prices_from_row(cols)
+            prices = {fuel: price for fuel, price in prices.items() if price is not None}
+            if not prices:
+                continue
+            results.append({
+                "marka": "Shell",
+                "il": city,
+                "ilce": station_district,
+                "fiyatlar": prices,
+                "veri_kaynagi": "turkiyeshell.com/pompatest/History.aspx",
+            })
+        print(f"[INFO] {city}/{district}: {len(results)} satır")
+        return results
+    except Exception as exc:
+        print(f"[WARN] Shell scrape {city}/{district} failed: {exc}")
+        return []
+
+
+def _scrape_batch(targets_batch, batch_id):
+    """Bir hedef grubunu ayrı bir Playwright browser ile işler."""
+    batch_results = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-
         try:
-            page.goto("https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000)
-
-            for loc in target_locations:
-                city = loc["il"]
-                district = loc["ilce"]
-                print(f"[INFO] Shell target: {city} / {district}")
-
-                page.locator("#cb_all_cb_province_B-1Img").click(force=True)
-                page.wait_for_timeout(750)
-                city_locator = page.locator(f"#cb_all_cb_province_DDD_L_LBT td:has-text('{city}')").first
-                if city_locator.count() > 0:
-                    city_locator.click(force=True)
-                    page.wait_for_timeout(1000)
-                else:
-                    page.keyboard.press("Escape")
-                    continue
-
-                page.locator("#cb_all_cb_county_B-1Img").click(force=True)
-                page.wait_for_timeout(750)
-                district_locator = page.locator(f"#cb_all_cb_county_DDD_L_LBT td:has-text('{district}')").first
-                if district_locator.count() > 0:
-                    district_locator.click(force=True)
-                    page.wait_for_timeout(1000)
-                else:
-                    page.keyboard.press("Escape")
-                    continue
-
-                page.locator("#cb_all_ASPxButton1_CD").click(force=True)
-                
-                try:
-                    page.wait_for_selector("#cb_all_grdPrices_LD", state="hidden", timeout=20000)
-                    page.wait_for_selector(".dxeLoadingDivWithContent", state="hidden", timeout=5000)
-                except Exception as exc:
-                    print(f"[WARN] Wait for loading panel timed out or failed: {exc}")
-                
-                page.wait_for_timeout(1500)
-
-                rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
-                print(f"[INFO] {len(rows)} Shell rows found.")
-
-                for row in rows:
-                    cols = row.locator("td").all_inner_texts()
-                    if len(cols) < 13:
-                        continue
-
-                    station_district = cols[2].strip()
-                    prices = _prices_from_row(cols)
-                    prices = {fuel: price for fuel, price in prices.items() if price is not None}
-                    if not prices:
-                        continue
-
-                    scraped_data.append({
-                        "marka": "Shell",
-                        "il": city,
-                        "ilce": station_district,
-                        "fiyatlar": prices,
-                        "veri_kaynagi": "turkiyeshell.com/pompatest/History.aspx",
-                    })
+            page.goto(
+                "https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000
+            )
+            for loc in targets_batch:
+                results = _scrape_location(page, loc["il"], loc["ilce"])
+                batch_results.extend(results)
         except Exception as exc:
-            print(f"[WARN] Shell scrape failed: {exc}")
+            print(f"[WARN] Batch {batch_id} browser error: {exc}")
         finally:
             browser.close()
+    print(f"[INFO] Batch {batch_id} tamamlandı: {len(batch_results)} satır")
+    return batch_results
 
-    return scraped_data
+
+def scrape_shell_data(target_locations=None):
+    target_locations = target_locations or _targets_from_supabase() or TARGET_LOCATIONS
+    target_locations = _limited_targets(target_locations)
+    n_workers = min(N_PARALLEL_WORKERS, len(target_locations))
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Shell bot started.")
+    print(f"[INFO] {len(target_locations)} hedef, {n_workers} paralel worker")
+
+    batches = [target_locations[i::n_workers] for i in range(n_workers)]
+
+    all_data = []
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        futures = {
+            executor.submit(_scrape_batch, batch, bid): bid
+            for bid, batch in enumerate(batches)
+        }
+        for future in as_completed(futures):
+            try:
+                all_data.extend(future.result())
+            except Exception as exc:
+                print(f"[WARN] Batch exception: {exc}")
+
+    print(f"[INFO] Toplam Shell satırı: {len(all_data)}")
+    return all_data
 
 
 if __name__ == "__main__":

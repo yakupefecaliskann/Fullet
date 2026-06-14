@@ -33,7 +33,7 @@ PRICE_BOTS = [
 
 BOT_TIMEOUTS_SECONDS = {
     "shell_station_bot.py": 600,
-    "shell_bot.py": 480,
+    "shell_bot.py": 1800,
     "news_bot.py": 90,
 }
 
