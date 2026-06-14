@@ -53,15 +53,16 @@ def _bulk_upsert_prices(rows: list[dict[str, Any]]) -> int:
         if existing:
             # Check if price changed
             if float(existing.get("fiyat", 0)) != float(row.get("fiyat", 0)):
+                row["price_status"] = "fresh"
                 rows_to_upsert.append(row)
                 continue
-            
+
             # Check if status is not fresh
             if existing.get("price_status") != "fresh":
                 row["price_status"] = "fresh"
                 rows_to_upsert.append(row)
                 continue
-                
+
             # Check if it needs a freshness bump (older than 24 hours)
             son_guncelleme = existing.get("son_guncelleme")
             if son_guncelleme:
@@ -69,9 +70,11 @@ def _bulk_upsert_prices(rows: list[dict[str, Any]]) -> int:
                     # Handle ISO format parsing
                     parsed_date = datetime.fromisoformat(son_guncelleme.replace("Z", "+00:00"))
                     if (now_utc - parsed_date).total_seconds() > 86400: # 24 hours
+                        row["price_status"] = "fresh"
                         rows_to_upsert.append(row)
                         continue
                 except ValueError:
+                    row["price_status"] = "fresh"
                     rows_to_upsert.append(row)
                     continue
                     
