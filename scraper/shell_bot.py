@@ -1,8 +1,8 @@
+import asyncio
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 
 from db_utils import normalize_city, parse_price, save_regional_prices_to_supabase, supabase
 
@@ -12,7 +12,7 @@ TARGET_LOCATIONS = [
     {"il": "IZMIR", "ilce": "KONAK"},
 ]
 
-DEFAULT_MAX_TARGETS_PER_RUN = 0  # 0 = no limit, tüm hedefler işlenir
+DEFAULT_MAX_TARGETS_PER_RUN = 0  # 0 = sınırsız, tüm hedefler
 N_PARALLEL_WORKERS = 5
 
 PROVINCES = {
@@ -60,7 +60,6 @@ def _split_city(raw_city, raw_district):
 def _targets_from_supabase():
     if supabase is None:
         return []
-
     rows = (
         supabase.table("istasyonlar")
         .select("il,ilce")
@@ -120,52 +119,58 @@ def _prices_from_row(cols):
     }
 
 
-def _scrape_location(page, city, district):
-    """Tek bir il/ilçe kombinasyonunu scrape eder. Kendi exception'ını yönetir."""
+async def _scrape_location(page, city, district):
+    """Tek il/ilçe kombinasyonunu async scrape eder."""
     try:
-        page.locator("#cb_all_cb_province_B-1Img").click(force=True)
-        page.wait_for_timeout(750)
-        city_locator = page.locator(
+        await page.locator("#cb_all_cb_province_B-1Img").click(force=True)
+        await page.wait_for_timeout(750)
+        city_loc = page.locator(
             f"#cb_all_cb_province_DDD_L_LBT td:has-text('{city}')"
         ).first
-        if city_locator.count() > 0:
-            city_locator.click(force=True)
-            page.wait_for_timeout(1000)
+        if await city_loc.count() > 0:
+            await city_loc.click(force=True)
+            await page.wait_for_timeout(1000)
         else:
-            page.keyboard.press("Escape")
+            await page.keyboard.press("Escape")
             return []
 
-        page.locator("#cb_all_cb_county_B-1Img").click(force=True)
-        page.wait_for_timeout(750)
-        district_locator = page.locator(
+        await page.locator("#cb_all_cb_county_B-1Img").click(force=True)
+        await page.wait_for_timeout(750)
+        dist_loc = page.locator(
             f"#cb_all_cb_county_DDD_L_LBT td:has-text('{district}')"
         ).first
-        if district_locator.count() > 0:
-            district_locator.click(force=True)
-            page.wait_for_timeout(1000)
+        if await dist_loc.count() > 0:
+            await dist_loc.click(force=True)
+            await page.wait_for_timeout(1000)
         else:
-            page.keyboard.press("Escape")
+            await page.keyboard.press("Escape")
             return []
 
-        page.locator("#cb_all_ASPxButton1_CD").click(force=True)
+        await page.locator("#cb_all_ASPxButton1_CD").click(force=True)
 
         try:
-            page.wait_for_selector("#cb_all_grdPrices_LD", state="hidden", timeout=20000)
-            page.wait_for_selector(".dxeLoadingDivWithContent", state="hidden", timeout=5000)
+            await page.wait_for_selector(
+                "#cb_all_grdPrices_LD", state="hidden", timeout=20000
+            )
+            await page.wait_for_selector(
+                ".dxeLoadingDivWithContent", state="hidden", timeout=5000
+            )
         except Exception as exc:
-            print(f"[WARN] {city}/{district} loading wait: {exc}")
+            print(f"[WARN] {city}/{district} loading: {exc}")
 
-        page.wait_for_timeout(1500)
+        await page.wait_for_timeout(1500)
 
-        rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
+        rows = await page.locator(
+            "#cb_all_grdPrices_DXMainTable tr.dxgvDataRow"
+        ).all()
         results = []
         for row in rows:
-            cols = row.locator("td").all_inner_texts()
+            cols = await row.locator("td").all_inner_texts()
             if len(cols) < 13:
                 continue
             station_district = cols[2].strip()
             prices = _prices_from_row(cols)
-            prices = {fuel: price for fuel, price in prices.items() if price is not None}
+            prices = {f: p for f, p in prices.items() if p is not None}
             if not prices:
                 continue
             results.append({
@@ -178,29 +183,45 @@ def _scrape_location(page, city, district):
         print(f"[INFO] {city}/{district}: {len(results)} satır")
         return results
     except Exception as exc:
-        print(f"[WARN] Shell scrape {city}/{district} failed: {exc}")
+        print(f"[WARN] Shell scrape {city}/{district}: {exc}")
         return []
 
 
-def _scrape_batch(targets_batch, batch_id):
-    """Bir hedef grubunu ayrı bir Playwright browser ile işler."""
+async def _scrape_batch(targets_batch, batch_id):
+    """Ayrı async_playwright context ile bir batch işler."""
     batch_results = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
         try:
-            page.goto(
+            await page.goto(
                 "https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000
             )
             for loc in targets_batch:
-                results = _scrape_location(page, loc["il"], loc["ilce"])
+                results = await _scrape_location(page, loc["il"], loc["ilce"])
                 batch_results.extend(results)
         except Exception as exc:
-            print(f"[WARN] Batch {batch_id} browser error: {exc}")
+            print(f"[WARN] Batch {batch_id} error: {exc}")
         finally:
-            browser.close()
+            await browser.close()
     print(f"[INFO] Batch {batch_id} tamamlandı: {len(batch_results)} satır")
     return batch_results
+
+
+async def _run_all(target_locations):
+    n_workers = min(N_PARALLEL_WORKERS, len(target_locations))
+    batches = [target_locations[i::n_workers] for i in range(n_workers)]
+    results = await asyncio.gather(
+        *[_scrape_batch(batch, i) for i, batch in enumerate(batches)],
+        return_exceptions=True,
+    )
+    all_data = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            print(f"[WARN] Batch {i} failed: {result}")
+        else:
+            all_data.extend(result)
+    return all_data
 
 
 def scrape_shell_data(target_locations=None):
@@ -208,24 +229,8 @@ def scrape_shell_data(target_locations=None):
     target_locations = _limited_targets(target_locations)
     n_workers = min(N_PARALLEL_WORKERS, len(target_locations))
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Shell bot started.")
-    print(f"[INFO] {len(target_locations)} hedef, {n_workers} paralel worker")
-
-    batches = [target_locations[i::n_workers] for i in range(n_workers)]
-
-    all_data = []
-    with ThreadPoolExecutor(max_workers=n_workers) as executor:
-        futures = {
-            executor.submit(_scrape_batch, batch, bid): bid
-            for bid, batch in enumerate(batches)
-        }
-        for future in as_completed(futures):
-            try:
-                all_data.extend(future.result())
-            except Exception as exc:
-                print(f"[WARN] Batch exception: {exc}")
-
-    print(f"[INFO] Toplam Shell satırı: {len(all_data)}")
-    return all_data
+    print(f"[INFO] {len(target_locations)} hedef, {n_workers} async worker")
+    return asyncio.run(_run_all(target_locations))
 
 
 if __name__ == "__main__":
