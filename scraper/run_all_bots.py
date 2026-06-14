@@ -33,7 +33,7 @@ PRICE_BOTS = [
 
 BOT_TIMEOUTS_SECONDS = {
     "shell_station_bot.py": 600,
-    "shell_bot.py": 240,
+    "shell_bot.py": 480,
     "news_bot.py": 90,
 }
 
@@ -208,6 +208,16 @@ def main():
 
     if args.mode in ("news", "all"):
         _run_news_bot(failures=failures, mode=args.mode)
+
+    if args.mode == "all":
+        print("\n=====================================")
+        print("Running: quarantine_old_prices.py")
+        print("=====================================")
+        subprocess.run(
+            [sys.executable, str(SCRAPER_DIR / "quarantine_old_prices.py")],
+            cwd=SCRAPER_DIR,
+            env=bot_env,
+        )
 
     if failures:
         print(f"[WARN] Completed with failing/skipped bots: {', '.join(failures)}")

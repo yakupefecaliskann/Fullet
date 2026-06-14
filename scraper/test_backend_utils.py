@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest import mock
 
 import db_utils
 
@@ -203,6 +204,93 @@ class BackendUtilsTest(unittest.TestCase):
             else:
                 os.environ["FULLET_ALLOW_DB_WRITE"] = old_allow
 
+
+    def test_fuzzy_match_rural_station_sivas_kangal(self):
+        from matching import _fuzzy_match_name
+        self.assertTrue(_fuzzy_match_name("Kangal Petrol", "Kangal Akaryakit"))
+        self.assertTrue(_fuzzy_match_name("Kangal A.Ş.", "Kangal"))
+        self.assertTrue(_fuzzy_match_name("Ahmet Akaryakıt", "Ahmet Petrol"))
+
+    def test_fuzzy_match_low_confidence_should_fail(self):
+        from matching import _fuzzy_match_name
+        self.assertFalse(_fuzzy_match_name("Ahmet Petrol", "Mehmet Petrol"))
+        self.assertFalse(_fuzzy_match_name("Sivas Akaryakıt", "Kangal Akaryakıt"))
+
+    def test_haversine_distance(self):
+        from matching import _haversine
+        # ~111 km per degree of latitude
+        dist = _haversine(41.0, 29.0, 42.0, 29.0)
+        self.assertTrue(110 < dist < 112)
+
+    @unittest.mock.patch('database_writes.supabase')
+    def test_zero_cost_unchanged_prices_skipped(self, mock_supabase):
+        from database_writes import _bulk_upsert_prices
+        from datetime import datetime, timezone
+        
+        # Mock the existing prices DB response
+        mock_response = unittest.mock.MagicMock()
+        mock_response.data = [{
+            "istasyon_id": "st_1",
+            "yakit_tipi": "Motorin",
+            "fiyat": 40.0,
+            "price_status": "fresh",
+            "son_guncelleme": datetime.now(timezone.utc).isoformat()
+        }]
+        
+        # Setup the mock chain: supabase.table().select().in_().execute() -> mock_response
+        mock_table = unittest.mock.MagicMock()
+        mock_supabase.table.return_value = mock_table
+        mock_table.select.return_value.in_.return_value.execute.return_value = mock_response
+
+        # Test zero-cost unchanged
+        touched = _bulk_upsert_prices([{"istasyon_id": "st_1", "yakit_tipi": "Motorin", "fiyat": 40.0}])
+        self.assertEqual(touched, 0)
+        mock_table.upsert.assert_not_called()
+        
+        # Test changed price -> should upsert
+        touched_changed = _bulk_upsert_prices([{"istasyon_id": "st_1", "yakit_tipi": "Motorin", "fiyat": 41.0}])
+        self.assertEqual(touched_changed, 1)
+        mock_table.upsert.assert_called_once()
+
+    @unittest.mock.patch('database_writes.supabase')
+    def test_deleted_fuel_becomes_unknown(self, mock_supabase):
+        from database_writes import _mark_unreported_prices_unknown
+        
+        mock_table = unittest.mock.MagicMock()
+        mock_supabase.table.return_value = mock_table
+        
+        # We report Motorin, so Kursunsuz 95, LPG, Elektrik should be marked unknown
+        _mark_unreported_prices_unknown(["st_1"], {"Motorin"})
+        
+        # Since CANONICAL_FUELS has 4 items, 3 should be "deleted" (updated to unknown)
+        self.assertEqual(mock_table.update.call_count, 3)
+        mock_table.update.assert_any_call({"price_status": "unknown"})
+
+    @unittest.mock.patch('matching.supabase')
+    @unittest.mock.patch('database_writes.supabase')
+    def test_official_station_without_price_is_low_priority(self, mock_dbw, mock_match):
+        from database_writes import _bulk_write_station_inventory
+        
+        # Mock empty existing db
+        mock_table = unittest.mock.MagicMock()
+        mock_dbw.table.return_value = mock_table
+        mock_match.table.return_value.select.return_value.eq.return_value.range.return_value.execute.return_value.data = []
+
+        _bulk_write_station_inventory([{
+            "marka": "Opet",
+            "isim": "Test",
+            "il": "ISTANBUL",
+            "ilce": "KADIKOY",
+            "enlem": 41.0,
+            "boylam": 29.0,
+            "veri_kaynagi": "test"
+        }])
+        
+        # It should insert a new row with visibility_status = low_priority and aktif = True
+        mock_table.insert.assert_called_once()
+        inserted_row = mock_table.insert.call_args[0][0][0]
+        self.assertEqual(inserted_row["visibility_status"], "low_priority")
+        self.assertTrue(inserted_row["aktif"])
 
 if __name__ == "__main__":
     unittest.main()

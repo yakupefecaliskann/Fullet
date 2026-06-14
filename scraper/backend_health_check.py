@@ -18,7 +18,8 @@ except AttributeError:
     pass
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION_PATH = ROOT / "database" / "production_hardening.sql"
+MIGRATION_PATH = ROOT / "database" / "add_status_columns.sql"
+RPC_PATH = ROOT / "database" / "create_postgis_rpc.sql"
 RLS_PATH = ROOT / "database" / "rls_policies.sql"
 LIVE_FIX_PATH = ROOT / "database" / "live_public_schema_fix.sql"
 NEWS_STALE_WARN_HOURS = 24
@@ -48,7 +49,10 @@ def _fail(label: str, detail: str = "") -> None:
 
 
 def _migration_hint() -> str:
-    return f"run {MIGRATION_PATH}, then {RLS_PATH}; if verification is false, run {LIVE_FIX_PATH}"
+    return (
+        f"run {MIGRATION_PATH}, then {RPC_PATH}, then {RLS_PATH}; "
+        f"do not use legacy {LIVE_FIX_PATH.name} unless intentionally repairing an old schema"
+    )
 
 
 def _jwt_role(token: str | None) -> str | None:
@@ -163,8 +167,8 @@ def main() -> int:
         failed = True
 
     schema_checks = {
-        "istasyonlar": "id,aktif,veri_kaynagi,guncellenme_tarihi",
-        "fiyatlar": "id,veri_kaynagi",
+        "istasyonlar": "id,aktif,veri_kaynagi,guncellenme_tarihi,visibility_status",
+        "fiyatlar": "id,veri_kaynagi,price_status",
         "push_tokens": "id,provider,son_guncelleme",
     }
     for table, select in schema_checks.items():
@@ -178,12 +182,12 @@ def main() -> int:
     try:
         has_active_column = True
         try:
-            stations = _select_all(service, "istasyonlar", "id,marka,isim,il,ilce,enlem,boylam,aktif")
+            stations = _select_all(service, "istasyonlar", "id,marka,isim,il,ilce,enlem,boylam,aktif,visibility_status")
         except Exception as exc:
-            if "aktif" not in str(exc):
+            if "aktif" not in str(exc) and "visibility_status" not in str(exc):
                 raise
             has_active_column = False
-            _fail("schema istasyonlar.aktif", f"missing; {_migration_hint()}")
+            _fail("schema istasyonlar.aktif/visibility_status", f"missing; {_migration_hint()}")
             stations = _select_all(service, "istasyonlar", "id,marka,isim,il,ilce,enlem,boylam")
             failed = True
 
@@ -210,17 +214,20 @@ def main() -> int:
             inactive_visible_risk = [row for row in stations if row.get("aktif") is False]
             if inactive_visible_risk:
                 _warn("inactive stations", f"{len(inactive_visible_risk)} inactive rows exist; RLS should hide them")
+            hidden_risk = [row for row in stations if row.get("visibility_status") == "hidden" and row.get("aktif") is True]
+            if hidden_risk:
+                _warn("hidden but active stations", f"{len(hidden_risk)} rows are active but visibility_status is hidden")
     except Exception as exc:
         _fail("station quality check", str(exc))
         failed = True
 
     try:
-        prices = _select_all(service, "fiyatlar", "id,istasyon_id,yakit_tipi,fiyat,son_guncelleme")
+        prices = _select_all(service, "fiyatlar", "id,istasyon_id,yakit_tipi,fiyat,son_guncelleme,price_status")
         invalid_prices = [
             row for row in prices
             if row.get("fiyat") is None
-            or float(row["fiyat"]) <= 0
-            or float(row["fiyat"]) >= 300
+            or float(row["fiyat"]) < 5       # Yeni alt sınır: 5 TL (eski: 0)
+            or float(row["fiyat"]) >= 200    # Yeni üst sınır: 200 TL (eski: 300)
             or row.get("yakit_tipi") not in ("Kursunsuz 95", "Motorin", "LPG")
         ]
         duplicate_keys = set()
@@ -231,15 +238,27 @@ def main() -> int:
                 duplicate_keys.add(key)
             seen_keys.add(key)
         if invalid_prices:
-            _fail("fuel price quality", f"{len(invalid_prices)} invalid rows")
+            _fail("fuel price quality", f"{len(invalid_prices)} invalid rows (fiyat<5 or >=200 or unknown fuel)")
             failed = True
         else:
-            _ok("fuel price quality", "all checked rows clean")
+            _ok("fuel price quality", "all checked rows clean (5 <= fiyat < 200)")
         if duplicate_keys:
             _fail("fuel price duplicates", f"{len(duplicate_keys)} duplicate keys")
             failed = True
         else:
             _ok("fuel price duplicates", "all checked rows clean")
+
+        # price_status dağılımı
+        status_counts: dict[str, int] = {}
+        for row in prices:
+            s = row.get("price_status") or "unknown"
+            status_counts[s] = status_counts.get(s, 0) + 1
+        status_summary = ", ".join(f"{k}:{v}" for k, v in sorted(status_counts.items()))
+        stale_ratio = (status_counts.get("stale", 0) + status_counts.get("unknown", 0)) / max(len(prices), 1)
+        if stale_ratio > 0.5:
+            _warn("price freshness ratio", f">{int(stale_ratio*100)}% stale/unknown — {status_summary}")
+        else:
+            _ok("price freshness ratio", status_summary)
     except Exception as exc:
         _fail("price quality check", str(exc))
         failed = True
@@ -251,7 +270,7 @@ def main() -> int:
             "max_dist_meters": 20000,
             "max_results": 50,
         }).execute()
-        _ok("RPC get_nearby_stations", f"{len(rpc.data or [])} rows with max_results")
+        _ok("RPC get_nearby_stations v1", f"{len(rpc.data or [])} rows")
     except Exception as exc:
         _warn("RPC new signature", f"{exc}")
         try:
@@ -265,6 +284,20 @@ def main() -> int:
         except Exception as legacy_exc:
             _fail("RPC get_nearby_stations", str(legacy_exc))
             failed = True
+
+    # v2 RPC kontrolü (istasyon + fiyat birleşik sorgu)
+    try:
+        rpc_v2 = service.rpc("get_nearby_stations_v2", {
+            "lat": 41.0082,
+            "lng": 28.9784,
+            "max_dist_meters": 20000,
+            "max_results": 50,
+        }).execute()
+        rows_v2 = rpc_v2.data or []
+        with_prices = sum(1 for r in rows_v2 if r.get("prices") and r["prices"] != {})
+        _ok("RPC get_nearby_stations_v2", f"{len(rows_v2)} stations, {with_prices} with prices")
+    except Exception as exc:
+        _warn("RPC get_nearby_stations_v2", f"not yet deployed — run database/create_postgis_rpc.sql: {exc}")
 
     try:
         anon.table("istasyonlar").select("id").limit(1).execute()

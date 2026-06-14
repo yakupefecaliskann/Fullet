@@ -106,6 +106,18 @@ def _limited_targets(target_locations):
     return selected
 
 
+def _price_at(cols, index):
+    return parse_price(cols[index]) if len(cols) > index else None
+
+
+def _prices_from_row(cols):
+    return {
+        "Kursunsuz 95": _price_at(cols, 4) or _price_at(cols, 3),
+        "Motorin": _price_at(cols, 5) or _price_at(cols, 6),
+        "LPG": _price_at(cols, 12) or _price_at(cols, 10),
+    }
+
+
 def scrape_shell_data(target_locations=None):
     target_locations = target_locations or _targets_from_supabase() or TARGET_LOCATIONS
     target_locations = _limited_targets(target_locations)
@@ -125,28 +137,35 @@ def scrape_shell_data(target_locations=None):
                 district = loc["ilce"]
                 print(f"[INFO] Shell target: {city} / {district}")
 
-                page.locator("#cb_all_cb_province_B-1Img").click()
-                page.wait_for_timeout(250)
+                page.locator("#cb_all_cb_province_B-1Img").click(force=True)
+                page.wait_for_timeout(750)
                 city_locator = page.locator(f"#cb_all_cb_province_DDD_L_LBT td:has-text('{city}')").first
-                if city_locator.is_visible():
-                    city_locator.click()
-                    page.wait_for_timeout(450)
+                if city_locator.count() > 0:
+                    city_locator.click(force=True)
+                    page.wait_for_timeout(1000)
                 else:
                     page.keyboard.press("Escape")
                     continue
 
-                page.locator("#cb_all_cb_county_B-1Img").click()
-                page.wait_for_timeout(250)
+                page.locator("#cb_all_cb_county_B-1Img").click(force=True)
+                page.wait_for_timeout(750)
                 district_locator = page.locator(f"#cb_all_cb_county_DDD_L_LBT td:has-text('{district}')").first
-                if district_locator.is_visible():
-                    district_locator.click()
-                    page.wait_for_timeout(450)
+                if district_locator.count() > 0:
+                    district_locator.click(force=True)
+                    page.wait_for_timeout(1000)
                 else:
                     page.keyboard.press("Escape")
                     continue
 
-                page.locator("#cb_all_ASPxButton1_CD").click()
-                page.wait_for_timeout(1100)
+                page.locator("#cb_all_ASPxButton1_CD").click(force=True)
+                
+                try:
+                    page.wait_for_selector("#cb_all_grdPrices_LD", state="hidden", timeout=20000)
+                    page.wait_for_selector(".dxeLoadingDivWithContent", state="hidden", timeout=5000)
+                except Exception as exc:
+                    print(f"[WARN] Wait for loading panel timed out or failed: {exc}")
+                
+                page.wait_for_timeout(1500)
 
                 rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
                 print(f"[INFO] {len(rows)} Shell rows found.")
@@ -157,11 +176,7 @@ def scrape_shell_data(target_locations=None):
                         continue
 
                     station_district = cols[2].strip()
-                    prices = {
-                        "Kursunsuz 95": parse_price(cols[4]) or parse_price(cols[3]),
-                        "Motorin": parse_price(cols[6]) or parse_price(cols[5]),
-                        "LPG": parse_price(cols[12]) or parse_price(cols[10]),
-                    }
+                    prices = _prices_from_row(cols)
                     prices = {fuel: price for fuel, price in prices.items() if price is not None}
                     if not prices:
                         continue
