@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "57229666280",
+    "project_id": "fullet-d59c7",
+    "storage_bucket": "fullet-d59c7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:57229666280:android:6c940f2f4e554f92f3a65d",
+        "android_client_info": {
+          "package_name": "com.fullet.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "57229666280-fd7naihgc3u519fauf9c3pfegte46fsn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fullet.app",
+            "certificate_hash": "1edfc799b0178bcca5ec7ed0aa6d482dce9ef0f2"
+          }
+        },
+        {
+          "client_id": "57229666280-md5ieejvr0vv7gunghqst00je775ddrd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fullet.app",
+            "certificate_hash": "409bc11468f0bc0fc158be4b565d8dfd205e9689"
+          }
+        },
+        {
+          "client_id": "57229666280-upif1rbhe5isurd03cga5pegdnskbvap.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4l4971Is5tXmOUcFLnXZU2Vn5BAJUJtc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "57229666280-upif1rbhe5isurd03cga5pegdnskbvap.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

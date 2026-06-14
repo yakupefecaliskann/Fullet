@@ -1,5 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/notification_service.dart';
+import '../services/supabase_service.dart';
 
 class UserPreferencesProvider extends ChangeNotifier {
   double tankCapacity = 50.0;
@@ -12,6 +16,7 @@ class UserPreferencesProvider extends ChangeNotifier {
 
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
+  bool get hasVehicle => selectedMake != null && selectedModel != null;
 
   UserPreferencesProvider() {
     _loadPreferences();
@@ -52,10 +57,19 @@ class UserPreferencesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Anlık güncelleme (chip bar için) — arka planda kaydeder
+  void setSelectedFuel(String fuel) {
+    selectedFuel = fuel;
+    notifyListeners();
+    SharedPreferences.getInstance()
+        .then((p) => p.setString('defaultFuel', fuel));
+  }
+
   Future<void> updateCarSelection(String make, String? model,
       {double? tank, double? cons, String? fuel}) async {
     selectedMake = make;
     selectedModel = model;
+    await NotificationService.cancelGarageReminder();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selectedMake', make);
@@ -88,15 +102,33 @@ class UserPreferencesProvider extends ChangeNotifier {
   Future<void> toggleFavoriteStation(String stationId) async {
     if (stationId.isEmpty) return;
     final next = {...favoriteStationIds};
-    if (next.contains(stationId)) {
-      next.remove(stationId);
-    } else {
+    final adding = !next.contains(stationId);
+    if (adding) {
       next.add(stationId);
+    } else {
+      next.remove(stationId);
     }
     favoriteStationIds = next;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-        'favoriteStationIds', favoriteStationIds.toList());
+    await prefs.setStringList('favoriteStationIds', favoriteStationIds.toList());
+    notifyListeners();
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      if (adding) {
+        SupabaseService.addFavorite(uid, stationId);
+      } else {
+        SupabaseService.removeFavorite(uid, stationId);
+      }
+    }
+  }
+
+  Future<void> mergeRemoteFavorites(Set<String> remoteIds) async {
+    final merged = {...favoriteStationIds, ...remoteIds};
+    if (merged.length == favoriteStationIds.length) return;
+    favoriteStationIds = merged;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('favoriteStationIds', merged.toList());
     notifyListeners();
   }
 
@@ -109,6 +141,15 @@ class UserPreferencesProvider extends ChangeNotifier {
     recentStationIds = next;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('recentStationIds', recentStationIds);
+    notifyListeners();
+  }
+
+  Future<void> clearVehicle() async {
+    selectedMake = null;
+    selectedModel = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('selectedMake');
+    await prefs.remove('selectedModel');
     notifyListeners();
   }
 }

@@ -3,13 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/station.dart';
 import '../utils/distance_calculator.dart';
 
-class FinancialMessage {
-  final String type;
-  final String text;
-
-  FinancialMessage({required this.type, required this.text});
-}
-
 class SmartStationResult {
   final String? cheapestStationId;
   final String? mostLogicalStationId;
@@ -19,6 +12,22 @@ class SmartStationResult {
     this.cheapestStationId,
     this.mostLogicalStationId,
     required this.bestTotalCost,
+  });
+}
+
+class SmartScore {
+  final double score; // 0-100
+  final double savingsTL; // pozitif = kazanç, negatif = kayıp
+  final double distanceKm;
+  final double pricePerLiter;
+  final String category; // 'best', 'good', 'ok', 'poor'
+
+  const SmartScore({
+    required this.score,
+    required this.savingsTL,
+    required this.distanceKm,
+    required this.pricePerLiter,
+    required this.category,
   });
 }
 
@@ -36,7 +45,7 @@ class SmartStationService {
     double bestTotalCost = double.infinity;
 
     for (final station in stations) {
-      final price = station.priceValueFor(selectedFuel);
+      final price = station.trustedPriceValueFor(selectedFuel);
       if (price == null || !price.isFinite || price <= 0) continue;
 
       if (price < cheapestPrice) {
@@ -69,84 +78,57 @@ class SmartStationService {
     );
   }
 
-  static FinancialMessage? getFinancialMessage({
+  static SmartScore? calculateSmartScore({
     required Station station,
     required LatLng location,
-    required List<Station> stations,
     required String selectedFuel,
     required double tankCapacity,
     required double fuelConsumption,
-    required SmartStationResult result,
+    required SmartStationResult bestResult,
   }) {
-    final price = station.priceValueFor(selectedFuel);
+    final lat = station.latitude;
+    final lng = station.longitude;
+    if (lat == null || lng == null) return null;
+
+    final price = station.trustedPriceValueFor(selectedFuel);
     if (price == null) return null;
 
-    final myDistance = getDistanceKm(
-      location.latitude,
-      location.longitude,
-      station.latitude,
-      station.longitude,
-    );
-    if (myDistance == null) return null;
+    final distanceKm =
+        getDistanceKm(location.latitude, location.longitude, lat, lng);
+    if (distanceKm == null) return null;
 
     final myTotalCost =
-        (tankCapacity * price) + (myDistance * (fuelConsumption / 100) * price);
+        (tankCapacity * price) + (distanceKm * (fuelConsumption / 100) * price);
 
-    if (station.id == result.mostLogicalStationId) {
-      if (result.cheapestStationId != null &&
-          result.cheapestStationId != result.mostLogicalStationId) {
-        final cheapStation = stations
-            .where((item) => item.id == result.cheapestStationId)
-            .firstOrNull;
-        final cheapPrice = cheapStation?.priceValueFor(selectedFuel);
-        final cheapDistance = cheapStation == null
-            ? null
-            : getDistanceKm(
-                location.latitude,
-                location.longitude,
-                cheapStation.latitude,
-                cheapStation.longitude,
-              );
+    // bestTotalCost sonsuzsa bu tek fiyatlı istasyon — otomatik best
+    final effectiveBest = bestResult.bestTotalCost.isInfinite
+        ? myTotalCost
+        : bestResult.bestTotalCost;
+    final savingsTL = effectiveBest - myTotalCost;
 
-        if (cheapPrice != null && cheapDistance != null) {
-          final cheapTotal = (tankCapacity * cheapPrice) +
-              (cheapDistance * (fuelConsumption / 100) * cheapPrice);
-          final saved = cheapTotal - myTotalCost;
-          if (saved > 0) {
-            return FinancialMessage(
-              type: 'success',
-              text:
-                  'Hem Yakın Hem Karlı!\nEn ucuza gitmeye kıyasla net ${saved.toStringAsFixed(1)} TL kazandırdı.',
-            );
-          }
-        }
-      }
+    // 50 TL kayıp = skor 0, en iyi = skor 100
+    const maxLoss = 50.0;
+    final normalizedLoss = (-savingsTL).clamp(0.0, maxLoss);
+    final score =
+        ((maxLoss - normalizedLoss) / maxLoss * 100).clamp(0.0, 100.0);
 
-      return FinancialMessage(
-        type: 'success',
-        text:
-            'En Mantıklı Seçim\nŞu an sizin için en hesaplı ve yakın istasyon.',
-      );
+    final String category;
+    if (score >= 85) {
+      category = 'best';
+    } else if (score >= 65) {
+      category = 'good';
+    } else if (score >= 40) {
+      category = 'ok';
+    } else {
+      category = 'poor';
     }
 
-    if (station.id == result.cheapestStationId) {
-      final loss = myTotalCost - result.bestTotalCost;
-      return FinancialMessage(
-        type: 'danger',
-        text:
-            'Ucuz Görünen İstasyon\nPompa ucuz ama yol masrafıyla ${loss.toStringAsFixed(1)} TL zarar edebilirsiniz.',
-      );
-    }
-
-    final loss = myTotalCost - result.bestTotalCost;
-    return FinancialMessage(
-      type: 'warning',
-      text:
-          'Daha Karlısı Var\nEn mantıklı yere kıyasla ${loss.toStringAsFixed(1)} TL daha fazla masraf olur.',
+    return SmartScore(
+      score: score,
+      savingsTL: savingsTL,
+      distanceKm: distanceKm,
+      pricePerLiter: price,
+      category: category,
     );
   }
-}
-
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

@@ -1,32 +1,65 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+
 import '../models/station.dart';
 import '../services/smart_station_service.dart';
 import '../utils/distance_calculator.dart';
+import '../theme/ful_theme.dart';
+import 'price_trend_sparkline.dart';
 
-class StationBottomSheet extends StatelessWidget {
+class StationBottomSheet extends StatefulWidget {
   final Station? visibleStation;
   final LatLng? location;
   final VoidCallback closeSheet;
-  final FinancialMessage? financialMessage;
+  final SmartScore? smartScore;
+  final double tankCapacity;
+  final double fuelConsumption;
   final String selectedFuel;
   final bool isFavorite;
   final VoidCallback onFavoriteToggle;
+  final bool hasVehicle;
+  final VoidCallback onGaragePromptTap;
+  final VoidCallback onGaragePromptClose;
+  final Future<void> Function(Station station) onDirectionsRequested;
 
   const StationBottomSheet({
     super.key,
     required this.visibleStation,
     required this.location,
     required this.closeSheet,
-    required this.financialMessage,
+    required this.smartScore,
+    required this.tankCapacity,
+    required this.fuelConsumption,
     required this.selectedFuel,
     required this.isFavorite,
     required this.onFavoriteToggle,
+    required this.hasVehicle,
+    required this.onGaragePromptTap,
+    required this.onGaragePromptClose,
+    required this.onDirectionsRequested,
   });
 
-  String _getLogoPath(String marka) {
-    switch (marka.trim()) {
+  @override
+  State<StationBottomSheet> createState() => _StationBottomSheetState();
+}
+
+class _StationBottomSheetState extends State<StationBottomSheet> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(StationBottomSheet old) {
+    super.didUpdateWidget(old);
+    // Yeni istasyon seçilince peek'e geri dön
+    if (old.visibleStation?.id != widget.visibleStation?.id) {
+      _expanded = false;
+    }
+  }
+
+  String _logoPath(String brand) {
+    switch (brand.trim()) {
       case 'Shell':
         return 'assets/logo_shell.png';
       case 'Opet':
@@ -48,276 +81,471 @@ class StationBottomSheet extends StatelessWidget {
     }
   }
 
-  void _openDirections(double lat, double lng, String name) async {
+  Future<void> _openDirections(double lat, double lng) async {
     final uri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      final webUri = Uri.parse(
-          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-      if (await canLaunchUrl(webUri)) {
-        await launchUrl(webUri);
-      }
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
     }
+    final webUri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
+  Color _priceStatusColor(String? status) {
+    switch (status) {
+      case 'fresh':
+        return FulColors.priceFresh;
+      case 'stale':
+        return FulColors.priceStale;
+      default:
+        return FulColors.priceUnknown;
+    }
+  }
+
+  String _priceStatusLabel(String? status, DateTime? updatedAt) {
+    if (status == 'stale') {
+      if (updatedAt != null) {
+        final hours = DateTime.now().difference(updatedAt).inHours;
+        if (hours >= 48) return '⚠️ ${hours ~/ 24} gün önce güncellendi';
+        return '⚠️ $hours saat önce güncellendi';
+      }
+      return '⚠️ Bayat fiyat';
+    }
+    if (status == 'unknown') return 'ℹ️ Fiyat teyit aşamasında';
+    if (status == null) return 'ℹ️ Fiyat bilgisi bulunamadı';
+    return '✓ Doğrulanmış fiyat';
   }
 
   String _sourceLabel(Station station) {
-    final source = station.dataSource.toLowerCase();
-    if (source.contains('api.opet.com.tr')) return 'Opet resmi fiyat listesi';
-    if (source.contains('akaryakit-fiyatlari-bp')) {
-      return 'BP resmi fiyat listesi';
-    }
-    if (source.contains('petrolofisi.com.tr')) {
-      return 'Petrol Ofisi resmi fiyat listesi';
-    }
-    if (source.contains('aytemiz.com.tr')) return 'Aytemiz resmi fiyat listesi';
-    if (source.contains('guzelenerji.com.tr')) {
+    final src = station.dataSource.toLowerCase();
+    if (src.contains('opet')) return 'Opet resmi fiyat listesi';
+    if (src.contains('bp')) return 'BP resmi fiyat listesi';
+    if (src.contains('petrolofisi')) return 'Petrol Ofisi resmi fiyat listesi';
+    if (src.contains('aytemiz')) return 'Aytemiz resmi fiyat listesi';
+    if (src.contains('guzelenerji') || src.contains('total')) {
       return 'TotalEnergies resmi fiyat listesi';
     }
-    if (source.contains('tppd.com.tr')) {
+    if (src.contains('tppd') || src.contains('tp')) {
       return 'Türkiye Petrolleri resmi fiyat listesi';
     }
-    if (source.contains('turkiyeshell.com')) return 'Shell resmi fiyat listesi';
-    return station.dataSource.isEmpty
-        ? 'Kaynak bekleniyor'
-        : station.dataSource;
-  }
-
-  String _formatUpdatedAt(DateTime? dateTime) {
-    if (dateTime == null) return 'Güncelleme bekleniyor';
-    final local = dateTime.toLocal();
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '$day.$month.${local.year} $hour:$minute';
+    if (src.contains('shell')) return 'Shell resmi fiyat listesi';
+    return 'Fullet veri tabanı';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (visibleStation == null) return const SizedBox.shrink();
+    final station = widget.visibleStation;
+    if (station == null) return const SizedBox.shrink();
 
-    final station = visibleStation!;
-    final enlem = station.latitude;
-    final boylam = station.longitude;
-    final distance = (location != null && enlem != null && boylam != null)
-        ? getDistanceKm(location!.latitude, location!.longitude, enlem, boylam)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? FulColors.darkSurface : FulColors.lightSurface;
+    final cardBg = isDark ? FulColors.darkCard : FulColors.lightCard;
+    final border = isDark ? FulColors.darkBorder : FulColors.lightBorder;
+    final textColor = isDark ? FulColors.darkText : FulColors.lightText;
+    final mutedColor =
+        isDark ? FulColors.darkTextMuted : FulColors.lightTextMuted;
+    final brandColor = brandColorFor(station.brand);
+
+    final priceText = station.priceTextFor(widget.selectedFuel);
+    final priceValue = station.priceValueFor(widget.selectedFuel);
+    final hasPrice = priceValue != null;
+    final lat = station.latitude;
+    final lng = station.longitude;
+    final distKm = (widget.location != null && lat != null && lng != null)
+        ? getDistanceKm(
+            widget.location!.latitude, widget.location!.longitude, lat, lng)
         : null;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(30), topRight: Radius.circular(30)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              offset: const Offset(0, -5),
-              blurRadius: 15,
-            )
-          ]),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (financialMessage != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: financialMessage!.type == 'success'
-                    ? const Color(0xFFDCFCE7)
-                    : financialMessage!.type == 'danger'
-                        ? const Color(0xFFFEE2E2)
-                        : const Color(0xFFFEF9C3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                financialMessage!.text,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.4,
-                  color: financialMessage!.type == 'success'
-                      ? const Color(0xFF166534)
-                      : financialMessage!.type == 'danger'
-                          ? const Color(0xFF991B1B)
-                          : const Color(0xFF854D0E),
-                ),
+    final priceStatus = station.priceStatusFor(widget.selectedFuel);
+    final priceUpdatedAt =
+        station.priceFor(widget.selectedFuel)?.updatedAt ?? station.dataUpdatedAt;
+    final shouldShowPriceStatus =
+        hasPrice || priceStatus != 'fresh' || station.isLowPriority;
+
+    return GestureDetector(
+      onTap: () {},
+      onVerticalDragEnd: (details) {
+        final v = details.primaryVelocity ?? 0;
+        if (v < -300 && !_expanded) setState(() => _expanded = true);
+        if (v > 300 && _expanded) setState(() => _expanded = false);
+      },
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: surface.withOpacity(isDark ? 0.92 : 0.97),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border(
+                top: BorderSide(color: border.withOpacity(0.6), width: 1),
               ),
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 48,
-                      margin: const EdgeInsets.only(right: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle — tap to toggle expand
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+                    child: Container(
+                      width: 40,
+                      height: 4,
                       decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFE6E9E2)),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                offset: const Offset(0, 2),
-                                blurRadius: 4)
-                          ]),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Padding(
-                          padding: const EdgeInsets.all(5),
-                          child: Image.asset(
-                            _getLogoPath(station.brand),
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.local_gas_station,
-                                    size: 30, color: Colors.grey),
-                          ),
-                        ),
+                        color: isDark
+                            ? FulColors.darkBorder
+                            : const Color(0xFFD1D5DB),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                    Expanded(
-                      child: Column(
+                  ),
+                ),
+
+                // Price status bant
+                if (shouldShowPriceStatus)
+                  _PriceStatusBand(
+                    status: priceStatus,
+                    label: _priceStatusLabel(priceStatus, priceUpdatedAt),
+                    color: _priceStatusColor(priceStatus),
+                  ),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Header: logo + isim + favori + kapat ──
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(station.brand,
-                              style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFFFF5A5F),
-                                  height: 1.1)),
-                          Text(station.displayName,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF666666),
-                                  height: 1.5),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.schedule_rounded,
-                                  size: 13, color: Color(0xFF6B7280)),
-                              const SizedBox(width: 3),
-                              Text(station.getLastPriceChangeText(),
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFF6B7280),
-                                      fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 10),
-                              if (distance != null)
-                                Flexible(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                          Container(
+                            width: 54,
+                            height: 54,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: border, width: 1),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: brandColor.withOpacity(0.15),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Image.asset(
+                              _logoPath(station.brand),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.local_gas_station_rounded,
+                                color: brandColor,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  station.brand,
+                                  style: TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 18,
+                                    color: textColor,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                if (station.name.isNotEmpty &&
+                                    station.name != station.brand)
+                                  Text(
+                                    station.name,
+                                    style: TextStyle(
+                                      fontFamily: 'Outfit',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: mutedColor,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (station.district.isNotEmpty ||
+                                    station.city.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
                                     children: [
-                                      const Icon(Icons.directions_car_rounded,
-                                          size: 14, color: Color(0xFF00B84F)),
+                                      Icon(Icons.location_on_rounded,
+                                          size: 12, color: mutedColor),
                                       const SizedBox(width: 3),
-                                      Flexible(
+                                      Expanded(
                                         child: Text(
-                                          '${distance.toStringAsFixed(1)} km uzakta',
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF00B84F)),
+                                          [station.district, station.city]
+                                              .where((s) => s.isNotEmpty)
+                                              .join(', '),
+                                          style: TextStyle(
+                                            fontFamily: 'Outfit',
+                                            fontSize: 11,
+                                            color: mutedColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],
                                   ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Column(
+                            children: [
+                              GestureDetector(
+                                onTap: widget.onFavoriteToggle,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: widget.isFavorite
+                                        ? FulColors.danger.withOpacity(0.12)
+                                        : cardBg,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: widget.isFavorite
+                                          ? FulColors.danger.withOpacity(0.4)
+                                          : border,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    widget.isFavorite
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: widget.isFavorite
+                                        ? FulColors.danger
+                                        : mutedColor,
+                                    size: 18,
+                                  ),
                                 ),
+                              ),
+                              const SizedBox(height: 4),
+                              GestureDetector(
+                                onTap: widget.closeSheet,
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: cardBg,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: border),
+                                  ),
+                                  child: Icon(Icons.close_rounded,
+                                      color: mutedColor, size: 18),
+                                ),
+                              ),
                             ],
-                          )
+                          ),
                         ],
                       ),
-                    )
-                  ],
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: onFavoriteToggle,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                          color: isFavorite
-                              ? const Color(0xFFFFF7ED)
-                              : const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Icon(
-                        isFavorite
-                            ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        color: isFavorite
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF666666),
-                        size: 21,
+
+                      const SizedBox(height: 16),
+
+                      // ── Fiyat + mesafe kartları — PEEK'TE DE GÖRÜNÜR ──
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: _InfoCard(
+                              isDark: isDark,
+                              cardBg: cardBg,
+                              border: border,
+                              label: _fuelLabel(widget.selectedFuel),
+                              value:
+                                  hasPrice ? '$priceText ₺' : 'Fiyat yok',
+                              valueColor: hasPrice
+                                  ? _priceStatusColor(priceStatus)
+                                  : mutedColor,
+                              icon: Icons.local_gas_station_rounded,
+                              iconColor: brandColor,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: _InfoCard(
+                              isDark: isDark,
+                              cardBg: cardBg,
+                              border: border,
+                              label: 'Mesafe',
+                              value: distKm != null
+                                  ? distKm < 1
+                                      ? '${(distKm * 1000).toStringAsFixed(0)} m'
+                                      : '${distKm.toStringAsFixed(1)} km'
+                                  : '-',
+                              valueColor: FulColors.info,
+                              icon: Icons.near_me_rounded,
+                              iconColor: FulColors.info,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: closeSheet,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: const Icon(Icons.close_rounded,
-                          color: Color(0xFF666666), size: 20),
-                    ),
-                  ),
-                ],
-              )
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.verified_rounded,
-                    size: 18, color: Color(0xFF2563EB)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _sourceLabel(station),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1E3A8A),
+
+                      // ── Navigasyon butonu — PEEK'TE DE GÖRÜNÜR ──
+                      if (lat != null && lng != null) ...[
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () async {
+                            await widget.onDirectionsRequested(station);
+                            await _openDirections(lat, lng);
+                          },
+                          child: Container(
+                            height: 52,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  FulColors.primary,
+                                  FulColors.primaryDark
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: FulColors.primary.withOpacity(0.45),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.navigation_rounded,
+                                    color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Yol Tarifi Al',
+                                  style: TextStyle(
+                                    fontFamily: 'Outfit',
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Bölgesel resmi fiyat - ${_formatUpdatedAt(station.latestPriceUpdatedAt)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF3B5F9A),
-                        ),
+                      ],
+
+                      // ── Genişleyen bölüm ──
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                        child: _expanded
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (widget.smartScore != null) ...[
+                                    const SizedBox(height: 10),
+                                    _SmartScoreCard(
+                                      score: widget.smartScore!,
+                                      isDark: isDark,
+                                      cardBg: cardBg,
+                                      border: border,
+                                      textColor: textColor,
+                                      mutedColor: mutedColor,
+                                    ),
+                                  ],
+                                  if (hasPrice) ...[
+                                    const SizedBox(height: 10),
+                                    _FillCostCard(
+                                      price: priceValue,
+                                      tankCapacity: widget.tankCapacity,
+                                      distanceKm: distKm,
+                                      fuelConsumption: widget.fuelConsumption,
+                                      isDark: isDark,
+                                      cardBg: cardBg,
+                                      border: border,
+                                      textColor: textColor,
+                                      mutedColor: mutedColor,
+                                    ),
+                                  ],
+                                  if (hasPrice) ...[
+                                    const SizedBox(height: 10),
+                                    PriceTrendSparkline(
+                                      history: station.priceHistory,
+                                      selectedFuel: widget.selectedFuel,
+                                      currentPrice: priceValue,
+                                      isDark: isDark,
+                                    ),
+                                  ],
+                                  if (!widget.hasVehicle) ...[
+                                    const SizedBox(height: 10),
+                                    _GaragePromptCard(
+                                      isDark: isDark,
+                                      onClose: widget.onGaragePromptClose,
+                                      onTap: widget.onGaragePromptTap,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.verified_rounded,
+                                          size: 12, color: mutedColor),
+                                      const SizedBox(width: 5),
+                                      Expanded(
+                                        child: Text(
+                                          _sourceLabel(station),
+                                          style: TextStyle(
+                                            fontFamily: 'Outfit',
+                                            fontSize: 11,
+                                            color: mutedColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(
+                                    height: MediaQuery.of(context).padding.bottom + 16,
+                                  ),
+                                ],
+                              )
+                            // Peek ipucu
+                            : Padding(
+                                padding: EdgeInsets.only(
+                                  top: 10,
+                                  bottom:
+                                      MediaQuery.of(context).padding.bottom + 8,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.keyboard_arrow_up_rounded,
+                                        size: 16, color: mutedColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Detaylar',
+                                      style: TextStyle(
+                                        fontFamily: 'Outfit',
+                                        fontSize: 12,
+                                        color: mutedColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                       ),
                     ],
                   ),
@@ -325,126 +553,408 @@ class StationBottomSheet extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(16)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildPriceBox('Benzin', 'Kursunsuz 95'),
-                _buildPriceBox('Motorin', 'Motorin'),
-                _buildPriceBox('LPG', 'LPG'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                if (enlem != null && boylam != null) {
-                  _openDirections(enlem, boylam, station.displayName);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00B84F),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                elevation: 5,
-                shadowColor: const Color(0xFF00B84F).withOpacity(0.5),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.near_me_rounded, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text('Yol Tarifi Al',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          letterSpacing: 0.5)),
-                ],
-              ),
-            ),
-          )
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildPriceBox(String label, String targetType) {
-    final priceRaw = visibleStation!.priceTextFor(targetType);
-    final isMissing = priceRaw == '-';
-    final trend = visibleStation!.trendFor(targetType);
-    final isSelected = selectedFuel == targetType;
+  String _fuelLabel(String fuel) {
+    switch (fuel) {
+      case 'Kursunsuz 95':
+        return 'Benzin (95)';
+      case 'Motorin':
+        return 'Motorin';
+      case 'LPG':
+        return 'LPG';
+      case 'Elektrik':
+        return 'Şarj';
+      default:
+        return fuel;
+    }
+  }
+}
 
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color:
-                isSelected ? const Color(0xFFD1D5DB) : const Color(0xFFE5E7EB),
-            width: 1,
+// ---------------------------------------------------------------------------
+// Price Status Bant
+// ---------------------------------------------------------------------------
+class _PriceStatusBand extends StatelessWidget {
+  final String? status;
+  final String label;
+  final Color color;
+
+  const _PriceStatusBand({
+    required this.status,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == 'fresh') return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+      color: color.withOpacity(0.12),
+      child: Row(
+        children: [
+          Icon(
+            status == 'stale'
+                ? Icons.warning_amber_rounded
+                : Icons.help_outline_rounded,
+            size: 14,
+            color: color,
           ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected
-                    ? const Color(0xFF111827)
-                    : const Color(0xFF9CA3AF),
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Info Kartı
+// ---------------------------------------------------------------------------
+class _InfoCard extends StatelessWidget {
+  final bool isDark;
+  final Color cardBg;
+  final Color border;
+  final String label;
+  final String value;
+  final Color valueColor;
+  final IconData icon;
+  final Color iconColor;
+
+  const _InfoCard({
+    required this.isDark,
+    required this.cardBg,
+    required this.border,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 13, color: iconColor),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? FulColors.darkTextMuted
+                        : FulColors.lightTextMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: valueColor,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Smart Score Kartı
+// ---------------------------------------------------------------------------
+class _SmartScoreCard extends StatelessWidget {
+  final SmartScore score;
+  final bool isDark;
+  final Color cardBg;
+  final Color border;
+  final Color textColor;
+  final Color mutedColor;
+
+  const _SmartScoreCard({
+    required this.score,
+    required this.isDark,
+    required this.cardBg,
+    required this.border,
+    required this.textColor,
+    required this.mutedColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = score.category == 'best'
+        ? FulColors.logical
+        : score.category == 'good'
+            ? FulColors.primary
+            : score.category == 'ok'
+                ? FulColors.priceStale
+                : FulColors.danger;
+
+    final label = score.category == 'best'
+        ? '🏆 En İyi Seçim'
+        : score.category == 'good'
+            ? '👍 İyi Seçim'
+            : score.category == 'ok'
+                ? '⚠️ Orta Seçim'
+                : '⬇️ Daha İyisi Var';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 52,
+            height: 52,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: score.score / 100,
+                  strokeWidth: 5,
+                  backgroundColor: color.withOpacity(0.2),
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+                Text(
+                  score.score.toInt().toString(),
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                if (score.savingsTL < -1)
                   Text(
-                    isMissing ? 'Yok' : '$priceRaw TL',
+                    'En iyiye göre ${(-score.savingsTL).toStringAsFixed(1)} TL fazla masraf',
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: isMissing
-                          ? const Color(0xFFD1D5DB)
-                          : const Color(0xFF1F2937),
+                      fontFamily: 'Outfit',
+                      fontSize: 12,
+                      color: mutedColor,
+                      height: 1.3,
+                    ),
+                  )
+                else
+                  Text(
+                    '${score.distanceKm.toStringAsFixed(1)} km • ${score.pricePerLiter.toStringAsFixed(2)} TL/lt',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 12,
+                      color: mutedColor,
+                      height: 1.3,
                     ),
                   ),
-                  if (!isMissing && trend != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        trend < 0
-                            ? Icons.arrow_downward_rounded
-                            : trend > 0
-                                ? Icons.arrow_upward_rounded
-                                : Icons.remove_rounded,
-                        color: trend < 0
-                            ? const Color(0xFF16A34A)
-                            : trend > 0
-                                ? const Color(0xFFDC2626)
-                                : const Color(0xFF6B7280),
-                        size: 16,
-                      ),
-                    )
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fill Cost Kartı
+// ---------------------------------------------------------------------------
+class _FillCostCard extends StatelessWidget {
+  final double price;
+  final double tankCapacity;
+  final double? distanceKm;
+  final double fuelConsumption;
+  final bool isDark;
+  final Color cardBg;
+  final Color border;
+  final Color textColor;
+  final Color mutedColor;
+
+  const _FillCostCard({
+    required this.price,
+    required this.tankCapacity,
+    required this.distanceKm,
+    required this.fuelConsumption,
+    required this.isDark,
+    required this.cardBg,
+    required this.border,
+    required this.textColor,
+    required this.mutedColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fillCost = tankCapacity * price;
+    final dist = distanceKm;
+    final showTravel = dist != null && dist > 0.3;
+    final travelCost =
+        showTravel ? dist * (fuelConsumption / 100) * price : 0.0;
+    final totalCost = fillCost + travelCost;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border, width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calculate_rounded, color: FulColors.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Depo Doldurma Tahmini',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: mutedColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${tankCapacity.toInt()} L × ${price.toStringAsFixed(2)} TL = ${fillCost.toStringAsFixed(0)} TL',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                  ),
+                ),
+                if (showTravel) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '+ ${travelCost.toStringAsFixed(1)} TL yol → Toplam ${totalCost.toStringAsFixed(0)} TL',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: mutedColor,
+                    ),
+                  ),
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Garage Prompt Kartı
+// ---------------------------------------------------------------------------
+class _GaragePromptCard extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onClose;
+  final VoidCallback onTap;
+
+  const _GaragePromptCard({
+    required this.isDark,
+    required this.onClose,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        onClose();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: FulColors.primary.withOpacity(isDark ? 0.14 : 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: FulColors.primary.withOpacity(0.34)),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.directions_car_rounded,
+              color: FulColors.primary,
+              size: 17,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Aracını ekle, sana özel hesaplama yap',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: FulColors.primary,
+                ),
               ),
-            )
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: FulColors.primary,
+              size: 18,
+            ),
           ],
         ),
       ),

@@ -1,40 +1,40 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MarkerIconFactory {
-  MarkerIconFactory._();
-
   static final Map<String, BitmapDescriptor> _cache = {};
 
   static Future<BitmapDescriptor> stationPrice({
     required String brand,
     required String priceText,
     required bool hasPrice,
+    required String priceStatus,
     required bool isCheapest,
     required bool isMostLogical,
-    bool compact = false,
+    required bool compact,
+    bool isSelected = false,
   }) async {
     final key =
-        '$brand|$priceText|$hasPrice|$isCheapest|$isMostLogical|$compact';
+        'price|$brand|$priceText|$hasPrice|$priceStatus|$isCheapest|$isMostLogical|$compact|$isSelected';
     final cached = _cache[key];
     if (cached != null) return cached;
 
     final palette = _paletteFor(
       brand: brand,
       hasPrice: hasPrice,
+      priceStatus: priceStatus,
       isCheapest: isCheapest,
       isMostLogical: isMostLogical,
     );
 
     final bytes = await _drawPriceMarker(
-      text: priceText,
+      text: hasPrice ? priceText : '-',
       palette: palette,
       compact: compact,
+      isSelected: isSelected,
     );
-    // google_maps_flutter_android 2.8.0 still expects the legacy descriptor
     // payload for runtime-generated marker PNGs.
     // ignore: deprecated_member_use
     final descriptor = BitmapDescriptor.fromBytes(bytes);
@@ -59,30 +59,35 @@ class MarkerIconFactory {
   static _MarkerPalette _paletteFor({
     required String brand,
     required bool hasPrice,
+    required String priceStatus,
     required bool isCheapest,
     required bool isMostLogical,
   }) {
     if (!hasPrice) {
-      return const _MarkerPalette(
-        background: Color(0xFFF3F4F6),
-        foreground: Color(0xFF6B7280),
-        border: Color(0xFFFFFFFF),
-      );
+      return _noPricePaletteFor(brand);
     }
 
     if (isMostLogical) {
       return const _MarkerPalette(
-        background: Color(0xFF00A854),
+        background: Color(0xFF0D9488),
         foreground: Colors.white,
-        border: Color(0xFF064E3B),
+        border: Color(0xFF0A7167),
       );
     }
 
     if (isCheapest) {
       return const _MarkerPalette(
-        background: Color(0xFFEF4444),
+        background: Color(0xFF3B82F6),
         foreground: Colors.white,
-        border: Color(0xFF7F1D1D),
+        border: Color(0xFF1D4ED8),
+      );
+    }
+
+    if (priceStatus == 'stale') {
+      return const _MarkerPalette(
+        background: Color(0xFFF59E0B),
+        foreground: Colors.white,
+        border: Color(0xFF92400E),
       );
     }
 
@@ -117,6 +122,20 @@ class MarkerIconFactory {
           foreground: Colors.white,
           border: Color(0xFFFFFFFF),
         );
+      case 'Aytemiz':
+        return const _MarkerPalette(
+          background: Color(0xFFF37121),
+          foreground: Colors.white,
+          border: Color(0xFFFFFFFF),
+        );
+      case 'Türkiye Petrolleri':
+      case 'Turkiye Petrolleri':
+      case 'TP':
+        return const _MarkerPalette(
+          background: Color(0xFF003087),
+          foreground: Colors.white,
+          border: Color(0xFFFFFFFF),
+        );
       default:
         return const _MarkerPalette(
           background: Color(0xFF111827),
@@ -126,19 +145,76 @@ class MarkerIconFactory {
     }
   }
 
+  static _MarkerPalette _noPricePaletteFor(String brand) {
+    switch (brand) {
+      case 'Shell':
+        return const _MarkerPalette(
+          background: Color(0xFFFFFBEB),
+          foreground: Color(0xFFD6001C),
+          border: Color(0xFFFFCC00),
+        );
+      case 'Opet':
+        return const _MarkerPalette(
+          background: Color(0xFFEFF6FF),
+          foreground: Color(0xFF004797),
+          border: Color(0xFF004797),
+        );
+      case 'Petrol Ofisi':
+        return const _MarkerPalette(
+          background: Color(0xFFFFF1F2),
+          foreground: Color(0xFFDF1B25),
+          border: Color(0xFFDF1B25),
+        );
+      case 'BP':
+        return const _MarkerPalette(
+          background: Color(0xFFF0FDF4),
+          foreground: Color(0xFF009900),
+          border: Color(0xFF009900),
+        );
+      case 'TotalEnergies':
+        return const _MarkerPalette(
+          background: Color(0xFFFFF1F2),
+          foreground: Color(0xFFED0000),
+          border: Color(0xFFED0000),
+        );
+      case 'Aytemiz':
+        return const _MarkerPalette(
+          background: Color(0xFFFFF7ED),
+          foreground: Color(0xFFF37121),
+          border: Color(0xFFF37121),
+        );
+      case 'Türkiye Petrolleri':
+      case 'Turkiye Petrolleri':
+      case 'TP':
+        return const _MarkerPalette(
+          background: Color(0xFFEFF6FF),
+          foreground: Color(0xFF003087),
+          border: Color(0xFF003087),
+        );
+      default:
+        return const _MarkerPalette(
+          background: Color(0xFFF3F4F6),
+          foreground: Color(0xFF6B7280),
+          border: Color(0xFFFFFFFF),
+        );
+    }
+  }
+
   static Future<Uint8List> _drawPriceMarker({
     required String text,
     required _MarkerPalette palette,
     required bool compact,
+    bool isSelected = false,
   }) async {
-    final width = compact ? 122.0 : 156.0;
-    final height = compact ? 58.0 : 74.0;
-    const bubbleLeft = 6.0;
-    const bubbleTop = 6.0;
-    final bubbleWidth = width - 12.0;
-    final bubbleHeight = compact ? 34.0 : 44.0;
-    final radius = compact ? 10.0 : 13.0;
-    final tipHeight = compact ? 13.0 : 17.0;
+    final scale = isSelected ? 1.32 : 1.0;
+    final width = (compact ? 92.0 : 124.0) * scale;
+    final height = (compact ? 46.0 : 60.0) * scale;
+    const bubbleLeft = 4.0;
+    const bubbleTop = 4.0;
+    final bubbleWidth = width - 8.0;
+    final bubbleHeight = (compact ? 26.0 : 36.0) * scale;
+    final radius = (compact ? 8.0 : 11.0) * scale;
+    final tipHeight = (compact ? 10.0 : 14.0) * scale;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
@@ -154,12 +230,12 @@ class MarkerIconFactory {
         RRect.fromRectAndRadius(bubbleRect, Radius.circular(radius)),
       );
     final tipPath = Path()
-      ..moveTo(width / 2 - (compact ? 10 : 13), bubbleTop + bubbleHeight - 3)
+      ..moveTo(width / 2 - (compact ? 10 : 13) * scale, bubbleTop + bubbleHeight - 3 * scale)
       ..lineTo(width / 2, bubbleTop + bubbleHeight + tipHeight)
-      ..lineTo(width / 2 + (compact ? 10 : 13), bubbleTop + bubbleHeight - 3)
+      ..lineTo(width / 2 + (compact ? 10 : 13) * scale, bubbleTop + bubbleHeight - 3 * scale)
       ..close();
 
-    canvas.drawShadow(bubblePath, Colors.black.withOpacity(0.30), 6, true);
+    canvas.drawShadow(bubblePath, Colors.black.withOpacity(isSelected ? 0.26 : 0.18), isSelected ? 10 : 6, true);
     canvas.drawShadow(tipPath, Colors.black.withOpacity(0.22), 4, true);
 
     final fillPaint = Paint()
@@ -182,14 +258,27 @@ class MarkerIconFactory {
       borderPaint,
     );
 
+    // White outer ring for selected state
+    if (isSelected) {
+      final ringPaint = Paint()
+        ..color = Colors.white.withOpacity(0.95)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..isAntiAlias = true;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(bubbleRect.inflate(2.5), Radius.circular(radius + 1.5)),
+        ringPaint,
+      );
+    }
+
     _drawCenteredText(
       canvas: canvas,
       text: text,
       color: palette.foreground,
-      maxWidth: bubbleWidth - (compact ? 14 : 18),
+      maxWidth: bubbleWidth - (compact ? 12 : 16) * scale,
       center: Offset(width / 2, bubbleTop + bubbleHeight / 2 - 0.5),
-      startFontSize: compact ? 22 : 27,
-      minFontSize: compact ? 15 : 18,
+      startFontSize: (compact ? 16 : 21) * scale,
+      minFontSize: (compact ? 12 : 14) * scale,
     );
 
     final picture = recorder.endRecording();
@@ -201,32 +290,32 @@ class MarkerIconFactory {
   static Future<Uint8List> _drawClusterMarker({
     required int count,
   }) async {
-    const width = 96.0;
-    const height = 78.0;
+    const width = 80.0;
+    const height = 66.0;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, width, height));
 
     final shadowPaint = Paint()
       ..color = Colors.black.withOpacity(0.16)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawCircle(const Offset(width / 2, 35), 29, shadowPaint);
+    canvas.drawCircle(const Offset(width / 2, 29), 24, shadowPaint);
 
     final outerPaint = Paint()
       ..color = Colors.white
       ..isAntiAlias = true;
     final ringPaint = Paint()
-      ..color = const Color(0xFF10B981)
+      ..color = const Color(0xFF0D9488)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..isAntiAlias = true;
     final tipPaint = Paint()
-      ..color = const Color(0xFF10B981)
+      ..color = const Color(0xFF0D9488)
       ..isAntiAlias = true;
 
-    const bubbleRect = Rect.fromLTWH(16, 7, 64, 52);
+    const bubbleRect = Rect.fromLTWH(12, 5, 56, 44);
     final bubbleRRect = RRect.fromRectAndRadius(
       bubbleRect,
-      const Radius.circular(18),
+      const Radius.circular(14),
     );
     canvas.drawRRect(bubbleRRect, outerPaint);
     canvas.drawRRect(bubbleRRect, ringPaint);
@@ -235,26 +324,26 @@ class MarkerIconFactory {
       canvas: canvas,
       text: count > 999 ? '999+' : count.toString(),
       color: const Color(0xFF111827),
-      maxWidth: 54,
-      center: const Offset(width / 2, 27),
-      startFontSize: 24,
-      minFontSize: 15,
+      maxWidth: 48,
+      center: const Offset(width / 2, 23),
+      startFontSize: 20,
+      minFontSize: 13,
     );
 
     _drawCenteredText(
       canvas: canvas,
       text: 'istasyon',
-      color: const Color(0xFF10B981),
-      maxWidth: 56,
-      center: const Offset(width / 2, 46),
-      startFontSize: 10,
-      minFontSize: 8,
+      color: const Color(0xFF0D9488),
+      maxWidth: 48,
+      center: const Offset(width / 2, 38),
+      startFontSize: 9,
+      minFontSize: 7,
     );
 
     final tipPath = Path()
-      ..moveTo(width / 2 - 8, 58)
-      ..lineTo(width / 2, 72)
-      ..lineTo(width / 2 + 8, 58)
+      ..moveTo(width / 2 - 6, 49)
+      ..lineTo(width / 2, 60)
+      ..lineTo(width / 2 + 6, 49)
       ..close();
     canvas.drawPath(tipPath, tipPaint);
 

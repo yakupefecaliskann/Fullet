@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/news_item.dart';
 import '../models/station.dart';
+import '../utils/brand_utils.dart';
 import '../utils/distance_calculator.dart';
 
 class SupabaseService {
@@ -22,9 +23,11 @@ class SupabaseService {
     ilce,
     enlem,
     boylam,
+    aktif,
+    visibility_status,
     veri_kaynagi,
     guncellenme_tarihi,
-    fiyatlar (yakit_tipi, fiyat, son_guncelleme),
+    fiyatlar (yakit_tipi, fiyat, price_status, son_guncelleme),
     fiyat_gecmisi (yakit_tipi, fiyat_farki, degisim_tarihi)
   ''';
 
@@ -36,9 +39,12 @@ class SupabaseService {
     ilce,
     enlem,
     boylam,
+    aktif,
+    visibility_status,
     veri_kaynagi,
     guncellenme_tarihi,
-    fiyatlar (yakit_tipi, fiyat, son_guncelleme)
+    fiyatlar (yakit_tipi, fiyat, price_status, son_guncelleme),
+    fiyat_gecmisi (yakit_tipi, fiyat_farki, degisim_tarihi)
   ''';
 
   static Future<List<Station>> fetchStations({
@@ -46,7 +52,18 @@ class SupabaseService {
     required double longitude,
     double maxDistMeters = 20000,
     int maxResults = 250,
+    Set<String> brandKeys = const {},
   }) async {
+    if (brandKeys.isNotEmpty) {
+      return _fetchStationsByBrandsForRegion(
+        latitude: latitude,
+        longitude: longitude,
+        maxDistMeters: maxDistMeters,
+        maxResults: maxResults,
+        brandKeys: brandKeys,
+      );
+    }
+
     try {
       final response = await client.rpc('get_nearby_stations', params: {
         'lat': latitude,
@@ -133,6 +150,128 @@ class SupabaseService {
     }
   }
 
+  static Future<List<Station>> _fetchStationsByBrandsForRegion({
+    required double latitude,
+    required double longitude,
+    required double maxDistMeters,
+    required int maxResults,
+    required Set<String> brandKeys,
+  }) async {
+    final brandLabels = brandLabelsForKeys(brandKeys);
+    if (brandLabels.isEmpty) return const [];
+
+    try {
+      final rows = <dynamic>[];
+      var start = 0;
+      const pageSize = 1000;
+
+      while (true) {
+        final page = await client
+            .from('istasyonlar')
+            .select(_stationListSelect)
+            .inFilter('marka', brandLabels)
+            .range(start, start + pageSize - 1);
+        final pageRows = List<dynamic>.from(page);
+        rows.addAll(pageRows);
+        if (pageRows.length < pageSize) break;
+        start += pageSize;
+      }
+
+      // Bug B fix: inFilter 0 satır dönerse (HTTP 200, bos array) cache fallback
+      // DB'de marka degeri farklı yazılmış olabilir — canonicalBrandKey ile normalize
+      if (rows.isEmpty) {
+        debugPrint(
+          '[Brand] inFilter returned 0 rows for brands=$brandKeys — '
+          'falling back to cache with canonicalBrandKey matching',
+        );
+        return _fetchStationsByBrandsFromCache(
+          latitude: latitude,
+          longitude: longitude,
+          maxDistMeters: maxDistMeters,
+          maxResults: maxResults,
+          brandKeys: brandKeys,
+        );
+      }
+
+      lastStationFetchError = null;
+      return _stationsNear(
+        _parseStations(rows),
+        latitude: latitude,
+        longitude: longitude,
+        maxDistMeters: maxDistMeters,
+        maxResults: maxResults,
+      );
+    } catch (e) {
+      debugPrint('Brand station fetch failed: $e');
+      return _fetchStationsByBrandsFromCache(
+        latitude: latitude,
+        longitude: longitude,
+        maxDistMeters: maxDistMeters,
+        maxResults: maxResults,
+        brandKeys: brandKeys,
+      );
+    }
+  }
+
+  static Future<List<Station>> _fetchStationsByBrandsFromCache({
+    required double latitude,
+    required double longitude,
+    required double maxDistMeters,
+    required int maxResults,
+    required Set<String> brandKeys,
+  }) async {
+    try {
+      final allStations = await _fetchAllStationsCached();
+      final selectedKeys = brandKeys.toSet();
+      final matching = allStations
+          .where((station) => selectedKeys.contains(
+                canonicalBrandKey(station.brand),
+              ))
+          .toList(growable: false);
+      lastStationFetchError = null;
+      return _stationsNear(
+        matching,
+        latitude: latitude,
+        longitude: longitude,
+        maxDistMeters: maxDistMeters,
+        maxResults: maxResults,
+      );
+    } catch (e) {
+      debugPrint('Brand station cache fallback failed: $e');
+      lastStationFetchError = 'İstasyon verisi alınamadı.';
+      return const [];
+    }
+  }
+
+  static List<Station> _stationsNear(
+    List<Station> stations, {
+    required double latitude,
+    required double longitude,
+    required double maxDistMeters,
+    required int maxResults,
+  }) {
+    final maxKm = maxDistMeters / 1000;
+    final withDistance = stations
+        .map((station) {
+          final distance = getDistanceKm(
+            latitude,
+            longitude,
+            station.latitude,
+            station.longitude,
+          );
+          return _StationDistance(station, distance);
+        })
+        .where((item) => item.distanceKm != null && item.distanceKm! <= maxKm)
+        .toList()
+      ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
+
+    final result = withDistance
+        .take(maxResults)
+        .map((item) => item.station)
+        .toList(growable: false);
+    return result;
+  }
+
   static Future<List<Station>> _fetchAllStationsCached() async {
     final now = DateTime.now();
     final cacheTime = _allStationsCacheTime;
@@ -164,7 +303,6 @@ class SupabaseService {
       final page = await client
           .from('istasyonlar')
           .select(_stationListSelect)
-          .eq('aktif', true)
           .range(start, start + pageSize - 1);
       final pageRows = List<dynamic>.from(page);
       rows.addAll(pageRows);
@@ -195,12 +333,77 @@ class SupabaseService {
 
   static List<Station> _parseStations(dynamic response) {
     final rows = List<dynamic>.from(response);
-    return rows
+    final parsed = rows
         .whereType<Map<String, dynamic>>()
         .map(Station.fromJson)
-        .where((station) => station.hasLocation)
+        .where((station) => station.hasLocation && station.isVisibleInApp)
         .toList(growable: false);
+    return parsed;
   }
+
+  // ─── Kullanıcı profili ve favoriler ─────────────────────────────────────
+
+  static Future<void> upsertUserProfile({
+    required String uid,
+    String? displayName,
+    String? email,
+    String? avatarUrl,
+  }) async {
+    try {
+      await client.from('fullet_users').upsert({
+        'firebase_uid': uid,
+        if (displayName != null) 'display_name': displayName,
+        if (email != null) 'email': email,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
+      });
+    } catch (_) {}
+  }
+
+  static Future<Set<String>> getUserFavorites(String uid) async {
+    try {
+      final response = await client
+          .from('fullet_favorites')
+          .select('station_id')
+          .eq('firebase_uid', uid);
+      return List<dynamic>.from(response)
+          .map((row) => row['station_id'] as String)
+          .toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> addFavorite(String uid, String stationId) async {
+    try {
+      await client.from('fullet_favorites').upsert({
+        'firebase_uid': uid,
+        'station_id': stationId,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> removeFavorite(String uid, String stationId) async {
+    try {
+      await client
+          .from('fullet_favorites')
+          .delete()
+          .eq('firebase_uid', uid)
+          .eq('station_id', stationId);
+    } catch (_) {}
+  }
+
+  static Future<void> syncLocalFavorites(
+      String uid, Set<String> stationIds) async {
+    if (stationIds.isEmpty) return;
+    try {
+      final rows = stationIds
+          .map((id) => {'firebase_uid': uid, 'station_id': id})
+          .toList();
+      await client.from('fullet_favorites').upsert(rows);
+    } catch (_) {}
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   static Future<List<NewsItem>> fetchNews() async {
     try {

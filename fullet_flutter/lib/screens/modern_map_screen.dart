@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -7,43 +8,44 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/news_item.dart';
 import '../models/station.dart';
+import '../models/map_focus_mode.dart';
+import '../services/analytics_service.dart';
 import '../services/supabase_service.dart';
 import '../services/smart_station_service.dart';
 import '../providers/user_preferences_provider.dart';
 import '../widgets/garage_modal.dart';
 import '../widgets/station_bottom_sheet.dart';
+import '../widgets/ful_side_menu.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../utils/price_formatter.dart';
 import '../utils/marker_icon_factory.dart';
 import '../utils/distance_calculator.dart';
+import '../utils/brand_utils.dart';
+import '../widgets/top_search_bar.dart';
+import '../theme/ful_theme.dart';
+import '../services/notification_service.dart';
+import '../services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+class ModernMapScreen extends StatefulWidget {
+  final bool openGarageOnStart;
+
+  const ModernMapScreen({
+    super.key,
+    this.openGarageOnStart = false,
+  });
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  State<ModernMapScreen> createState() => _ModernMapScreenState();
 }
-
-enum _MapFocusMode { smart, cheapest, nearest }
 
 enum _LocationState { checking, precise, fallback, serviceOff, denied }
 
-class _MapScreenState extends State<MapScreen> {
-  static const List<String> _brandOrder = [
-    'Shell',
-    'Opet',
-    'Petrol Ofisi',
-    'BP',
-    'TotalEnergies',
-    'Türkiye Petrolleri',
-    'Aytemiz',
-  ];
+class _ModernMapScreenState extends State<ModernMapScreen> {
   static const double _drivingFetchRadiusMeters = 30000;
   static const double _drivingFetchMoveMeters = 1200;
   static const Duration _drivingFetchInterval = Duration(seconds: 45);
-  static final Uri _privacyPolicyUri = Uri.parse(
-    'https://yakupefecaliskann.github.io/Fullet/privacy.html',
-  );
-
   GoogleMapController? _mapController;
   LatLng _currentLocation =
       const LatLng(41.0082, 28.9784); // Default to Istanbul immediately
@@ -57,10 +59,13 @@ class _MapScreenState extends State<MapScreen> {
   Station? _visibleStation;
   SmartStationResult? _smartResult;
   String? _nearestStationId;
-  Set<Marker> _markers = {};
+  final ValueNotifier<Set<Marker>> _markersNotifier = ValueNotifier({});
   double _currentZoom = 12;
   Set<String> _selectedBrands = {};
-  _MapFocusMode _focusMode = _MapFocusMode.smart;
+  MapFocusMode _focusMode = MapFocusMode.smart;
+
+  User? _currentUser;
+  StreamSubscription<User?>? _authSubscription;
 
   Timer? _fetchDebouncer;
   Timer? _markerDebouncer;
@@ -75,20 +80,70 @@ class _MapScreenState extends State<MapScreen> {
   String? _drivingError;
   LatLng? _lastDrivingFetchLocation;
   DateTime? _lastDrivingFetchAt;
+  bool? _isDarkModeOverride;
+
+  bool get _currentIsDark {
+    if (_isDarkModeOverride != null) return _isDarkModeOverride!;
+    return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.dark;
+  }
+
+  bool _menuOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _initData();
+    _currentUser = AuthService.currentUser;
+    _authSubscription = AuthService.authStateChanges.listen((user) {
+      if (!mounted) return;
+      final prev = _currentUser;
+      setState(() => _currentUser = user);
+      if (user != null && prev == null) {
+        unawaited(_handleSignIn(user));
+      }
+    });
+    if (widget.openGarageOnStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _openGarage();
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initData());
   }
 
   Future<void> _initData() async {
     await _getLocation();
+    unawaited(_requestNotificationsOnce());
     unawaited(_loadNews());
     await _fetchStationsForRegion(_currentLocation);
     if (!mounted) return;
     setState(() => _isLoading = false);
     unawaited(SupabaseService.fetchAllActiveStationsSafe());
+  }
+
+  Future<void> _handleSignIn(User user) async {
+    final prefs = context.read<UserPreferencesProvider>();
+    final localFavorites = prefs.favoriteStationIds;
+    if (localFavorites.isNotEmpty) {
+      await SupabaseService.syncLocalFavorites(user.uid, localFavorites);
+    }
+    final remoteFavorites = await SupabaseService.getUserFavorites(user.uid);
+    if (remoteFavorites.isNotEmpty && mounted) {
+      await prefs.mergeRemoteFavorites(remoteFavorites);
+    }
+  }
+
+  Future<void> _requestNotificationsOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('notifications_initialized') == true) return;
+    // Bayrağı hemen set et — izin verilse de verilmese de bir daha sorma
+    await prefs.setBool('notifications_initialized', true);
+    try {
+      final granted = await NotificationService.requestPermission();
+      if (!granted) return;
+      await NotificationService.scheduleFuelReminder();
+      await NotificationService.scheduleGarageReminder();
+    } catch (_) {}
   }
 
   Future<void> _loadNews() async {
@@ -106,27 +161,80 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
+    // Kademe 1: Medium accuracy — hem GPS hem network kullanır, daha hızlı
     try {
       final position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high)
+              desiredAccuracy: LocationAccuracy.medium)
           .timeout(const Duration(seconds: 5));
       final location = _locationFromPosition(position);
-      if (!mounted) return;
-      setState(() {
-        if (location == null) {
-          _currentLocation = const LatLng(41.0082, 28.9784);
-          _locationState = _LocationState.fallback;
-        } else {
+      if (location != null) {
+        if (!mounted) return;
+        setState(() {
           _currentLocation = location;
           _locationState = _LocationState.precise;
+        });
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: location, zoom: 13),
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
+
+    // Kademe 2: Low accuracy — son bilinen konum dahil
+    try {
+      final position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.low)
+          .timeout(const Duration(seconds: 4));
+      final location = _locationFromPosition(position);
+      if (location != null) {
+        if (!mounted) return;
+        setState(() {
+          _currentLocation = location;
+          _locationState = _LocationState.fallback;
+        });
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: location, zoom: 12),
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
+
+    // Kademe 3: Son bilinen konum
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        final location = _locationFromPosition(lastKnown);
+        if (location != null) {
+          if (!mounted) return;
+          setState(() {
+            _currentLocation = location;
+            _locationState = _LocationState.fallback;
+          });
+          _mapController?.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(target: location, zoom: 12),
+            ),
+          );
+          return;
         }
-      });
-      _mapController?.animateCamera(CameraUpdate.newCameraPosition(
-        CameraPosition(target: _currentLocation, zoom: 12),
-      ));
-    } catch (e) {
-      _setDefaultLocation(_LocationState.fallback);
-    }
+      }
+    } catch (_) {}
+
+    // Kademe 4: Türkiye genel görünümü (pes etme, harita kullanılabilir olsun)
+    if (!mounted) return;
+    setState(() {
+      _currentLocation = const LatLng(39.0, 35.0); // Türkiye merkezi
+      _locationState = _LocationState.fallback;
+    });
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        const CameraPosition(target: LatLng(39.0, 35.0), zoom: 6.2),
+      ),
+    );
   }
 
   Future<bool> _ensureLocationPermission() async {
@@ -154,26 +262,37 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   LatLng? _locationFromPosition(Position position) {
-    if (position.latitude < 35 ||
-        position.latitude > 43 ||
-        position.longitude < 25 ||
-        position.longitude > 46) {
+    // Türkiye sınırları içinde mi kontrol et
+    if (position.latitude < 35.5 ||
+        position.latitude > 42.5 ||
+        position.longitude < 25.5 ||
+        position.longitude > 45.0) {
       return null;
     }
+    // Doğruluk çok kötüyse (>5km) yine de kabul et — GPS yoksa network yeter
     return LatLng(position.latitude, position.longitude);
   }
 
   void _setDefaultLocation(_LocationState state) {
     if (!mounted) return;
-    setState(() => _locationState = state);
+    // Konum reddedildiyse Türkiye genel görünümünü göster
+    setState(() {
+      _locationState = state;
+      if (state == _LocationState.denied ||
+          state == _LocationState.serviceOff) {
+        _currentLocation = const LatLng(39.0, 35.0);
+      }
+    });
   }
 
   Future<void> _fetchStationsForRegion(
     LatLng center, {
     double maxDistMeters = 20000,
     int? maxResults,
+    Set<String>? brandKeys,
   }) async {
     final requestId = ++_stationFetchSerial;
+    final selectedBrandKeys = brandKeys ?? _selectedBrands;
     if (mounted && !_isLoading) {
       setState(() => _isFetchingStations = true);
     }
@@ -182,6 +301,7 @@ class _MapScreenState extends State<MapScreen> {
       longitude: center.longitude,
       maxDistMeters: maxDistMeters,
       maxResults: maxResults ?? _maxResultsForZoom(_currentZoom),
+      brandKeys: selectedBrandKeys,
     );
     if (!mounted || requestId != _stationFetchSerial) return;
     setState(() {
@@ -212,19 +332,22 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   List<Station> _filteredStations({required String fuelType}) {
-    return _stationsWithFuel(fuelType).where((station) {
+    final result = _stationsWithFuel(fuelType).where((station) {
       if (_selectedBrands.isNotEmpty &&
-          !_selectedBrands.contains(station.brand)) {
+          !_selectedBrands.contains(canonicalBrandKey(station.brand))) {
         return false;
       }
       return true;
     }).toList(growable: false);
+    return result;
   }
 
   List<Station> _stationsWithFuel(String fuelType) {
-    return _stations
-        .where((station) => station.priceValueFor(fuelType) != null)
+    final result = _stations
+        .where((station) =>
+            station.hasDisplayablePriceFor(fuelType) || station.isVisibleInApp)
         .toList(growable: false);
+    return result;
   }
 
   String? _nearestStationIdFor(List<Station> stations) {
@@ -419,6 +542,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openDirectionsToStation(Station station) async {
+    unawaited(AnalyticsService.logDirectionsRequested(
+      stationId: station.id,
+      brand: station.brand,
+    ));
     final latitude = station.latitude;
     final longitude = station.longitude;
     if (latitude == null || longitude == null) return;
@@ -466,28 +593,19 @@ class _MapScreenState extends State<MapScreen> {
     final displayStations = _filteredStations(fuelType: selectedFuel);
     final markerFutures = <Future<Marker>>[];
 
-    if (zoom < 11.9 && displayStations.length > 25) {
+    if (zoom < 11.0 && displayStations.length > 25) {
       final clusters = _clustersForZoom(
         stations: displayStations,
         fuelType: selectedFuel,
         zoom: zoom,
       );
       for (final cluster in clusters) {
-        if (cluster.stations.length == 1) {
-          markerFutures.add(_stationMarkerFor(
-            station: cluster.stations.first,
-            selectedFuel: selectedFuel,
-            smartResult: smartResult,
-            nearestStationId: nearestStationId,
-            compact: true,
-          ));
-        } else {
-          markerFutures.add(_clusterMarkerFor(
-            cluster: cluster,
-            selectedFuel: selectedFuel,
-            zoom: zoom,
-          ));
-        }
+        // zoom < 11: tüm cluster'lar (tek istasyonlu dahil) cluster marker olarak göster
+        markerFutures.add(_clusterMarkerFor(
+          cluster: cluster,
+          selectedFuel: selectedFuel,
+          zoom: zoom,
+        ));
       }
     } else {
       final visibleStations = _stationsForZoom(
@@ -510,10 +628,8 @@ class _MapScreenState extends State<MapScreen> {
 
     final markerList = await Future.wait(markerFutures);
     if (!mounted || buildId != _markerBuildSerial) return;
-    setState(() {
-      _markers = markerList.toSet();
-      _renderedZoomBucket = _markerZoomBucket(zoom);
-    });
+    _renderedZoomBucket = _markerZoomBucket(zoom);
+    _markersNotifier.value = markerList.toSet();
   }
 
   Future<Marker> _stationMarkerFor({
@@ -526,27 +642,33 @@ class _MapScreenState extends State<MapScreen> {
     final latitude = station.latitude;
     final longitude = station.longitude;
     final priceNum = station.priceValueFor(selectedFuel);
+    final trustedPriceNum = station.trustedPriceValueFor(selectedFuel);
     final priceStr = station.priceTextFor(selectedFuel);
+    final priceStatus = station.priceStatusFor(selectedFuel);
     final hasPrice = priceNum != null;
     final stationId = station.id.isNotEmpty
         ? station.id
+
         : '${station.brand}-$latitude-$longitude';
-    final isCheapest = hasPrice &&
-        (_focusMode == _MapFocusMode.cheapest ||
-            _focusMode == _MapFocusMode.smart) &&
+    final isCheapest = trustedPriceNum != null &&
+        (_focusMode == MapFocusMode.cheapest ||
+            _focusMode == MapFocusMode.smart) &&
         stationId == smartResult?.cheapestStationId;
-    final isMostLogical = hasPrice &&
-        ((_focusMode == _MapFocusMode.smart &&
+    final isMostLogical = trustedPriceNum != null &&
+        ((_focusMode == MapFocusMode.smart &&
                 stationId == smartResult?.mostLogicalStationId) ||
-            (_focusMode == _MapFocusMode.nearest &&
+            (_focusMode == MapFocusMode.nearest &&
                 stationId == nearestStationId));
+    final isSelected = station.id.isNotEmpty && station.id == _visibleStation?.id;
     final icon = await MarkerIconFactory.stationPrice(
       brand: station.brand,
       priceText: formatMarkerPrice(priceStr),
       hasPrice: hasPrice,
+      priceStatus: priceStatus,
       isCheapest: isCheapest,
       isMostLogical: isMostLogical,
       compact: compact,
+      isSelected: isSelected,
     );
 
     return Marker(
@@ -596,6 +718,12 @@ class _MapScreenState extends State<MapScreen> {
       return stations;
     }
 
+    // Marka filtresi aktifken ve az istasyon varsa declutter bypass et.
+    // Kullanıcı belirli bir markayı seçtiyse o markanın tüm istasyonlarını görmek ister.
+    if (_selectedBrands.isNotEmpty && stations.length <= 50) {
+      return stations;
+    }
+
     final config = _declutterConfigForZoom(zoom);
     final byCell = <String, _StationCandidate>{};
 
@@ -607,7 +735,7 @@ class _MapScreenState extends State<MapScreen> {
       final latCell = (latitude / config.cellDegrees).floor();
       final lngCell = (longitude / config.cellDegrees).floor();
       final key = '$latCell:$lngCell';
-      final price = station.priceValueFor(fuelType);
+      final price = station.trustedPriceValueFor(fuelType);
       final distanceKm = getDistanceKm(
             _currentLocation.latitude,
             _currentLocation.longitude,
@@ -719,9 +847,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   double _markerPriorityScore(double? price, double distanceKm) {
-    if (_focusMode == _MapFocusMode.nearest) return distanceKm;
+    if (_focusMode == MapFocusMode.nearest) return distanceKm;
     if (price == null) return 10000 + distanceKm;
-    if (_focusMode == _MapFocusMode.cheapest) return price;
+    if (_focusMode == MapFocusMode.cheapest) return price;
     return price + (distanceKm * 0.03);
   }
 
@@ -740,6 +868,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _fetchDebouncer?.cancel();
     _markerDebouncer?.cancel();
     _drivingPositionSubscription?.cancel();
@@ -756,32 +885,78 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Widget _buildFuelSelector(UserPreferencesProvider prefs) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(4),
-      decoration: _floatingPillDecoration(radius: 25),
+  Widget _buildFuelChipBar(UserPreferencesProvider prefs) {
+    const fuels = [
+      ('Benzin', 'Kursunsuz 95'),
+      ('Motorin', 'Motorin'),
+      ('LPG', 'LPG'),
+      ('Şarj', 'Elektrik'),
+    ];
+    final isDark = _currentIsDark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: ['Kursunsuz 95', 'Motorin', 'LPG'].map((fuel) {
-          final isActive = prefs.selectedFuel == fuel;
-          return GestureDetector(
-            onTap: () {
-              prefs.updateSelectedFuel(fuel);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-              decoration: BoxDecoration(
-                color: isActive ? const Color(0xFFFF5A5F) : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                fuel == 'Kursunsuz 95' ? 'Benzin' : fuel,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: isActive ? Colors.white : const Color(0xFF666666),
+        children: fuels.map((fuel) {
+          final (label, fuelKey) = fuel;
+          final isSelected = prefs.selectedFuel == fuelKey;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                prefs.setSelectedFuel(fuelKey);
+                unawaited(AnalyticsService.logFuelTypeChanged(fuelKey));
+                setState(() => _visibleStation = null);
+                _updateCalculationsAndMarkers(forceMarkerRefresh: true);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? FulColors.primary
+                      : (isDark
+                          ? FulColors.darkSurface.withOpacity(0.95)
+                          : Colors.white.withOpacity(0.95)),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? FulColors.primary
+                        : (isDark
+                            ? FulColors.darkBorder
+                            : FulColors.lightBorder),
+                    width: 1.2,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: FulColors.primary.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                ),
+                child: Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? FulColors.darkText : FulColors.lightText),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -791,187 +966,90 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildGarageButton() {
-    return GestureDetector(
-      onTap: () => GarageModal.show(context),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: const Color(0xFF111827),
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFF10B981), width: 1.6),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF10B981).withOpacity(0.35),
-              offset: const Offset(0, 5),
-              blurRadius: 12,
-            ),
-          ],
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.directions_car_rounded,
-            color: Colors.white,
-            size: 23,
-          ),
-        ),
+  Widget _buildBrandFilterBar() {
+    final isDark = _currentIsDark;
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: brandOptions.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _BrandFilterChip(
+              label: 'Tümü',
+              isSelected: _selectedBrands.isEmpty,
+              isDark: isDark,
+              onTap: _clearBrandFilters,
+            );
+          }
+          final brand = brandOptions[index - 1];
+          return _BrandFilterChip(
+            label: brand.displayLabel,
+            isSelected: _selectedBrands.contains(brand.key),
+            isDark: isDark,
+            onTap: () => _toggleBrandFilter(brand.key),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildDrivingButton() {
-    final isActive = _drivingModeEnabled;
+  Widget _buildFabButton({
+    IconData? icon,
+    bool loading = false,
+    required VoidCallback onTap,
+    bool active = false,
+    Color activeColor = FulColors.primary,
+  }) {
+    final isDark = _currentIsDark;
+    final bg =
+        active ? activeColor : (isDark ? FulColors.darkSurface : Colors.white);
+    final iconColor = active
+        ? Colors.white
+        : (isDark ? FulColors.darkText : FulColors.lightText);
+
     return GestureDetector(
-      onTap: _toggleDrivingMode,
-      child: Container(
-        width: 48,
-        height: 48,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF10B981) : Colors.white,
+          color: bg,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isActive ? const Color(0xFF047857) : const Color(0xFFE5E7EB),
+            color: active
+                ? activeColor
+                : (isDark ? FulColors.darkBorder : const Color(0xFFE2E8F0)),
             width: 1.4,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.14),
-              offset: const Offset(0, 5),
+              color: active
+                  ? activeColor.withOpacity(0.4)
+                  : Colors.black.withOpacity(0.15),
+              offset: const Offset(0, 4),
               blurRadius: 12,
             ),
           ],
         ),
         child: Center(
-          child: _isStartingDrivingMode
+          child: loading
               ? SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: isActive ? Colors.white : const Color(0xFF10B981),
+                    strokeWidth: 2.5,
+                    color: active ? Colors.white : FulColors.primary,
                   ),
                 )
-              : Icon(
-                  Icons.navigation_rounded,
-                  color: isActive ? Colors.white : const Color(0xFF111827),
-                  size: 24,
-                ),
+              : Icon(icon, color: iconColor, size: 22),
         ),
       ),
     );
-  }
-
-  Widget _buildSearchButton() {
-    return GestureDetector(
-      onTap: _showStationSearch,
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1.4),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.14),
-              offset: const Offset(0, 5),
-              blurRadius: 12,
-            ),
-          ],
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.search_rounded,
-            color: Color(0xFF111827),
-            size: 25,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMapControlsButton() {
-    final activeCount = _activeControlCount;
-    final isActive = activeCount > 0;
-    return GestureDetector(
-      onTap: _showMapControls,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF111827) : Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isActive
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFE5E7EB),
-                width: 1.4,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.14),
-                  offset: const Offset(0, 5),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
-            child: Icon(
-              Icons.tune_rounded,
-              color: isActive ? Colors.white : const Color(0xFF111827),
-              size: 24,
-            ),
-          ),
-          if (isActive)
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF5A5F),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  activeCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  BoxDecoration _floatingPillDecoration({required double radius}) {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(radius),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.15),
-          offset: const Offset(0, 4),
-          blurRadius: 10,
-        ),
-      ],
-    );
-  }
-
-  int get _activeControlCount {
-    var count = 0;
-    if (_focusMode != _MapFocusMode.smart) count += 1;
-    if (_selectedBrands.isNotEmpty) count += 1;
-    return count;
   }
 
   String? get _statusMessage {
@@ -979,11 +1057,11 @@ class _MapScreenState extends State<MapScreen> {
     if (_drivingError != null) return _drivingError;
     switch (_locationState) {
       case _LocationState.serviceOff:
-        return 'Konum kapalı, İstanbul çevresi gösteriliyor.';
+        return 'Konum servisi kapalı — haritayı kaydırarak istasyon ara.';
       case _LocationState.denied:
-        return 'Konum izni yok, İstanbul çevresi gösteriliyor.';
+        return 'Konum izni verilmedi — haritayı kaydırarak istasyon ara.';
       case _LocationState.fallback:
-        return 'Konum alınamadı, İstanbul çevresi gösteriliyor.';
+        return null;
       case _LocationState.checking:
       case _LocationState.precise:
         return null;
@@ -1174,152 +1252,54 @@ class _MapScreenState extends State<MapScreen> {
       _lastFetchCenter ?? _currentLocation,
       maxDistMeters: _lastFetchRadiusMeters ?? 20000,
       maxResults: _maxResultsForZoom(_currentZoom),
+      brandKeys: _selectedBrands,
     );
-  }
-
-  void _setFocusMode(_MapFocusMode mode) {
-    if (_focusMode == mode) return;
-    setState(() {
-      _focusMode = mode;
-      _visibleStation = null;
-    });
-    _updateCalculationsAndMarkers(forceMarkerRefresh: true);
-  }
-
-  void _toggleBrandFilter(String brand) {
-    setState(() {
-      if (_selectedBrands.isEmpty) {
-        _selectedBrands = {brand};
-      } else if (_selectedBrands.contains(brand)) {
-        _selectedBrands = {..._selectedBrands}..remove(brand);
-        if (_selectedBrands.isEmpty) _selectedBrands = {};
-      } else {
-        _selectedBrands = {..._selectedBrands, brand};
-      }
-      _visibleStation = null;
-    });
-    _updateCalculationsAndMarkers(forceMarkerRefresh: true);
   }
 
   void _clearBrandFilters() {
     if (_selectedBrands.isEmpty) return;
+    final center = _lastFetchCenter ?? _currentLocation;
+    final radius = _lastFetchRadiusMeters ?? 20000;
     setState(() {
       _selectedBrands = {};
       _visibleStation = null;
     });
-    _updateCalculationsAndMarkers(forceMarkerRefresh: true);
+    unawaited(AnalyticsService.logBrandFilterChanged(const []));
+    unawaited(_fetchStationsForRegion(
+      center,
+      maxDistMeters: radius,
+      maxResults: _maxResultsForZoom(_currentZoom),
+      brandKeys: const {},
+    ));
   }
 
-  String _modeLabel(_MapFocusMode mode) {
-    switch (mode) {
-      case _MapFocusMode.smart:
-        return 'Mantıklı';
-      case _MapFocusMode.cheapest:
-        return 'Ucuz';
-      case _MapFocusMode.nearest:
-        return 'Yakın';
+  void _toggleBrandFilter(String brandKey) {
+    final next = {..._selectedBrands};
+    if (next.contains(brandKey)) {
+      next.remove(brandKey);
+    } else {
+      next.add(brandKey);
     }
+    final center = _lastFetchCenter ?? _currentLocation;
+    final radius = _lastFetchRadiusMeters ?? 20000;
+    setState(() {
+      _selectedBrands = next;
+      _visibleStation = null;
+    });
+    unawaited(AnalyticsService.logBrandFilterChanged(
+      brandLabelsForKeys(next),
+    ));
+    unawaited(_fetchStationsForRegion(
+      center,
+      maxDistMeters: radius,
+      maxResults: _maxResultsForZoom(_currentZoom),
+      brandKeys: next,
+    ));
   }
 
-  IconData _modeIcon(_MapFocusMode mode) {
-    switch (mode) {
-      case _MapFocusMode.smart:
-        return Icons.auto_awesome_rounded;
-      case _MapFocusMode.cheapest:
-        return Icons.savings_rounded;
-      case _MapFocusMode.nearest:
-        return Icons.near_me_rounded;
-    }
-  }
-
-  String _brandShortName(String brand) {
-    switch (brand) {
-      case 'Petrol Ofisi':
-        return 'PO';
-      case 'TotalEnergies':
-        return 'Total';
-      case 'Türkiye Petrolleri':
-        return 'TP';
-      default:
-        return brand;
-    }
-  }
-
-  Color _brandColor(String brand) {
-    switch (brand) {
-      case 'Shell':
-        return const Color(0xFFD6001C);
-      case 'Opet':
-        return const Color(0xFF004797);
-      case 'Petrol Ofisi':
-        return const Color(0xFFDF1B25);
-      case 'BP':
-        return const Color(0xFF009900);
-      case 'TotalEnergies':
-        return const Color(0xFFED0000);
-      case 'Türkiye Petrolleri':
-        return const Color(0xFF111827);
-      case 'Aytemiz':
-        return const Color(0xFF00A0DF);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  void _showMapControls() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          void refreshSheet() => setSheetState(() {});
-          return _MapControlsSheet(
-            focusMode: _focusMode,
-            selectedBrands: _selectedBrands,
-            brandOrder: _brandOrder,
-            news: _news,
-            modeLabel: _modeLabel,
-            modeIcon: _modeIcon,
-            brandShortName: _brandShortName,
-            brandColor: _brandColor,
-            onModeChanged: (mode) {
-              _setFocusMode(mode);
-              refreshSheet();
-            },
-            onBrandToggled: (brand) {
-              _toggleBrandFilter(brand);
-              refreshSheet();
-            },
-            onClearBrands: () {
-              _clearBrandFilters();
-              refreshSheet();
-            },
-            onNewsTap: _openNews,
-            onPrivacyTap: _showPrivacyInfo,
-          );
-        },
-      ),
-    );
-  }
-
-  void _showPrivacyInfo() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const _PrivacyInfoSheet(),
-    );
-  }
-
-  Future<void> _openNews(NewsItem news) async {
-    final uri = Uri.tryParse(news.link);
-    if (uri == null) return;
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      debugPrint('Could not launch $uri');
-    }
+  void _openGarage() {
+    unawaited(AnalyticsService.logGarageOpened());
+    GarageBottomSheet.show(context, isDark: _currentIsDark);
   }
 
   void _showStationSearch() {
@@ -1335,6 +1315,9 @@ class _MapScreenState extends State<MapScreen> {
         selectedBrands: _selectedBrands,
         favoriteStationIds: prefs.favoriteStationIds,
         recentStationIds: prefs.recentStationIds,
+        isDark: _currentIsDark,
+        onSearchSubmitted: (query) =>
+            unawaited(AnalyticsService.logSearchPerformed(query)),
         onStationSelected: (station) {
           _selectStation(station, animate: true);
         },
@@ -1343,22 +1326,31 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _selectStation(Station station, {bool animate = false}) {
+    final prefs = context.read<UserPreferencesProvider>();
     if (station.id.isNotEmpty) {
-      unawaited(
-          context.read<UserPreferencesProvider>().rememberStation(station.id));
+      unawaited(prefs.rememberStation(station.id));
     }
+    unawaited(AnalyticsService.logStationTapped(
+      stationId: station.id,
+      brand: station.brand,
+      selectedFuel: prefs.selectedFuel,
+      price: station.priceValueFor(prefs.selectedFuel),
+    ));
     setState(() {
       _visibleStation = station;
+      _menuOpen = false;
     });
+    unawaited(_buildMarkers()); // Refresh selected marker state
     if (!animate) return;
 
     final latitude = station.latitude;
     final longitude = station.longitude;
     if (latitude == null || longitude == null) return;
+    // Shift camera slightly south so the pin appears above the bottom sheet peek
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target: LatLng(latitude, longitude),
+          target: LatLng(latitude - 0.004, longitude),
           zoom: 14.2,
         ),
       ),
@@ -1368,16 +1360,19 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildEmptyState(UserPreferencesProvider prefs) {
     final hasBrandFilter = _selectedBrands.isNotEmpty;
     final hasError = _stationLoadError != null;
+    final selectedBrandText = brandFilterSummary(_selectedBrands);
+    final fuelText =
+        prefs.selectedFuel == 'Kursunsuz 95' ? 'Benzin' : prefs.selectedFuel;
     final title = hasError
         ? 'Veri alınamadı'
         : hasBrandFilter
-            ? 'Bu filtrede istasyon yok'
+            ? 'Bu bölgede $selectedBrandText yok'
             : 'Bu bölgede fiyat bulunamadı';
     final description = hasError
         ? 'Bağlantıyı kontrol edip tekrar deneyebilirsin.'
         : hasBrandFilter
-            ? 'Seçili marka filtresini temizleyip yeniden bakabilirsin.'
-            : '${prefs.selectedFuel == 'Kursunsuz 95' ? 'Benzin' : prefs.selectedFuel} için doğrulanmış fiyat verisi görünmüyor.';
+            ? '$selectedBrandText için $fuelText fiyatı bu harita alanında görünmüyor. Haritayı kaydırarak farklı bölgede ara veya filtreyi temizle.'
+            : '$fuelText için doğrulanmış fiyat verisi görünmüyor.';
     final actionLabel = hasError
         ? 'Tekrar dene'
         : hasBrandFilter
@@ -1472,53 +1467,83 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition:
-                CameraPosition(target: _currentLocation, zoom: 12),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            markers: _markers,
-            onMapCreated: (controller) => _mapController = controller,
-            onCameraMove: (position) {
-              final previousBucket = _markerZoomBucket(_currentZoom);
-              _currentZoom = position.zoom;
-              if (_markerZoomBucket(position.zoom) != previousBucket) {
-                _scheduleMarkerRefresh(
-                  force: true,
-                  delay: const Duration(milliseconds: 80),
-                );
-              }
-            },
-            onTap: (_) => setState(() => _visibleStation = null),
-            onCameraIdle: () async {
-              if (_mapController == null) return;
-              _scheduleMarkerRefresh(force: true);
+          // ValueListenableBuilder ile sarmalayarak sadece marker değiştiğinde
+          // haritayı render etmesini, bütün arayüzü tekrar çizmemesini sağlıyoruz
+          ValueListenableBuilder<Set<Marker>>(
+            valueListenable: _markersNotifier,
+            builder: (context, markers, child) {
+              return GoogleMap(
+                key: const ValueKey('main_google_map'),
+                mapType: MapType.normal,
+                initialCameraPosition:
+                    CameraPosition(target: _currentLocation, zoom: 12),
+                myLocationEnabled: _locationState == _LocationState.precise ||
+                    _locationState == _LocationState.fallback,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                compassEnabled: false,
+                mapToolbarEnabled: false,
+                buildingsEnabled: false,
+                trafficEnabled: false,
+                markers: markers,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  // Başlangıç harita stilini uygula
+                  final style = _currentIsDark
+                      ? FulTheme.darkMapStyle
+                      : FulTheme.lightMapStyle;
+                  controller.setMapStyle(style);
+                },
+                onCameraMove: (position) {
+                  final previousBucket = _markerZoomBucket(_currentZoom);
+                  _currentZoom = position.zoom;
+                  if (_markerZoomBucket(position.zoom) != previousBucket) {
+                    _scheduleMarkerRefresh(
+                      force: true,
+                      delay: const Duration(milliseconds: 80),
+                    );
+                  }
+                },
+                onTap: (_) {
+                  if (_visibleStation == null) return;
+                  setState(() => _visibleStation = null);
+                  unawaited(_buildMarkers());
+                },
+                onCameraIdle: () async {
+                  if (_mapController == null) return;
+                  _scheduleMarkerRefresh(force: true);
 
-              final bounds = await _mapController!.getVisibleRegion();
-              final center = LatLng(
-                  (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
-                  (bounds.northeast.longitude + bounds.southwest.longitude) /
-                      2);
-              final radiusKm = getDistanceKm(
-                    center.latitude,
-                    center.longitude,
-                    bounds.northeast.latitude,
-                    bounds.northeast.longitude,
-                  ) ??
-                  20;
-              final maxDistMeters =
-                  (radiusKm * 1400).clamp(3000, 100000).toDouble();
-              final maxResults = _maxResultsForZoom(_currentZoom);
-              if (!_shouldFetchRegion(center, maxDistMeters)) return;
+                  final bounds = await _mapController!.getVisibleRegion();
+                  final center = LatLng(
+                      (bounds.northeast.latitude + bounds.southwest.latitude) /
+                          2,
+                      (bounds.northeast.longitude +
+                              bounds.southwest.longitude) /
+                          2);
+                  final radiusKm = getDistanceKm(
+                        center.latitude,
+                        center.longitude,
+                        bounds.northeast.latitude,
+                        bounds.northeast.longitude,
+                      ) ??
+                      20;
+                  final maxDistMeters =
+                      (radiusKm * 1400).clamp(3000, 100000).toDouble();
+                  final maxResults = _maxResultsForZoom(_currentZoom);
+                  if (!_shouldFetchRegion(center, maxDistMeters)) return;
 
-              _fetchDebouncer?.cancel();
-              _fetchDebouncer = Timer(const Duration(milliseconds: 450), () {
-                _fetchStationsForRegion(
-                  center,
-                  maxDistMeters: maxDistMeters,
-                  maxResults: maxResults,
-                );
-              });
+                  _fetchDebouncer?.cancel();
+                  _fetchDebouncer =
+                      Timer(const Duration(milliseconds: 450), () {
+                    _fetchStationsForRegion(
+                      center,
+                      maxDistMeters: maxDistMeters,
+                      maxResults: maxResults,
+                      brandKeys: _selectedBrands,
+                    );
+                  });
+                },
+              );
             },
           ),
 
@@ -1527,29 +1552,48 @@ class _MapScreenState extends State<MapScreen> {
             left: 0,
             right: 0,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(child: _buildFuelSelector(prefs)),
+                TopSearchBar(
+                  onMenuTap: () => setState(() {
+                    HapticFeedback.lightImpact();
+                    _visibleStation = null; // Close bottom sheet if open
+                    _menuOpen = true;
+                  }),
+                  onSearchTap: _showStationSearch,
+                  onGarageTap: _openGarage,
+                  selectedFuel: prefs.selectedFuel,
+                  focusMode: _focusMode,
+                  isDark: _currentIsDark,
+                ),
+                const SizedBox(height: 8),
+                // Yakıt tipi chip bar — Trugo tarzı
+                _buildFuelChipBar(prefs),
+                const SizedBox(height: 8),
+                _buildBrandFilterBar(),
                 if (_statusMessage != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _buildStatusBanner(),
                 ],
                 if (_drivingModeEnabled) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _buildDrivingBanner(prefs),
                 ],
                 if (_isFetchingStations) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 92,
-                    height: 4,
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const LinearProgressIndicator(
-                      backgroundColor: Colors.transparent,
-                      color: Color(0xFFFF5A5F),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Container(
+                      width: 120,
+                      height: 3,
+                      clipBehavior: Clip.hardEdge,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const LinearProgressIndicator(
+                        backgroundColor: Colors.transparent,
+                        color: FulColors.primary,
+                      ),
                     ),
                   ),
                 ],
@@ -1557,19 +1601,54 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
+          // Sağ FAB Yığını — her zaman aynı konumda
           Positioned(
-            left: 18,
-            bottom: 104,
+            right: 14,
+            bottom: 110,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildSearchButton(),
-                const SizedBox(height: 12),
-                _buildMapControlsButton(),
-                const SizedBox(height: 12),
-                _buildDrivingButton(),
-                const SizedBox(height: 12),
-                _buildGarageButton(),
+                // Dark mode toggle
+                _buildFabButton(
+                  icon: _currentIsDark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
+                  onTap: () {
+                    setState(() {
+                      _isDarkModeOverride = !_currentIsDark;
+                    });
+                    final style = _currentIsDark
+                        ? FulTheme.darkMapStyle
+                        : FulTheme.lightMapStyle;
+                    _mapController?.setMapStyle(style);
+                  },
+                  active: _currentIsDark,
+                ),
+                const SizedBox(height: 10),
+                // Konumuma git
+                _buildFabButton(
+                  icon: Icons.my_location_rounded,
+                  onTap: () {
+                    if (_mapController != null) {
+                      _mapController!.animateCamera(
+                        CameraUpdate.newCameraPosition(
+                          CameraPosition(target: _currentLocation, zoom: 14),
+                        ),
+                      );
+                    }
+                  },
+                  active: false,
+                ),
+                const SizedBox(height: 10),
+                // Sürüş takibi
+                _buildFabButton(
+                  icon:
+                      _isStartingDrivingMode ? null : Icons.navigation_rounded,
+                  loading: _isStartingDrivingMode,
+                  onTap: _toggleDrivingMode,
+                  active: _drivingModeEnabled,
+                  activeColor: FulColors.logical,
+                ),
               ],
             ),
           ),
@@ -1588,40 +1667,234 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
 
-          // Animated Bottom Sheet Overlay
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            bottom: _visibleStation != null ? 0 : -500, // Slide up/down
-            left: 0, right: 0,
-            child: StationBottomSheet(
-              visibleStation: _visibleStation,
-              location: _currentLocation,
-              closeSheet: () => setState(() => _visibleStation = null),
+          // Sol Yan Menü — Trugo tarzı
+          // Side menu her zaman render edilir, açık/kapalı state'ini kendi yönetip kayarak çıkar
+          Positioned(
+            left: 12,
+            bottom: _visibleStation != null ? 290 : 100,
+            child: _buildMarkerLegend(),
+          ),
+
+          Consumer<UserPreferencesProvider>(
+            builder: (_, prefs, __) => FulSideMenu(
+              isOpen: _menuOpen,
+              isDark: _currentIsDark,
+              onClose: () => setState(() => _menuOpen = false),
+              focusMode: _focusMode,
+              onFocusModeChanged: (mode) {
+                setState(() {
+                  _focusMode = mode;
+                  _menuOpen = false;
+                });
+                unawaited(AnalyticsService.logFocusModeChanged(mode.name));
+                _updateCalculationsAndMarkers(forceMarkerRefresh: true);
+              },
+              news: _news,
+              stationCount: _stations.length,
+              appVersion: '1.0.2',
+              allStations: _stations,
+              favoriteStationIds: prefs.favoriteStationIds,
               selectedFuel: prefs.selectedFuel,
-              isFavorite: _visibleStation != null &&
-                  prefs.isFavoriteStation(_visibleStation!.id),
-              onFavoriteToggle: () {
-                final station = _visibleStation;
-                if (station != null) {
-                  prefs.toggleFavoriteStation(station.id);
+              onStationSelected: (station) =>
+                  _selectStation(station, animate: true),
+              currentUser: _currentUser,
+              onSignIn: () async {
+                final user = await AuthService.signInWithGoogle();
+                if (user != null && mounted) {
+                  setState(() => _menuOpen = false);
                 }
               },
-              financialMessage: _visibleStation != null && _smartResult != null
-                  ? SmartStationService.getFinancialMessage(
-                      station: _visibleStation!,
-                      location: _currentLocation,
-                      stations: _filteredStations(fuelType: prefs.selectedFuel),
-                      selectedFuel: prefs.selectedFuel,
-                      tankCapacity: prefs.tankCapacity,
-                      fuelConsumption: prefs.fuelConsumption,
-                      result: _smartResult!,
-                    )
-                  : null,
+              onSignOut: () async {
+                await AuthService.signOut();
+              },
             ),
-          )
+          ),
+
+          // Alt Panel (Bottom Sheet) — İstasyon Detayları
+          if (_visibleStation != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: StationBottomSheet(
+                visibleStation: _visibleStation,
+                location: _currentLocation,
+                selectedFuel: prefs.selectedFuel,
+                isFavorite: prefs.isFavoriteStation(_visibleStation!.id),
+                onFavoriteToggle: () {
+                  final st = _visibleStation;
+                  if (st == null) return;
+                  final willFavorite = !prefs.isFavoriteStation(st.id);
+                  prefs.toggleFavoriteStation(st.id);
+                  unawaited(AnalyticsService.logFavoriteToggled(
+                    stationId: st.id,
+                    isFavorited: willFavorite,
+                  ));
+                },
+                hasVehicle: prefs.hasVehicle,
+                onGaragePromptTap: _openGarage,
+                onGaragePromptClose: () {
+                  setState(() => _visibleStation = null);
+                  unawaited(_buildMarkers());
+                },
+                onDirectionsRequested: (station) =>
+                    AnalyticsService.logDirectionsRequested(
+                  stationId: station.id,
+                  brand: station.brand,
+                ),
+                closeSheet: () {
+                  setState(() => _visibleStation = null);
+                  unawaited(_buildMarkers());
+                },
+                smartScore: _smartResult != null
+                    ? SmartStationService.calculateSmartScore(
+                        station: _visibleStation!,
+                        location: _currentLocation,
+                        selectedFuel: prefs.selectedFuel,
+                        tankCapacity: prefs.tankCapacity,
+                        fuelConsumption: prefs.fuelConsumption,
+                        bestResult: _smartResult!,
+                      )
+                    : null,
+                tankCapacity: prefs.tankCapacity,
+                fuelConsumption: prefs.fuelConsumption,
+              )
+                  .animate()
+                  .slideY(
+                      begin: 1.0,
+                      end: 0.0,
+                      duration: 300.ms,
+                      curve: Curves.easeOutCubic)
+                  .fadeIn(duration: 200.ms),
+            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMarkerLegend() {
+    final isDark = _currentIsDark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? FulColors.darkSurface.withOpacity(0.92)
+            : Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? FulColors.darkBorder : FulColors.lightBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _LegendItem(color: FulColors.logical, label: 'En mantıklı'),
+          SizedBox(height: 4),
+          _LegendItem(color: FulColors.cheapest, label: 'En ucuz'),
+          SizedBox(height: 4),
+          _LegendItem(color: FulColors.primary, label: 'Diğer'),
+        ],
+      ),
+    );
+  }
+}
+
+class _BrandFilterChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _BrandFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isSelected
+        ? Colors.white
+        : (isDark ? FulColors.darkText : FulColors.lightText);
+    final border = isSelected
+        ? FulColors.primary
+        : (isDark ? FulColors.darkBorder : FulColors.lightBorder);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? FulColors.primary
+              : (isDark
+                  ? FulColors.darkSurface.withOpacity(0.94)
+                  : Colors.white.withOpacity(0.94)),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: border, width: 1.1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendItem({
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1666,363 +1939,7 @@ class _SearchBadge extends StatelessWidget {
   }
 }
 
-class _MapControlsSheet extends StatelessWidget {
-  final _MapFocusMode focusMode;
-  final Set<String> selectedBrands;
-  final List<String> brandOrder;
-  final List<NewsItem> news;
-  final String Function(_MapFocusMode mode) modeLabel;
-  final IconData Function(_MapFocusMode mode) modeIcon;
-  final String Function(String brand) brandShortName;
-  final Color Function(String brand) brandColor;
-  final ValueChanged<_MapFocusMode> onModeChanged;
-  final ValueChanged<String> onBrandToggled;
-  final VoidCallback onClearBrands;
-  final ValueChanged<NewsItem> onNewsTap;
-  final VoidCallback onPrivacyTap;
-
-  const _MapControlsSheet({
-    required this.focusMode,
-    required this.selectedBrands,
-    required this.brandOrder,
-    required this.news,
-    required this.modeLabel,
-    required this.modeIcon,
-    required this.brandShortName,
-    required this.brandColor,
-    required this.onModeChanged,
-    required this.onBrandToggled,
-    required this.onClearBrands,
-    required this.onNewsTap,
-    required this.onPrivacyTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.78,
-      ),
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 18 + bottomInset),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(26),
-          topRight: Radius.circular(26),
-        ),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD1D5DB),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Harita ayarları',
-                    style: TextStyle(
-                      color: Color(0xFF111827),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: const Icon(Icons.close_rounded),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _sectionTitle('Sıralama'),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                for (final mode in _MapFocusMode.values) ...[
-                  Expanded(child: _modeButton(mode)),
-                  if (mode != _MapFocusMode.values.last)
-                    const SizedBox(width: 8),
-                ],
-              ],
-            ),
-            const SizedBox(height: 22),
-            Row(
-              children: [
-                Expanded(child: _sectionTitle('Markalar')),
-                if (selectedBrands.isNotEmpty)
-                  GestureDetector(
-                    onTap: onClearBrands,
-                    child: const Text(
-                      'Temizle',
-                      style: TextStyle(
-                        color: Color(0xFFFF5A5F),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _brandButton(
-                  label: 'Tümü',
-                  color: const Color(0xFF111827),
-                  selected: selectedBrands.isEmpty,
-                  onTap: onClearBrands,
-                ),
-                for (final brand in brandOrder)
-                  _brandButton(
-                    label: brandShortName(brand),
-                    color: brandColor(brand),
-                    selected: selectedBrands.contains(brand),
-                    muted: selectedBrands.isNotEmpty &&
-                        !selectedBrands.contains(brand),
-                    onTap: () => onBrandToggled(brand),
-                  ),
-              ],
-            ),
-            if (news.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              _sectionTitle('Piyasa haberleri'),
-              const SizedBox(height: 10),
-              for (final item in news.take(4)) _newsRow(item),
-            ],
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: onPrivacyTap,
-              child: Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.privacy_tip_outlined,
-                      color: Color(0xFF6B7280),
-                      size: 18,
-                    ),
-                    SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        'Gizlilik ve veri kullanımı',
-                        style: TextStyle(
-                          color: Color(0xFF374151),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Color(0xFF6B7280),
-        fontWeight: FontWeight.w900,
-        fontSize: 12,
-      ),
-    );
-  }
-
-  Widget _modeButton(_MapFocusMode mode) {
-    final selected = focusMode == mode;
-    return GestureDetector(
-      onTap: () => onModeChanged(mode),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        height: 48,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF111827) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? const Color(0xFF111827) : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              modeIcon(mode),
-              color: selected ? Colors.white : const Color(0xFF4B5563),
-              size: 18,
-            ),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                modeLabel(mode),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? Colors.white : const Color(0xFF374151),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _brandButton({
-    required String label,
-    required Color color,
-    required bool selected,
-    required VoidCallback onTap,
-    bool muted = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: muted ? const Color(0xFFE5E7EB) : color.withOpacity(0.75),
-            width: selected ? 1.6 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: muted ? const Color(0xFFD1D5DB) : color,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
-                color:
-                    muted ? const Color(0xFF9CA3AF) : const Color(0xFF111827),
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _newsRow(NewsItem item) {
-    return GestureDetector(
-      onTap: () => onNewsTap(item),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF1F2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.article_rounded,
-                color: Color(0xFFFF5A5F),
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF111827),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.source,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF6B7280),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.open_in_new_rounded,
-              color: Color(0xFF9CA3AF),
-              size: 17,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _MapControlsSheet removed for MainDrawer
 
 class _DeclutterConfig {
   final double cellDegrees;
@@ -2032,185 +1949,6 @@ class _DeclutterConfig {
     required this.cellDegrees,
     required this.maxMarkers,
   });
-}
-
-class _PrivacyInfoSheet extends StatelessWidget {
-  const _PrivacyInfoSheet();
-
-  Future<void> _openPrivacyPolicy(BuildContext context) async {
-    try {
-      await launchUrl(
-        _MapScreenState._privacyPolicyUri,
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gizlilik politikası açılamadı.')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 18 + bottomInset),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(26),
-          topRight: Radius.circular(26),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 44,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Gizlilik',
-                  style: TextStyle(
-                    color: Color(0xFF111827),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 22,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: const Icon(Icons.close_rounded),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _privacyRow(
-            icon: Icons.my_location_rounded,
-            title: 'Konum',
-            text:
-                'Yakındaki istasyonları bulmak ve mesafe hesaplamak için kullanılır. Konum geçmişi tutulmaz.',
-          ),
-          _privacyRow(
-            icon: Icons.storage_rounded,
-            title: 'Uygulama hafızası',
-            text:
-                'Seçili yakıt, araç bilgisi, favori ve son bakılan istasyonlar cihazda saklanır.',
-          ),
-          _privacyRow(
-            icon: Icons.cloud_done_rounded,
-            title: 'Canlı veri',
-            text:
-                'Fiyat ve istasyon verileri Supabase üzerinden okunur. Uygulama kullanıcı hesabı istemez.',
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Detaylı gizlilik politikası GitHub Pages üzerinde herkese açık olarak yayınlanır ve Play Console için kullanılabilir.',
-            style: TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              onPressed: () => _openPrivacyPolicy(context),
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: const Text('Gizlilik politikasını aç'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF111827),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _privacyRow({
-    required IconData icon,
-    required String title,
-    required String text,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: const Color(0xFF2563EB), size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF111827),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StationCandidate {
@@ -2257,7 +1995,7 @@ class _StationCluster {
   double? minPriceFor(String fuelType) {
     double? best;
     for (final station in stations) {
-      final price = station.priceValueFor(fuelType);
+      final price = station.trustedPriceValueFor(fuelType);
       if (price == null) continue;
       if (best == null || price < best) best = price;
     }
@@ -2272,6 +2010,8 @@ class _StationSearchSheet extends StatefulWidget {
   final Set<String> selectedBrands;
   final Set<String> favoriteStationIds;
   final List<String> recentStationIds;
+  final bool isDark;
+  final ValueChanged<String> onSearchSubmitted;
   final ValueChanged<Station> onStationSelected;
 
   const _StationSearchSheet({
@@ -2281,6 +2021,8 @@ class _StationSearchSheet extends StatefulWidget {
     required this.selectedBrands,
     required this.favoriteStationIds,
     required this.recentStationIds,
+    this.isDark = false,
+    required this.onSearchSubmitted,
     required this.onStationSelected,
   });
 
@@ -2291,59 +2033,99 @@ class _StationSearchSheet extends StatefulWidget {
 class _StationSearchSheetState extends State<_StationSearchSheet> {
   final TextEditingController _controller = TextEditingController();
   String _query = '';
+  Timer? _debounce;
 
   @override
   void dispose() {
     _controller.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearch(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _query = value);
+      final query = value.trim();
+      if (query.length >= 2) widget.onSearchSubmitted(query);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // isDark parametreden geliyor — MaterialApp teması değişmediği için
+    // Theme.of(context).brightness her zaman light döner
+    final isDark = widget.isDark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.72,
+        height: (MediaQuery.of(context).size.height * 0.88) - bottomInset,
         padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-        decoration: const BoxDecoration(
-          color: Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.only(
+        decoration: BoxDecoration(
+          color: isDark ? FulColors.darkSurface : const Color(0xFFF9FAFB),
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(26),
             topRight: Radius.circular(26),
           ),
         ),
         child: Column(
           children: [
-            Container(
-              width: 44,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
-                borderRadius: BorderRadius.circular(999),
+            // Drag handle
+            Center(
+              child: Container(
+                width: 44,
+                height: 5,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color:
+                      isDark ? FulColors.darkBorder : const Color(0xFFD1D5DB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
             ),
-            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      color: isDark ? FulColors.darkCard : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark
+                            ? FulColors.darkBorder
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
                     child: TextField(
                       controller: _controller,
                       autofocus: true,
                       textInputAction: TextInputAction.search,
-                      onChanged: (value) => setState(() => _query = value),
-                      decoration: const InputDecoration(
-                        hintText: 'İstasyon, marka, il veya ilçe ara',
-                        prefixIcon: Icon(Icons.search_rounded),
+                      onChanged: _onSearch,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        color:
+                            isDark ? FulColors.darkText : FulColors.lightText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'İstasyon, marka, il veya ilçe ara...',
+                        hintStyle: TextStyle(
+                          fontFamily: 'Outfit',
+                          color: isDark
+                              ? FulColors.darkTextMuted
+                              : FulColors.lightTextMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: isDark
+                              ? FulColors.darkTextMuted
+                              : FulColors.lightTextMuted,
+                        ),
                         border: InputBorder.none,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 14),
                       ),
                     ),
                   ),
@@ -2355,11 +2137,18 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? FulColors.darkCard : Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      border: Border.all(
+                        color: isDark
+                            ? FulColors.darkBorder
+                            : const Color(0xFFE5E7EB),
+                      ),
                     ),
-                    child: const Icon(Icons.close_rounded),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? FulColors.darkText : FulColors.lightText,
+                    ),
                   ),
                 ),
               ],
@@ -2372,19 +2161,72 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                   if (snapshot.connectionState != ConnectionState.done) {
                     return const Center(
                       child:
-                          CircularProgressIndicator(color: Color(0xFFFF5A5F)),
+                          CircularProgressIndicator(color: FulColors.primary),
+                    );
+                  }
+                  // Kullanıcı henüz bir şey yazmadıysa prompt göster (flicker engeli)
+                  if (_query.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.search_rounded,
+                              size: 48,
+                              color: isDark
+                                  ? FulColors.darkTextMuted
+                                  : const Color(0xFFD1D5DB)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Arama yapın',
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                              color: isDark
+                                  ? FulColors.darkText
+                                  : FulColors.lightText,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'İstasyon adı, marka, il veya ilçe girin',
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 13,
+                              color: isDark
+                                  ? FulColors.darkTextMuted
+                                  : FulColors.lightTextMuted,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }
                   final stations = snapshot.data ?? const <Station>[];
                   final results = _searchResults(stations);
                   if (results.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'Sonuç bulunamadı',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w700,
-                        ),
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.search_off_rounded,
+                              size: 40,
+                              color: isDark
+                                  ? FulColors.darkTextMuted
+                                  : const Color(0xFFD1D5DB)),
+                          const SizedBox(height: 10),
+                          Text(
+                            '"$_query" için sonuç bulunamadı',
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: isDark
+                                  ? FulColors.darkTextMuted
+                                  : const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }
@@ -2417,18 +2259,32 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
 
   List<_SearchResult> _searchResults(List<Station> stations) {
     final query = _normalize(_query);
-    final filtered = stations.where((station) {
+    var filtered = stations.where((station) {
       if (widget.selectedBrands.isNotEmpty &&
-          !widget.selectedBrands.contains(station.brand)) {
+          !widget.selectedBrands.contains(canonicalBrandKey(station.brand))) {
         return false;
       }
-      if (station.priceValueFor(widget.selectedFuel) == null) return false;
+      if (!station.isVisibleInApp) {
+        return false;
+      }
       if (query.isEmpty) return true;
       final haystack = _normalize(
         '${station.brand} ${station.displayName} ${station.city} ${station.district}',
       );
       return haystack.contains(query);
-    }).map((station) {
+    }).toList();
+
+    if (query.isEmpty) {
+      filtered = filtered
+          .where((s) =>
+              widget.favoriteStationIds.contains(s.id) ||
+              widget.recentStationIds.contains(s.id))
+          .toList();
+    } else if (filtered.length > 50) {
+      filtered = filtered.sublist(0, 50);
+    }
+
+    final results = filtered.map((station) {
       final distance = getDistanceKm(
         widget.location.latitude,
         widget.location.longitude,
@@ -2443,7 +2299,7 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
       );
     }).toList();
 
-    filtered.sort((a, b) {
+    results.sort((a, b) {
       if (query.isNotEmpty) {
         final aStarts = _normalize(a.station.displayName).startsWith(query) ||
             _normalize(a.station.brand).startsWith(query);
@@ -2457,14 +2313,11 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
         final recentCompare = a.recentIndex.compareTo(b.recentIndex);
         if (recentCompare != 0) return recentCompare;
       }
-      final aDistance = a.distanceKm ?? 999999;
-      final bDistance = b.distanceKm ?? 999999;
-      final distanceCompare = aDistance.compareTo(bDistance);
-      if (distanceCompare != 0) return distanceCompare;
-      return a.station.displayName.compareTo(b.station.displayName);
+      return (a.distanceKm ?? double.maxFinite)
+          .compareTo(b.distanceKm ?? double.maxFinite);
     });
 
-    return filtered.take(35).toList(growable: false);
+    return results;
   }
 
   String _normalize(String value) {

@@ -2,13 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
 
 import 'providers/user_preferences_provider.dart';
-import 'screens/map_screen.dart';
+import 'screens/modern_map_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'services/analytics_service.dart';
 import 'services/app_heartbeat_service.dart';
+import 'services/notification_service.dart';
+import 'theme/ful_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    await AnalyticsService.logAppOpen();
+  } catch (e) {
+    debugPrint('Firebase init failed (missing config): $e');
+  }
+
   await dotenv.load(fileName: '.env');
 
   final supabaseUrl = dotenv.env['SUPABASE_URL'];
@@ -26,6 +53,7 @@ Future<void> main() async {
     anonKey: supabaseAnonKey,
   );
   AppHeartbeatService.start();
+  await NotificationService.initialize();
 
   runApp(
     MultiProvider(
@@ -45,11 +73,57 @@ class FulletApp extends StatelessWidget {
     return MaterialApp(
       title: 'Fullet',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF5A5F)),
-        useMaterial3: true,
+      theme: FulTheme.light(),
+      darkTheme: FulTheme.dark(),
+      themeMode: ThemeMode.system,
+      home: FutureBuilder<Widget>(
+        future: _getInitialScreen(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) return snapshot.data!;
+          return const _StartupSplash();
+        },
       ),
-      home: const MapScreen(),
+      builder: (context, child) {
+        // Tema değişince status bar rengini güncelle
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: isDark
+              ? const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                  systemNavigationBarColor: Color(0xFF141925),
+                  systemNavigationBarIconBrightness: Brightness.light,
+                )
+              : const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                  systemNavigationBarColor: Color(0xFFFFFFFF),
+                  systemNavigationBarIconBrightness: Brightness.dark,
+                ),
+          child: child!,
+        );
+      },
+    );
+  }
+}
+
+Future<Widget> _getInitialScreen() async {
+  final prefs = await SharedPreferences.getInstance();
+  final onboardingDone = prefs.getBool('onboarding_done') ?? false;
+  if (onboardingDone) return const ModernMapScreen();
+  return const OnboardingScreen();
+}
+
+class _StartupSplash extends StatelessWidget {
+  const _StartupSplash();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: FulColors.lightBackground,
+      body: Center(
+        child: CircularProgressIndicator(color: FulColors.primary),
+      ),
     );
   }
 }

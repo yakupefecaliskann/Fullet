@@ -76,6 +76,13 @@ bool fuelMatches(dynamic sourceType, String targetType) {
   if (target == 'lpg') {
     return source.contains('lpg') || source.contains('otogaz');
   }
+  if (target == 'elektrik') {
+    return source.contains('elektrik') ||
+        source.contains('sarj') ||
+        source.contains('şarj') ||
+        source.contains('kwh') ||
+        source.contains('ev');
+  }
   return false;
 }
 
