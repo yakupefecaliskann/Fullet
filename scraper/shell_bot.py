@@ -11,7 +11,7 @@ TARGET_LOCATIONS = [
     {"il": "IZMIR", "ilce": "KONAK"},
 ]
 
-DEFAULT_MAX_TARGETS_PER_RUN = 60
+DEFAULT_MAX_TARGETS_PER_RUN = 150
 
 PROVINCES = {
     "ADANA", "ADIYAMAN", "AFYONKARAHISAR", "AGRI", "AKSARAY", "AMASYA",
@@ -55,6 +55,9 @@ def _split_city(raw_city, raw_district):
     return city, district
 
 
+_PRIORITY_CITIES = frozenset({"ISTANBUL", "ANKARA", "IZMIR"})
+
+
 def _targets_from_supabase():
     if supabase is None:
         return []
@@ -79,7 +82,11 @@ def _targets_from_supabase():
         if city not in PROVINCES:
             continue
         targets[(city, district)] = {"il": city, "ilce": district}
-    return [targets[key] for key in sorted(targets)]
+    # Priority cities (Istanbul, Ankara, Izmir) always go first so they're
+    # covered in every rotation window regardless of offset.
+    priority = [targets[k] for k in sorted(targets) if k[0] in _PRIORITY_CITIES]
+    others = [targets[k] for k in sorted(targets) if k[0] not in _PRIORITY_CITIES]
+    return priority + others
 
 
 def _limited_targets(target_locations):
@@ -89,18 +96,23 @@ def _limited_targets(target_locations):
     if max_targets <= 0 or len(target_locations) <= max_targets:
         return target_locations
 
+    # Priority cities always fill the front of the batch; rotation applies only to others.
+    priority = [loc for loc in target_locations if loc["il"] in _PRIORITY_CITIES]
+    others = [loc for loc in target_locations if loc["il"] not in _PRIORITY_CITIES]
+    remaining_slots = max(0, max_targets - len(priority))
+
     explicit_offset = os.environ.get("SHELL_TARGET_OFFSET")
     if explicit_offset is not None:
-        offset = int(explicit_offset) % len(target_locations)
+        offset = int(explicit_offset) % max(len(others), 1)
     else:
         six_hour_window = int(datetime.now(timezone.utc).timestamp() // (6 * 60 * 60))
-        offset = (six_hour_window * max_targets) % len(target_locations)
+        offset = (six_hour_window * remaining_slots) % max(len(others), 1)
 
-    rotated = target_locations[offset:] + target_locations[:offset]
-    selected = rotated[:max_targets]
+    rotated = others[offset:] + others[:offset]
+    selected = priority + rotated[:remaining_slots]
     print(
         f"[INFO] Shell target batch: {len(selected)}/{len(target_locations)} "
-        f"(offset={offset}, max={max_targets})"
+        f"(priority={len(priority)}, other={remaining_slots}, offset={offset}, max={max_targets})"
     )
     return selected
 
