@@ -28,11 +28,13 @@ Son denetim: 2026-05-09
    - Play politikası PDF olmayan, herkese açık, aktif ve düzenlenemez bir URL istiyor.
    - Uygulama içindeki gizlilik panelinden bu URL açılır.
 
-3. Data Safety formu doğru doldurulmalı.
-   - Konum: yakındaki istasyonları bulmak ve mesafe hesaplamak için kullanılıyor.
-   - Konum geçmişi/profil tutulmuyor.
-   - Reklam ve analytics SDK yok.
-   - Hesap sistemi yok.
+3. Data Safety formu doğru doldurulmalı. (Tam eşleme: PLAY_STORE_READINESS.md → "Data Safety Taslağı" tablosu)
+   - Konum (yaklaşık + hassas): yakındaki istasyonları bulmak ve mesafe hesaplamak için.
+   - Konum geçmişi tutulmuyor.
+   - Firebase Analytics VAR: app interactions + search history + user-generated content (Analytics amacı).
+   - Firebase Crashlytics VAR: crash logs + diagnostics.
+   - Google Sign-In ile hesap VAR (isteğe bağlı): ad + e-posta + profil bağlantısı (`fullet_users`). Hesap+veri silme URL'i zorunlu → data-deletion.html.
+   - Reklam SDK'sı / reklam kimliği YOK.
    - Google Maps yol tarifi ve haber linkleri dış uygulama/site açabilir.
 
 4. App icon yayına hazır tutulmalı.

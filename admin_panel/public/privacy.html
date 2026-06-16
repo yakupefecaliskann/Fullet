@@ -84,54 +84,80 @@
     <main>
       <article>
         <h1>Fullet Gizlilik Politikası</h1>
-        <p class="meta">Son güncelleme: 9 Mayıs 2026</p>
+        <p class="meta">Son güncelleme: 16 Haziran 2026</p>
 
         <p>
           Fullet, Türkiye'deki akaryakıt istasyonlarını, yakıt fiyatlarını ve
           akaryakıt piyasasına ilişkin haberleri kullanıcıya gösteren bir mobil
-          uygulamadır. Uygulama hesap oluşturma, reklam izleme veya üçüncü taraf
-          analiz SDK'sı kullanmaz.
+          uygulamadır. Uygulama reklam göstermez ve üçüncü taraf reklam SDK'sı
+          kullanmaz. Uygulamayı geliştirmek ve kararlılığını izlemek için Google
+          Firebase (Analytics ve Crashlytics) hizmetlerini kullanır. Google ile
+          giriş özelliği isteğe bağlıdır.
         </p>
 
         <h2>Toplanan ve Kullanılan Veriler</h2>
         <ul>
           <li>
-            Konum verisi, yakındaki istasyonları bulmak, mesafe hesaplamak,
-            haritayı kullanıcının çevresine taşımak ve yol tarifi akışını
-            başlatmak için kullanılır. Fullet konum geçmişi tutmaz.
+            <strong>Konum verisi (yaklaşık ve hassas):</strong> Yakındaki
+            istasyonları bulmak, mesafe hesaplamak, haritayı kullanıcının çevresine
+            taşımak ve yol tarifi akışını başlatmak için kullanılır. Konum
+            koordinatı yalnızca yakındaki istasyonları getirmek için backend
+            sorgusunda anlık olarak kullanılır; Fullet konum geçmişi listesi tutmaz.
           </li>
           <li>
-            Yakıt tipi, araç tüketimi, depo hacmi, favori istasyonlar ve son
-            bakılan istasyonlar uygulama deneyimini kişiselleştirmek için cihazda
-            yerel olarak saklanabilir.
+            <strong>Cihazda saklanan tercihler:</strong> Yakıt tipi, araç tüketimi,
+            depo hacmi, favori istasyonlar ve son bakılan istasyonlar uygulama
+            deneyimini kişiselleştirmek için cihazda yerel olarak saklanır.
           </li>
           <li>
-            Uygulama sürümü, platform ve anonim kurulum kimliği, uygulamanın
-            çalışıp çalışmadığını ve aktif cihaz sayısını ölçmek için Supabase'e
-            gönderilebilir. Bu kimlik ad, telefon, e-posta veya reklam kimliği
-            içermez.
+            <strong>Kullanım ve etkileşim verisi (Firebase Analytics):</strong>
+            Uygulamayı geliştirmek için hangi ekranların ve özelliklerin
+            kullanıldığını ölçeriz. Örnek olaylar: uygulama açılışı, istasyon
+            görüntüleme, yakıt tipi değişimi, yön tarifi talebi, favori ekleme ve
+            uygulama içi arama sorguları. Bu veriler Google Firebase'e iletilir.
           </li>
           <li>
-            İstasyon, fiyat ve haber verileri Supabase üzerinden okunur. Fiyatlar
-            resmi veya doğrudan marka kaynaklarından alınan ham verilere dayanır.
+            <strong>Çökme ve tanılama verisi (Firebase Crashlytics):</strong>
+            Uygulama çöktüğünde hata kaydı, cihaz modeli ve uygulama durumu gibi
+            tanılama bilgileri kararlılığı iyileştirmek için Google Firebase'e
+            gönderilir.
+          </li>
+          <li>
+            <strong>Google ile giriş (isteğe bağlı):</strong> Kullanıcı Google
+            hesabıyla giriş yapmayı seçerse, favorilerini cihazlar arasında
+            eşitlemek için adı, e-posta adresi ve profil fotoğrafı bağlantısı
+            Supabase'de saklanır. Giriş yapılmazsa bu veriler toplanmaz.
+          </li>
+          <li>
+            <strong>Anonim sağlık ölçümü:</strong> Uygulama sürümü, platform ve
+            anonim kurulum kimliği, uygulamanın çalışıp çalışmadığını ve aktif cihaz
+            sayısını ölçmek için Supabase'e gönderilebilir. Bu kimlik ad, telefon
+            veya e-posta içermez.
+          </li>
+          <li>
+            <strong>İçerik verisi:</strong> İstasyon, fiyat ve haber verileri
+            Supabase üzerinden okunur. Fiyatlar resmi veya doğrudan marka
+            kaynaklarından alınan ham verilere dayanır.
           </li>
         </ul>
 
         <h2>Veri Paylaşımı</h2>
         <p>
-          Yakındaki istasyonları hesaplamak için konum koordinatı backend
-          sorgularında kullanılabilir. Bu bilgi kullanıcı profili oluşturmak veya
-          geçmiş konum listesi tutmak için kullanılmaz. Yol tarifi istendiğinde
-          Google Maps açılabilir. Haber bağlantılarına dokunulduğunda dış
-          tarayıcı veya ilgili haber sitesi açılabilir.
+          Fullet kişisel verileri reklam veya pazarlama amacıyla satmaz ya da
+          paylaşmaz. Analytics ve Crashlytics verileri, hizmet sağlayıcı sıfatıyla
+          Google Firebase altyapısında işlenir. Google ile giriş, Google'ın kimlik
+          doğrulama hizmetini kullanır. Yol tarifi istendiğinde Google Maps, haber
+          bağlantısına dokunulduğunda dış tarayıcı veya haber sitesi açılabilir.
         </p>
 
         <h2>Saklama ve Silme</h2>
         <p>
-          Yerel tercihler cihazda saklanır. Kullanıcı cihaz ayarlarından uygulama
-          verilerini temizleyerek bu bilgileri silebilir. Anonim heartbeat kayıtları
-          uygulama sağlığı ve aktif cihaz ölçümü için tutulur; kişisel iletişim
-          bilgisi içermez.
+          Cihazda saklanan tercihler için, cihaz ayarlarından uygulama verilerini
+          temizleyerek veya uygulamayı kaldırarak silme yapabilirsiniz. Google ile
+          giriş yaptıysanız hesap verilerinizin (ad, e-posta, profil bağlantısı ve
+          eşitlenen favoriler) silinmesini talep edebilirsiniz; analiz verilerinin
+          silinmesini de isteyebilirsiniz. Ayrıntılar için
+          <a href="./data-deletion.html">Veri Silme Talebi</a> sayfasına bakın.
         </p>
 
         <h2>Güvenlik</h2>

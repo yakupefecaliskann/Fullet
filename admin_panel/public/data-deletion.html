@@ -84,13 +84,15 @@
     <main>
       <article>
         <h1>Fullet Veri Silme Talebi</h1>
-        <p class="meta">Son güncelleme: 12 Mayıs 2026</p>
+        <p class="meta">Son güncelleme: 16 Haziran 2026</p>
 
         <p>
-          Fullet mobil uygulaması son kullanıcı hesabı oluşturmaz ve kullanıcı adı,
-          telefon numarası veya e-posta adresi istemez. Uygulama, yakındaki
-          istasyonları göstermek için konum izni kullanabilir ve uygulama sağlığını
-          ölçmek için anonim kurulum kimliğiyle heartbeat kaydı tutabilir.
+          Fullet mobil uygulaması, yakındaki istasyonları göstermek için konum izni
+          kullanabilir, uygulama sağlığını ölçmek için anonim kurulum kimliğiyle
+          heartbeat kaydı tutabilir ve uygulamayı geliştirmek için Firebase Analytics
+          ve Crashlytics hizmetlerini kullanır. Kullanıcı Google ile giriş yapmayı
+          seçerse adı, e-posta adresi, profil fotoğrafı bağlantısı ve eşitlenen
+          favorileri saklanır.
         </p>
 
         <h2>Cihazdaki Verileri Silme</h2>
@@ -100,25 +102,32 @@
           verilerini temizleyebilir veya uygulamayı kaldırabilirsiniz.
         </p>
 
-        <h2>Sunucudaki Anonim Verileri Silme</h2>
+        <h2>Google ile Giriş Yaptıysanız: Hesap ve Verilerinizi Silme</h2>
         <p>
-          Anonim kurulum kimliği ve heartbeat kayıtlarının silinmesini istemek için
-          <a href="mailto:fulletapp@gmail.com">fulletapp@gmail.com</a> adresine
-          "Fullet veri silme talebi" başlığıyla e-posta gönderebilirsiniz.
+          Google hesabınızla giriş yaptıysanız, hesabınıza bağlı verilerin (ad,
+          e-posta adresi, profil fotoğrafı bağlantısı ve eşitlenen favori
+          istasyonlar) tamamen silinmesini talep edebilirsiniz. Talebi başlatmak için
+          <a href="mailto:fulletapp@gmail.com?subject=Fullet%20hesap%20ve%20veri%20silme%20talebi">fulletapp@gmail.com</a>
+          adresine, giriş yaptığınız Google e-posta adresinizle "Fullet hesap ve veri
+          silme talebi" başlığıyla e-posta gönderin. Talebinizi aldıktan sonra
+          hesabınıza bağlı kayıtları 30 gün içinde sileriz.
         </p>
 
+        <h2>Analiz ve Anonim Verileri Silme</h2>
         <p>
+          Anonim kurulum kimliği, heartbeat kayıtları ve Firebase Analytics
+          verilerinin silinmesini istemek için
+          <a href="mailto:fulletapp@gmail.com?subject=Fullet%20veri%20silme%20talebi">fulletapp@gmail.com</a>
+          adresine "Fullet veri silme talebi" başlığıyla e-posta gönderebilirsiniz.
           Talebinizde mümkünse cihaz modelinizi, uygulama sürümünü ve yaklaşık talep
-          zamanını belirtin. Kişisel hesap bulunmadığı için talep, teknik olarak
-          eşleştirilebilen anonim kayıtlarla sınırlıdır.
+          zamanını belirtin.
         </p>
 
-        <h2>Saklanmayan Veriler</h2>
+        <h2>Toplanmayan Veriler</h2>
         <ul>
-          <li>Fullet kullanıcı hesabı oluşturmaz.</li>
-          <li>Ad, soyad, telefon numarası veya e-posta adresi toplamaz.</li>
+          <li>Fullet reklam göstermez ve reklam kimliği toplamaz.</li>
           <li>Konum geçmişi listesi tutmaz.</li>
-          <li>Reklam kimliği veya üçüncü taraf reklam/analitik SDK'sı kullanmaz.</li>
+          <li>Giriş yapılmadığında ad veya e-posta adresi toplanmaz.</li>
         </ul>
 
         <p>
