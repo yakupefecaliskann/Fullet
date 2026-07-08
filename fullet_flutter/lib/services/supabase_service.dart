@@ -164,6 +164,11 @@ class SupabaseService {
     }
   }
 
+  /// Coğrafi (ST_DWithin) ve marka filtresini tek RPC çağrısında birleştirir
+  /// (get_nearby_stations'a Aşama 3'te eklenen brand_filter parametresi).
+  /// Eskiden burada her zaman tüm ülkeyi 1000'lik sayfalarla tarayıp
+  /// istemci tarafında mesafeye göre kırpıyorduk — artık bu yalnızca RPC
+  /// hata verirse devreye giren bir fallback (_fetchStationsByBrandsWholeCountry).
   static Future<List<Station>> _fetchStationsByBrandsForRegion({
     required double latitude,
     required double longitude,
@@ -174,6 +179,66 @@ class SupabaseService {
     final brandLabels = brandLabelsForKeys(brandKeys);
     if (brandLabels.isEmpty) return const [];
 
+    try {
+      final response = await client.rpc('get_nearby_stations', params: {
+        'lat': latitude,
+        'lng': longitude,
+        'max_dist_meters': maxDistMeters.toInt(),
+        'max_results': maxResults,
+        'brand_filter': brandLabels,
+      }).select(_stationListSelect).order(
+            'degisim_tarihi',
+            referencedTable: 'fiyat_gecmisi',
+            ascending: false,
+          ).limit(_priceHistoryEmbedLimit, referencedTable: 'fiyat_gecmisi');
+
+      final rows = List<dynamic>.from(response);
+
+      // Bug B fix (korunuyor): brand_filter 0 satır dönerse (marka DB'de
+      // farklı yazılmış olabilir) canonicalBrandKey ile normalize eden
+      // cache fallback'ine düş.
+      if (rows.isEmpty) {
+        debugPrint(
+          '[Brand] RPC brand_filter returned 0 rows for brands=$brandKeys — '
+          'falling back to cache with canonicalBrandKey matching',
+        );
+        return _fetchStationsByBrandsFromCache(
+          latitude: latitude,
+          longitude: longitude,
+          maxDistMeters: maxDistMeters,
+          maxResults: maxResults,
+          brandKeys: brandKeys,
+        );
+      }
+
+      lastStationFetchError = null;
+      return _parseStations(rows);
+    } catch (e) {
+      debugPrint(
+        '[Brand] Combined geo+brand RPC failed: $e — falling back to '
+        'whole-country scan',
+      );
+      return _fetchStationsByBrandsWholeCountry(
+        latitude: latitude,
+        longitude: longitude,
+        maxDistMeters: maxDistMeters,
+        maxResults: maxResults,
+        brandKeys: brandKeys,
+        brandLabels: brandLabels,
+      );
+    }
+  }
+
+  /// Yalnızca RPC hata verirse kullanılan hata fallback'i — eski davranış
+  /// (tüm ülkeyi 1000'lik sayfalarla tarar, istemci tarafında kırpar).
+  static Future<List<Station>> _fetchStationsByBrandsWholeCountry({
+    required double latitude,
+    required double longitude,
+    required double maxDistMeters,
+    required int maxResults,
+    required Set<String> brandKeys,
+    required List<String> brandLabels,
+  }) async {
     try {
       final rows = <dynamic>[];
       var start = 0;
@@ -197,13 +262,7 @@ class SupabaseService {
         start += pageSize;
       }
 
-      // Bug B fix: inFilter 0 satır dönerse (HTTP 200, bos array) cache fallback
-      // DB'de marka degeri farklı yazılmış olabilir — canonicalBrandKey ile normalize
       if (rows.isEmpty) {
-        debugPrint(
-          '[Brand] inFilter returned 0 rows for brands=$brandKeys — '
-          'falling back to cache with canonicalBrandKey matching',
-        );
         return _fetchStationsByBrandsFromCache(
           latitude: latitude,
           longitude: longitude,
@@ -222,7 +281,7 @@ class SupabaseService {
         maxResults: maxResults,
       );
     } catch (e) {
-      debugPrint('Brand station fetch failed: $e');
+      debugPrint('Whole-country brand station fetch failed: $e');
       return _fetchStationsByBrandsFromCache(
         latitude: latitude,
         longitude: longitude,

@@ -142,11 +142,3 @@ CREATE INDEX IF NOT EXISTS istasyonlar_visibility_aktif_idx ON istasyonlar(visib
 -- Fiyat JOIN'ini hızlandır
 CREATE INDEX IF NOT EXISTS fiyatlar_istasyon_status_idx ON fiyatlar(istasyon_id, price_status);
 CREATE INDEX IF NOT EXISTS fiyatlar_son_guncelleme_idx ON fiyatlar(son_guncelleme DESC);
-
--- =============================================================================
--- Hızlı doğrulama
--- =============================================================================
-SELECT
-  COUNT(*) AS istasyon_sayisi,
-  SUM(CASE WHEN prices != '{}'::jsonb THEN 1 ELSE 0 END) AS fiyatli_istasyon
-FROM get_nearby_stations_v2(41.0082, 28.9784, 20000, 50);
