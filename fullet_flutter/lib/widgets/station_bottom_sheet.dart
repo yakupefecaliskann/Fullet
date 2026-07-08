@@ -836,14 +836,27 @@ class _SmartScoreCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: textColor,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => _showSmartScoreInfoSheet(
+                        context,
+                        isDark: isDark,
+                      ),
+                      child: Icon(Icons.info_outline_rounded,
+                          size: 15, color: mutedColor),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 3),
                 if (score.savingsTL < -1)
@@ -867,6 +880,127 @@ class _SmartScoreCard extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Akıllı Skor'un nasıl hesaplandığını açıklayan şeffaflık vitrini —
+/// EPDK'nın fiyat dağılımını daralttığı bir ortamda "sana özel en
+/// mantıklısı" konumlandırmasını, formülü gizlemeden güçlendirir.
+void _showSmartScoreInfoSheet(BuildContext context, {required bool isDark}) {
+  final bg = isDark ? FulColors.darkCard : Colors.white;
+  final textColor = isDark ? FulColors.darkText : FulColors.lightText;
+  final mutedColor =
+      isDark ? FulColors.darkTextMuted : FulColors.lightTextMuted;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: bg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: mutedColor.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Akıllı Skor nasıl hesaplanır?',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Bu istasyonda depoyu doldurmanın toplam maliyeti '
+            '(yakıt fiyatı × depo kapasitesi) artı buraya gelmek için '
+            'harcanacak yakıt masrafı hesaplanır. Bu toplam, aynı anda '
+            'görünen istasyonlar arasındaki en düşük toplam maliyetle '
+            'karşılaştırılır; aradaki fark skoru belirler.',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 13,
+              color: mutedColor,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _SmartScoreInfoRow(
+              label: '🏆 En İyi Seçim', detail: 'Skor 85 ve üzeri'),
+          const _SmartScoreInfoRow(label: '👍 İyi Seçim', detail: 'Skor 65–84'),
+          const _SmartScoreInfoRow(label: '⚠️ Orta Seçim', detail: 'Skor 40–64'),
+          const _SmartScoreInfoRow(
+              label: '⬇️ Daha İyisi Var', detail: 'Skor 40 altı'),
+          const SizedBox(height: 14),
+          Text(
+            'Skor yalnızca sürüş mesafesi ve depo/tüketim bilgini (Garaj) '
+            'kullanır — reklam veya sponsorlu sıralama içermez.',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: mutedColor,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SmartScoreInfoRow extends StatelessWidget {
+  final String label;
+  final String detail;
+
+  const _SmartScoreInfoRow({required this.label, required this.detail});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? FulColors.darkText : FulColors.lightText;
+    final mutedColor =
+        isDark ? FulColors.darkTextMuted : FulColors.lightTextMuted;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                color: textColor,
+              ),
+            ),
+          ),
+          Text(
+            detail,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              color: mutedColor,
             ),
           ),
         ],

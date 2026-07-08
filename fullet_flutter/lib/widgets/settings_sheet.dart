@@ -607,6 +607,7 @@ class _SavingsSummaryCard extends StatefulWidget {
 
 class _SavingsSummaryCardState extends State<_SavingsSummaryCard> {
   late final Future<double> _future = SavingsService.getCurrentMonthSavings();
+  late final Future<int> _streakFuture = SavingsService.getStreakWeeks();
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +650,25 @@ class _SavingsSummaryCardState extends State<_SavingsSummaryCard> {
                         fontSize: 11,
                         color: widget.mutedColor,
                       ),
+                    ),
+                    FutureBuilder<int>(
+                      future: _streakFuture,
+                      builder: (context, streakSnapshot) {
+                        final streak = streakSnapshot.data ?? 0;
+                        if (streak < 2) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '🔥 $streak hafta üst üste takip ettin',
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                              color: widget.textColor,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

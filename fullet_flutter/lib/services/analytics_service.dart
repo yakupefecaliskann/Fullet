@@ -101,4 +101,12 @@ class AnalyticsService {
         'notification_id': notificationId,
         'payload': payload,
       });
+
+  /// Gerçek ödeme entegrasyonu olmadan talep ölçümü — kullanıcı bir
+  /// premium hook'a (ör. fiyat alarmı bildirimindeki "İlgileniyorum"
+  /// butonu) tıkladığında tetiklenir.
+  static Future<void> logPremiumInterestClicked({
+    required String source,
+  }) =>
+      _log('premium_interest_clicked', {'source': source});
 }

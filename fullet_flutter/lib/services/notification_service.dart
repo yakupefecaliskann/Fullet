@@ -25,35 +25,53 @@ class NotificationService {
   }
 
   static void _onNotificationTap(NotificationResponse response) {
+    if (response.actionId == _premiumInterestActionId) {
+      AnalyticsService.logPremiumInterestClicked(
+        source: 'price_alert_notification',
+      );
+      return;
+    }
     AnalyticsService.logNotificationOpened(
       notificationId: response.id ?? 0,
       payload: response.payload ?? '',
     );
   }
 
+  static const _premiumInterestActionId = 'premium_interest';
+
   /// Fiyat alarmı tetiklendiğinde anlık (zamanlamasız) bildirim gösterir.
   /// [id] alarmın kendine özgü bir hash'i olmalı ki aynı alarm tekrar
   /// tetiklenene kadar bildirim kanalında üst üste binmesin.
+  ///
+  /// Bildirimde gerçek ödeme entegrasyonu olmadan bir premium-talep ölçüm
+  /// aksiyonu ("İlgileniyorum ⭐") da gösterilir — Aşama 4 büyüme deneyi,
+  /// bkz. plan dosyası "Premium hook".
   static Future<void> showPriceAlertNotification({
     required int id,
     required String title,
     required String body,
     required String payload,
   }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'price_alert',
+      'Fiyat Alarmı',
+      channelDescription: 'Kişisel fiyat alarmı bildirimleri',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      actions: [
+        AndroidNotificationAction(
+          _premiumInterestActionId,
+          'İlgileniyorum ⭐',
+        ),
+      ],
+    );
+
     await _plugin.show(
       id,
       title,
       body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'price_alert',
-          'Fiyat Alarmı',
-          channelDescription: 'Kişisel fiyat alarmı bildirimleri',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-      ),
+      const NotificationDetails(android: androidDetails),
       payload: payload,
     );
   }
