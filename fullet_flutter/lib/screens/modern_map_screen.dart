@@ -94,6 +94,9 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
   void initState() {
     super.initState();
     _currentUser = AuthService.currentUser;
+    if (_currentUser != null) {
+      unawaited(_handleSignIn(_currentUser!));
+    }
     _authSubscription = AuthService.authStateChanges.listen((user) {
       if (!mounted) return;
       final prev = _currentUser;
@@ -121,8 +124,36 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     unawaited(SupabaseService.fetchAllActiveStationsSafe());
   }
 
+  Future<void> _onSignInTapped() async {
+    final result = await AuthService.signInWithGoogle();
+    if (!mounted) return;
+    if (result.isSuccess) {
+      setState(() => _menuOpen = false);
+      return;
+    }
+    if (result.status != AuthResultStatus.error) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message ?? 'Giriş yapılamadı, tekrar dene.'),
+      ),
+    );
+  }
+
   Future<void> _handleSignIn(User user) async {
+    await AuthService.ensureAuthenticatedRole(user);
+    // fullet_favorites.firebase_uid, fullet_users(firebase_uid)'a FK ile
+    // bağlı — favori senkronizasyonundan önce profil satırının var
+    // olduğundan emin olunmalı (yalnızca signInWithGoogle()'da değil,
+    // kalıcı oturumla soğuk başlatmada da).
+    await SupabaseService.upsertUserProfile(
+      uid: user.uid,
+      displayName: user.displayName,
+      email: user.email,
+      avatarUrl: user.photoURL,
+    );
     final prefs = context.read<UserPreferencesProvider>();
+    await prefs.ready;
+    if (!mounted) return;
     final localFavorites = prefs.favoriteStationIds;
     if (localFavorites.isNotEmpty) {
       await SupabaseService.syncLocalFavorites(user.uid, localFavorites);
@@ -1698,12 +1729,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
               onStationSelected: (station) =>
                   _selectStation(station, animate: true),
               currentUser: _currentUser,
-              onSignIn: () async {
-                final user = await AuthService.signInWithGoogle();
-                if (user != null && mounted) {
-                  setState(() => _menuOpen = false);
-                }
-              },
+              onSignIn: _onSignInTapped,
               onSignOut: () async {
                 await AuthService.signOut();
               },
@@ -1938,8 +1964,6 @@ class _SearchBadge extends StatelessWidget {
     );
   }
 }
-
-// _MapControlsSheet removed for MainDrawer
 
 class _DeclutterConfig {
   final double cellDegrees;

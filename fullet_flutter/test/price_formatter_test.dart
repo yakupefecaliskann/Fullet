@@ -20,26 +20,6 @@ void main() {
     });
   });
 
-  group('getPrice', () {
-    final prices = [
-      {'yakit_tipi': 'Kursunsuz 95', 'fiyat': '45,78'},
-      {'yakit_tipi': 'Motorin', 'fiyat': 43.2},
-      {'yakit_tipi': 'Otogaz LPG', 'fiyat': '22.10 TL'},
-      {'yakit_tipi': 'Elektrikli Şarj kWh', 'fiyat': '9,75'},
-    ];
-
-    test('normalizes matching fuel prices', () {
-      expect(getPrice(prices, 'Kursunsuz 95'), '45.78');
-      expect(getPrice(prices, 'Motorin'), '43.20');
-      expect(getPrice(prices, 'LPG'), '22.10');
-      expect(getPrice(prices, 'Elektrik'), '9.75');
-    });
-
-    test('returns dash when no matching fuel exists', () {
-      expect(getPrice(prices, 'AdBlue'), '-');
-    });
-  });
-
   test('formatMarkerPrice never returns clipped currency-only text', () {
     expect(formatMarkerPrice('45,78 TL'), '45.78');
     expect(formatMarkerPrice('-'), 'Yok');

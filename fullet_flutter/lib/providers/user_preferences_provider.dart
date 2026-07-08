@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +20,9 @@ class UserPreferencesProvider extends ChangeNotifier {
   bool get isLoaded => _isLoaded;
   bool get hasVehicle => selectedMake != null && selectedModel != null;
 
+  final Completer<void> _readyCompleter = Completer<void>();
+  Future<void> get ready => _readyCompleter.future;
+
   UserPreferencesProvider() {
     _loadPreferences();
   }
@@ -33,6 +38,7 @@ class UserPreferencesProvider extends ChangeNotifier {
         (prefs.getStringList('favoriteStationIds') ?? const []).toSet();
     recentStationIds = prefs.getStringList('recentStationIds') ?? const [];
     _isLoaded = true;
+    if (!_readyCompleter.isCompleted) _readyCompleter.complete();
     notifyListeners();
   }
 

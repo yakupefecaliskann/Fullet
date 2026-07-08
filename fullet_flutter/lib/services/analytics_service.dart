@@ -71,7 +71,7 @@ class AnalyticsService {
   }) =>
       _log('favorite_toggled', {
         'station_id': stationId,
-        'is_favorited': isFavorited,
+        'is_favorited': isFavorited.toString(),
       });
 
   static Future<void> logBrandFilterChanged(List<String> brands) =>

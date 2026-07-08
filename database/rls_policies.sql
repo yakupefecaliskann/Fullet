@@ -53,13 +53,13 @@ END $$;
 CREATE POLICY "public read istasyonlar"
 ON public.istasyonlar FOR SELECT
 TO anon, authenticated
-USING (aktif IS TRUE);
+USING (aktif IS TRUE AND visibility_status IN ('visible', 'low_priority'));
 
 CREATE POLICY "restrict active istasyonlar"
 ON public.istasyonlar AS RESTRICTIVE
 FOR SELECT
 TO anon, authenticated
-USING (aktif IS TRUE);
+USING (aktif IS TRUE AND visibility_status IN ('visible', 'low_priority'));
 
 CREATE POLICY "public read fiyatlar"
 ON public.fiyatlar FOR SELECT

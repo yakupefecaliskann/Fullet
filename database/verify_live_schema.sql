@@ -81,4 +81,39 @@ SELECT
         OR roles @> ARRAY['authenticated']::name[]
         OR roles @> ARRAY['public']::name[]
       )
-  ) AS istasyonlar_no_extra_public_read_policy;
+  ) AS istasyonlar_no_extra_public_read_policy,
+  -- fullet_users / fullet_favorites / price_alerts: bkz. database/sprint4_users_favorites.sql.
+  -- Bu üç tablo daha önce RLS'siz, anon role tam CRUD açık şekilde bırakılmıştı;
+  -- aşağıdaki üç kontrol hem RLS'in açık olduğunu hem de anon'un artık hiçbir
+  -- yetkisi kalmadığını doğruluyor.
+  EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'fullet_users'
+      AND c.relrowsecurity = TRUE
+  ) AS fullet_users_rls_enabled,
+  EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'fullet_favorites'
+      AND c.relrowsecurity = TRUE
+  ) AS fullet_favorites_rls_enabled,
+  EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'price_alerts'
+      AND c.relrowsecurity = TRUE
+  ) AS price_alerts_rls_enabled,
+  NOT EXISTS (
+    SELECT 1
+    FROM information_schema.role_table_grants
+    WHERE table_schema = 'public'
+      AND table_name IN ('fullet_users', 'fullet_favorites', 'price_alerts')
+      AND grantee = 'anon'
+  ) AS user_data_tables_anon_access_revoked;

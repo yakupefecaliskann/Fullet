@@ -14,6 +14,12 @@ class SupabaseService {
   static String? lastStationFetchError;
   static String? lastAllStationsFetchError;
   static const _allStationsCacheDuration = Duration(minutes: 5);
+  // fiyat_gecmisi embed'i eskiden LIMIT'siz çekiliyordu (bir istasyon için
+  // birikmiş tüm fiyat değişimi geçmişi) — trend özellikleri (favori
+  // kartları, sparkline) her yakıt tipi için yalnızca en güncel değişimi
+  // kullanıyor, bu yüzden istasyon başına son 20 değişim (tüm yakıt tipleri
+  // toplamda) her zaman yeterli buffer sağlar.
+  static const _priceHistoryEmbedLimit = 20;
 
   static const _stationSelect = '''
     id,
@@ -70,7 +76,11 @@ class SupabaseService {
         'lng': longitude,
         'max_dist_meters': maxDistMeters.toInt(),
         'max_results': maxResults,
-      }).select(_stationSelect);
+      }).select(_stationSelect).order(
+            'degisim_tarihi',
+            referencedTable: 'fiyat_gecmisi',
+            ascending: false,
+          ).limit(_priceHistoryEmbedLimit, referencedTable: 'fiyat_gecmisi');
 
       lastStationFetchError = null;
       return _parseStations(response);
@@ -96,7 +106,11 @@ class SupabaseService {
         'lat': latitude,
         'lng': longitude,
         'max_dist_meters': maxDistMeters.toInt(),
-      }).select(_stationSelect);
+      }).select(_stationSelect).order(
+            'degisim_tarihi',
+            referencedTable: 'fiyat_gecmisi',
+            ascending: false,
+          ).limit(_priceHistoryEmbedLimit, referencedTable: 'fiyat_gecmisi');
 
       final stations = _parseStations(response);
       if (stations.length >= 50 && maxResults > stations.length) {
@@ -170,6 +184,12 @@ class SupabaseService {
             .from('istasyonlar')
             .select(_stationListSelect)
             .inFilter('marka', brandLabels)
+            .order(
+              'degisim_tarihi',
+              referencedTable: 'fiyat_gecmisi',
+              ascending: false,
+            )
+            .limit(_priceHistoryEmbedLimit, referencedTable: 'fiyat_gecmisi')
             .range(start, start + pageSize - 1);
         final pageRows = List<dynamic>.from(page);
         rows.addAll(pageRows);
@@ -303,6 +323,12 @@ class SupabaseService {
       final page = await client
           .from('istasyonlar')
           .select(_stationListSelect)
+          .order(
+            'degisim_tarihi',
+            referencedTable: 'fiyat_gecmisi',
+            ascending: false,
+          )
+          .limit(_priceHistoryEmbedLimit, referencedTable: 'fiyat_gecmisi')
           .range(start, start + pageSize - 1);
       final pageRows = List<dynamic>.from(page);
       rows.addAll(pageRows);
@@ -400,7 +426,9 @@ class SupabaseService {
           .map((id) => {'firebase_uid': uid, 'station_id': id})
           .toList();
       await client.from('fullet_favorites').upsert(rows);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('syncLocalFavorites failed: $e');
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

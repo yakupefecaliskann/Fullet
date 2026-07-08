@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,6 +52,13 @@ Future<void> main() async {
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
+    // Firebase, Supabase'de "Third Party Auth" sağlayıcısı olarak kayıtlı
+    // olduğunda bu callback, giriş yapmış kullanıcının Firebase ID token'ını
+    // her PostgREST/RPC isteğine iliştirir; auth.jwt()->>'sub' gerçek
+    // firebase_uid'i döndürür ve RLS politikaları buna göre çalışabilir.
+    // Giriş yapılmamışsa null döner, istek anon rolünde devam eder.
+    accessToken: () async =>
+        await firebase_auth.FirebaseAuth.instance.currentUser?.getIdToken(),
   );
   AppHeartbeatService.start();
   await NotificationService.initialize();
