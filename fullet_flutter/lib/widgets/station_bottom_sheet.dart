@@ -9,6 +9,19 @@ import '../utils/distance_calculator.dart';
 import '../theme/ful_theme.dart';
 import 'price_trend_sparkline.dart';
 
+/// Fiyat durumu (fresh/stale/unknown) için proje genelinde tutarlı renk —
+/// istasyon detayı ve fiyata göre sıralı liste aynı görsel dili kullanır.
+Color priceStatusColor(String? status) {
+  switch (status) {
+    case 'fresh':
+      return FulColors.priceFresh;
+    case 'stale':
+      return FulColors.priceStale;
+    default:
+      return FulColors.priceUnknown;
+  }
+}
+
 class StationBottomSheet extends StatefulWidget {
   final Station? visibleStation;
   final LatLng? location;
@@ -23,6 +36,8 @@ class StationBottomSheet extends StatefulWidget {
   final VoidCallback onGaragePromptTap;
   final VoidCallback onGaragePromptClose;
   final Future<void> Function(Station station) onDirectionsRequested;
+  final VoidCallback? onPriceAlertTap;
+  final VoidCallback? onPurchaseConfirmed;
 
   const StationBottomSheet({
     super.key,
@@ -39,6 +54,8 @@ class StationBottomSheet extends StatefulWidget {
     required this.onGaragePromptTap,
     required this.onGaragePromptClose,
     required this.onDirectionsRequested,
+    required this.onPriceAlertTap,
+    required this.onPurchaseConfirmed,
   });
 
   @override
@@ -89,17 +106,6 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
     final webUri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
     await launchUrl(webUri, mode: LaunchMode.externalApplication);
-  }
-
-  Color _priceStatusColor(String? status) {
-    switch (status) {
-      case 'fresh':
-        return FulColors.priceFresh;
-      case 'stale':
-        return FulColors.priceStale;
-      default:
-        return FulColors.priceUnknown;
-    }
   }
 
   String _priceStatusLabel(String? status, DateTime? updatedAt) {
@@ -209,7 +215,7 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                   _PriceStatusBand(
                     status: priceStatus,
                     label: _priceStatusLabel(priceStatus, priceUpdatedAt),
-                    color: _priceStatusColor(priceStatus),
+                    color: priceStatusColor(priceStatus),
                   ),
 
                 Padding(
@@ -369,7 +375,7 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                               value:
                                   hasPrice ? '$priceText ₺' : 'Fiyat yok',
                               valueColor: hasPrice
-                                  ? _priceStatusColor(priceStatus)
+                                  ? priceStatusColor(priceStatus)
                                   : mutedColor,
                               icon: Icons.local_gas_station_rounded,
                               iconColor: brandColor,
@@ -443,6 +449,65 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: widget.onPriceAlertTap,
+                          child: Container(
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: border),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.notifications_active_outlined,
+                                    color: FulColors.primary, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Fiyat Alarmı Kur',
+                                  style: TextStyle(
+                                    fontFamily: 'Outfit',
+                                    color: textColor,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (widget.smartScore != null) ...[
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: widget.onPurchaseConfirmed,
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: border),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('⛽', style: TextStyle(fontSize: 16)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Buradan Aldım',
+                                    style: TextStyle(
+                                      fontFamily: 'Outfit',
+                                      color: textColor,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
 
                       // ── Genişleyen bölüm ──

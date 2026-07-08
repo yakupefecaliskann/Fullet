@@ -27,6 +27,7 @@ class FulSideMenu extends StatelessWidget {
   final User? currentUser;
   final Future<void> Function()? onSignIn;
   final Future<void> Function()? onSignOut;
+  final VoidCallback? onSettingsTap;
 
   const FulSideMenu({
     super.key,
@@ -45,6 +46,7 @@ class FulSideMenu extends StatelessWidget {
     this.currentUser,
     this.onSignIn,
     this.onSignOut,
+    this.onSettingsTap,
   });
 
   @override
@@ -111,7 +113,7 @@ class FulSideMenu extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Hesap bölümü
-                          _AccountSection(
+                          AccountSection(
                             currentUser: currentUser,
                             onSignIn: onSignIn,
                             onSignOut: onSignOut,
@@ -139,6 +141,17 @@ class FulSideMenu extends StatelessWidget {
                           _SectionLabel('UYGULAMA', mutedColor),
                           const SizedBox(height: 8),
 
+                          _MenuItem(
+                            icon: Icons.settings_outlined,
+                            label: 'Ayarlar',
+                            isDark: isDark,
+                            textColor: textColor,
+                            mutedColor: mutedColor,
+                            cardBg: cardBg,
+                            border: border,
+                            onTap: onSettingsTap,
+                          ),
+                          const SizedBox(height: 8),
                           _MenuItem(
                             icon: Icons.info_outline_rounded,
                             label: 'Hakkında',
@@ -271,7 +284,7 @@ class FulSideMenu extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       useSafeArea: true,
-      builder: (_) => _AboutSheet(
+      builder: (_) => AboutSheet(
         version: version,
         isDark: isDark,
         textColor: textColor,
@@ -317,7 +330,7 @@ class FulSideMenu extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 // Hakkında Sayfası (Play Store Uyumlu)
 // ─────────────────────────────────────────────────────────────
-class _AboutSheet extends StatelessWidget {
+class AboutSheet extends StatelessWidget {
   final String version;
   final bool isDark;
   final Color textColor;
@@ -325,7 +338,8 @@ class _AboutSheet extends StatelessWidget {
   final Color cardBg;
   final Color border;
 
-  const _AboutSheet({
+  const AboutSheet({
+    super.key,
     required this.version,
     required this.isDark,
     required this.textColor,
@@ -1030,7 +1044,7 @@ class _NewsCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 // Hesap Bölümü
 // ─────────────────────────────────────────────────────────────
-class _AccountSection extends StatefulWidget {
+class AccountSection extends StatefulWidget {
   final User? currentUser;
   final Future<void> Function()? onSignIn;
   final Future<void> Function()? onSignOut;
@@ -1040,7 +1054,8 @@ class _AccountSection extends StatefulWidget {
   final Color cardBg;
   final Color border;
 
-  const _AccountSection({
+  const AccountSection({
+    super.key,
     required this.currentUser,
     required this.onSignIn,
     required this.onSignOut,
@@ -1052,10 +1067,10 @@ class _AccountSection extends StatefulWidget {
   });
 
   @override
-  State<_AccountSection> createState() => _AccountSectionState();
+  State<AccountSection> createState() => AccountSectionState();
 }
 
-class _AccountSectionState extends State<_AccountSection> {
+class AccountSectionState extends State<AccountSection> {
   bool _loading = false;
 
   @override

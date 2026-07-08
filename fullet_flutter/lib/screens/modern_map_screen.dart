@@ -16,6 +16,10 @@ import '../providers/user_preferences_provider.dart';
 import '../widgets/garage_modal.dart';
 import '../widgets/station_bottom_sheet.dart';
 import '../widgets/ful_side_menu.dart';
+import '../widgets/settings_sheet.dart';
+import '../widgets/price_alert_dialog.dart';
+import '../services/price_alert_service.dart';
+import '../services/savings_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../utils/price_formatter.dart';
 import '../utils/marker_icon_factory.dart';
@@ -117,11 +121,20 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
   Future<void> _initData() async {
     await _getLocation();
     unawaited(_requestNotificationsOnce());
+    unawaited(NotificationService.ensureFuelReminderScheduled());
     unawaited(_loadNews());
     await _fetchStationsForRegion(_currentLocation);
     if (!mounted) return;
     setState(() => _isLoading = false);
     unawaited(SupabaseService.fetchAllActiveStationsSafe());
+    unawaited(_checkPriceAlerts());
+  }
+
+  Future<void> _checkPriceAlerts() async {
+    final uid = _currentUser?.uid;
+    if (uid == null) return;
+    final stations = await SupabaseService.fetchAllActiveStationsSafe();
+    await PriceAlertService.checkAlerts(uid, stations);
   }
 
   Future<void> _onSignInTapped() async {
@@ -151,6 +164,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
       email: user.email,
       avatarUrl: user.photoURL,
     );
+    if (!mounted) return;
     final prefs = context.read<UserPreferencesProvider>();
     await prefs.ready;
     if (!mounted) return;
@@ -172,7 +186,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     try {
       final granted = await NotificationService.requestPermission();
       if (!granted) return;
-      await NotificationService.scheduleFuelReminder();
+      await NotificationService.ensureFuelReminderScheduled();
       await NotificationService.scheduleGarageReminder();
     } catch (_) {}
   }
@@ -1333,6 +1347,19 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     GarageBottomSheet.show(context, isDark: _currentIsDark);
   }
 
+  void _openSettings() {
+    setState(() => _menuOpen = false);
+    SettingsSheet.show(
+      context,
+      isDark: _currentIsDark,
+      appVersion: '1.0.2',
+      currentUser: _currentUser,
+      stations: _stations,
+      onSignIn: _onSignInTapped,
+      onSignOut: () async => AuthService.signOut(),
+    );
+  }
+
   void _showStationSearch() {
     final prefs = context.read<UserPreferencesProvider>();
     showModalBottomSheet<void>(
@@ -1733,6 +1760,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
               onSignOut: () async {
                 await AuthService.signOut();
               },
+              onSettingsTap: _openSettings,
             ),
           ),
 
@@ -1784,6 +1812,39 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
                     : null,
                 tankCapacity: prefs.tankCapacity,
                 fuelConsumption: prefs.fuelConsumption,
+                onPriceAlertTap: () {
+                  final st = _visibleStation;
+                  if (st == null) return;
+                  PriceAlertDialog.show(
+                    context,
+                    station: st,
+                    fuelType: prefs.selectedFuel,
+                    currentPrice: st.priceValueFor(prefs.selectedFuel),
+                    currentUserId: _currentUser?.uid,
+                    onSignIn: _onSignInTapped,
+                    isDark: _currentIsDark,
+                  );
+                },
+                onPurchaseConfirmed: () {
+                  final st = _visibleStation;
+                  if (st == null || _smartResult == null) return;
+                  final score = SmartStationService.calculateSmartScore(
+                    station: st,
+                    location: _currentLocation,
+                    selectedFuel: prefs.selectedFuel,
+                    tankCapacity: prefs.tankCapacity,
+                    fuelConsumption: prefs.fuelConsumption,
+                    bestResult: _smartResult!,
+                  );
+                  if (score == null) return;
+                  unawaited(SavingsService.recordPurchase(score.savingsTL));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Kaydedildi — tahmini tasarrufun güncellendi'),
+                    ),
+                  );
+                },
               )
                   .animate()
                   .slideY(
@@ -1965,6 +2026,60 @@ class _SearchBadge extends StatelessWidget {
   }
 }
 
+class _SearchModeChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _SearchModeChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final unselectedBg = isDark ? FulColors.darkCard : Colors.white;
+    const selectedFg = Colors.white;
+    final unselectedFg = isDark ? FulColors.darkText : FulColors.lightText;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? FulColors.primary : unselectedBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : (isDark ? FulColors.darkBorder : const Color(0xFFE5E7EB)),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: selected ? selectedFg : unselectedFg),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: selected ? selectedFg : unselectedFg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DeclutterConfig {
   final double cellDegrees;
   final int maxMarkers;
@@ -2054,10 +2169,13 @@ class _StationSearchSheet extends StatefulWidget {
   State<_StationSearchSheet> createState() => _StationSearchSheetState();
 }
 
+enum _SearchSheetMode { search, byPrice }
+
 class _StationSearchSheetState extends State<_StationSearchSheet> {
   final TextEditingController _controller = TextEditingController();
   String _query = '';
   Timer? _debounce;
+  _SearchSheetMode _mode = _SearchSheetMode.search;
 
   @override
   void dispose() {
@@ -2177,6 +2295,31 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _SearchModeChip(
+                    label: 'Ara',
+                    icon: Icons.search_rounded,
+                    selected: _mode == _SearchSheetMode.search,
+                    isDark: isDark,
+                    onTap: () => setState(() => _mode = _SearchSheetMode.search),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SearchModeChip(
+                    label: 'Fiyata Göre',
+                    icon: Icons.sort_rounded,
+                    selected: _mode == _SearchSheetMode.byPrice,
+                    isDark: isDark,
+                    onTap: () =>
+                        setState(() => _mode = _SearchSheetMode.byPrice),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Expanded(
               child: FutureBuilder<List<Station>>(
@@ -2188,8 +2331,9 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                           CircularProgressIndicator(color: FulColors.primary),
                     );
                   }
+                  final stations = snapshot.data ?? const <Station>[];
                   // Kullanıcı henüz bir şey yazmadıysa prompt göster (flicker engeli)
-                  if (_query.isEmpty) {
+                  if (_mode == _SearchSheetMode.search && _query.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -2226,9 +2370,13 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                       ),
                     );
                   }
-                  final stations = snapshot.data ?? const <Station>[];
-                  final results = _searchResults(stations);
+                  final results = _mode == _SearchSheetMode.byPrice
+                      ? _priceSortedResults(stations)
+                      : _searchResults(stations);
                   if (results.isEmpty) {
+                    final message = _mode == _SearchSheetMode.byPrice
+                        ? 'Bu bölgede fiyat bilgisi olan istasyon yok'
+                        : '"$_query" için sonuç bulunamadı';
                     return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -2240,7 +2388,7 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                                   : const Color(0xFFD1D5DB)),
                           const SizedBox(height: 10),
                           Text(
-                            '"$_query" için sonuç bulunamadı',
+                            message,
                             style: TextStyle(
                               fontFamily: 'Outfit',
                               fontWeight: FontWeight.w700,
@@ -2344,6 +2492,46 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
     return results;
   }
 
+  /// (price_status_rank, fiyat) ile sıralar — bayat/bilinmeyen bir fiyat
+  /// doğrulanmış bir fiyattan asla "daha ucuz" görünmez (fresh her zaman
+  /// önce), aksi halde ürünün "yanlış fiyat göstermeme" ilkesi ihlal edilir.
+  List<_SearchResult> _priceSortedResults(List<Station> stations) {
+    final filtered = stations.where((station) {
+      if (widget.selectedBrands.isNotEmpty &&
+          !widget.selectedBrands.contains(canonicalBrandKey(station.brand))) {
+        return false;
+      }
+      if (!station.isVisibleInApp) return false;
+      return station.hasDisplayablePriceFor(widget.selectedFuel);
+    }).toList();
+
+    final results = filtered.map((station) {
+      final distance = getDistanceKm(
+        widget.location.latitude,
+        widget.location.longitude,
+        station.latitude,
+        station.longitude,
+      );
+      return _SearchResult(
+        station: station,
+        distanceKm: distance,
+        isFavorite: widget.favoriteStationIds.contains(station.id),
+        recentIndex: widget.recentStationIds.indexOf(station.id),
+      );
+    }).toList();
+
+    results.sort((a, b) {
+      final rankCompare = priceStatusRank(a.station.priceStatusFor(widget.selectedFuel))
+          .compareTo(priceStatusRank(b.station.priceStatusFor(widget.selectedFuel)));
+      if (rankCompare != 0) return rankCompare;
+      final aPrice = a.station.priceValueFor(widget.selectedFuel) ?? double.maxFinite;
+      final bPrice = b.station.priceValueFor(widget.selectedFuel) ?? double.maxFinite;
+      return aPrice.compareTo(bPrice);
+    });
+
+    return results;
+  }
+
   String _normalize(String value) {
     return value
         .toLowerCase()
@@ -2398,6 +2586,7 @@ class _SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final price = station.priceTextFor(selectedFuel);
+    final priceColor = priceStatusColor(station.priceStatusFor(selectedFuel));
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2487,8 +2676,8 @@ class _SearchResultTile extends StatelessWidget {
               children: [
                 Text(
                   price == '-' ? 'Yok' : price,
-                  style: const TextStyle(
-                    color: Color(0xFFFF5A5F),
+                  style: TextStyle(
+                    color: priceColor,
                     fontWeight: FontWeight.w900,
                     fontSize: 15,
                   ),

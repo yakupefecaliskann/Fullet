@@ -1,8 +1,12 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
 import 'analytics_service.dart';
+
+const _fuelReminderEnabledKey = 'fuel_reminder_enabled';
+const _fuelReminderTargetAtKey = 'fuel_reminder_target_at';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -24,6 +28,33 @@ class NotificationService {
     AnalyticsService.logNotificationOpened(
       notificationId: response.id ?? 0,
       payload: response.payload ?? '',
+    );
+  }
+
+  /// Fiyat alarmı tetiklendiğinde anlık (zamanlamasız) bildirim gösterir.
+  /// [id] alarmın kendine özgü bir hash'i olmalı ki aynı alarm tekrar
+  /// tetiklenene kadar bildirim kanalında üst üste binmesin.
+  static Future<void> showPriceAlertNotification({
+    required int id,
+    required String title,
+    required String body,
+    required String payload,
+  }) async {
+    await _plugin.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'price_alert',
+          'Fiyat Alarmı',
+          channelDescription: 'Kişisel fiyat alarmı bildirimleri',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+      payload: payload,
     );
   }
 
@@ -100,6 +131,57 @@ class NotificationService {
 
   static Future<void> cancelGarageReminder() async =>
       _plugin.cancel(NotificationIds.garageReminder);
+
+  static Future<void> cancelFuelReminder() async =>
+      _plugin.cancel(NotificationIds.fuelReminder);
+
+  static Future<bool> areNotificationsEnabled() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await android?.areNotificationsEnabled() ?? false;
+  }
+
+  static Future<bool> isFuelReminderEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_fuelReminderEnabledKey) ?? true;
+  }
+
+  /// Kullanıcı Ayarlar'dan hatırlatıcıyı açıp kapatabilir. Kapatınca
+  /// bekleyen bildirim iptal edilir, açınca hemen yeniden planlanır.
+  static Future<void> setFuelReminderEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_fuelReminderEnabledKey, enabled);
+    if (enabled) {
+      await prefs.remove(_fuelReminderTargetAtKey);
+      await ensureFuelReminderScheduled();
+    } else {
+      await cancelFuelReminder();
+      await prefs.remove(_fuelReminderTargetAtKey);
+    }
+  }
+
+  /// Gerçek arka plan periyodikliği yerine (pil optimizasyonu riski),
+  /// uygulama her ön plana geçtiğinde çağrılır: önceki hatırlatıcının
+  /// hedef zamanı geçmişse (veya hiç planlanmamışsa) yeniden planlar.
+  /// Bildirim izni yoksa veya kullanıcı kapattıysa hiçbir şey yapmaz.
+  static Future<void> ensureFuelReminderScheduled() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_fuelReminderEnabledKey) ?? true)) return;
+    if (!await areNotificationsEnabled()) return;
+
+    final targetMs = prefs.getInt(_fuelReminderTargetAtKey);
+    final now = DateTime.now();
+    if (targetMs != null &&
+        now.isBefore(DateTime.fromMillisecondsSinceEpoch(targetMs))) {
+      return;
+    }
+
+    await scheduleFuelReminder();
+    await prefs.setInt(
+      _fuelReminderTargetAtKey,
+      now.add(const Duration(days: 5)).millisecondsSinceEpoch,
+    );
+  }
 }
 
 class NotificationIds {

@@ -31,6 +31,20 @@ String formatMarkerPrice(String priceText) {
   return price.toStringAsFixed(2);
 }
 
+/// "Fiyata göre" sıralamada bayat/bilinmeyen bir fiyatın doğrulanmış bir
+/// fiyattan "daha ucuz" görünüp yanlış yönlendirmesini önler — sıralama
+/// önce bu rank'e, sonra fiyata göre yapılmalı (fresh her zaman önce).
+int priceStatusRank(String? status) {
+  switch (status) {
+    case 'fresh':
+      return 0;
+    case 'stale':
+      return 1;
+    default:
+      return 2;
+  }
+}
+
 bool fuelMatches(dynamic sourceType, String targetType) {
   final source = sourceType?.toString().toLowerCase().trim() ?? '';
   final target = targetType.toLowerCase().trim();

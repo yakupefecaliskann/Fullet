@@ -385,6 +385,14 @@ class SupabaseService {
     } catch (_) {}
   }
 
+  /// fullet_users satırını siler; fullet_favorites ve price_alerts FK
+  /// ON DELETE CASCADE ile birlikte silinir. Diğer metodların aksine hatayı
+  /// yutmuyor — bu kullanıcının bilerek tetiklediği bir işlem, başarısız
+  /// olursa arayan taraf bunu bilmeli (Ayarlar ekranı hata gösterecek).
+  static Future<void> deleteUserData(String uid) async {
+    await client.from('fullet_users').delete().eq('firebase_uid', uid);
+  }
+
   static Future<Set<String>> getUserFavorites(String uid) async {
     try {
       final response = await client
@@ -401,10 +409,13 @@ class SupabaseService {
 
   static Future<void> addFavorite(String uid, String stationId) async {
     try {
-      await client.from('fullet_favorites').upsert({
-        'firebase_uid': uid,
-        'station_id': stationId,
-      });
+      await client.from('fullet_favorites').upsert(
+        {
+          'firebase_uid': uid,
+          'station_id': stationId,
+        },
+        onConflict: 'firebase_uid,station_id',
+      );
     } catch (_) {}
   }
 
@@ -425,7 +436,9 @@ class SupabaseService {
       final rows = stationIds
           .map((id) => {'firebase_uid': uid, 'station_id': id})
           .toList();
-      await client.from('fullet_favorites').upsert(rows);
+      await client
+          .from('fullet_favorites')
+          .upsert(rows, onConflict: 'firebase_uid,station_id');
     } catch (e) {
       debugPrint('syncLocalFavorites failed: $e');
     }
