@@ -49,6 +49,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: scraper/requirements.txt
+
+      # Chromium ~150 MB; her run'da indirmek Actions dakikasi yakar.
+      # Key requirements.txt'e bagli: playwright surumu degisince cache yenilenir.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('scraper/requirements.txt') }}
 
       - name: Install dependencies
         working-directory: ./scraper

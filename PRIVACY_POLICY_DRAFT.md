@@ -1,8 +1,10 @@
 # Fullet Gizlilik Politikası
 
+> ⚠️ **SÜPERSEDE EDİLDİ (12 Tem 2026):** Bu taslak GÜNCEL DEĞİL — "hesap yok, analitik SDK yok" iddiaları 16 Haziran 2026'da düzeltildi (uygulama Firebase Analytics + Crashlytics + isteğe bağlı Google girişi kullanıyor). **Güncel ve yayında olan metin: `admin_panel/public/privacy.html`** (canlıda: https://yakupefecaliskann.github.io/Fullet/privacy.html). Bu dosyayı referans alma; yalnızca tarihçe için duruyor.
+
 Canlı URL: https://yakupefecaliskann.github.io/Fullet/privacy.html
 
-Son güncelleme: 2026-05-09
+Son güncelleme: 2026-05-09 (taslak — güncel metin için yukarıdaki uyarıya bak)
 
 Bu metin Google Play için herkese açık, aktif ve PDF olmayan GitHub Pages sayfası olarak yayınlanır.
 

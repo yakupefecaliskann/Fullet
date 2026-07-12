@@ -20,7 +20,7 @@ Bu doküman, denetim raporundaki ([FULLET_RELEASE_DENETIMI.md](FULLET_RELEASE_DE
 | — | Release imzalama | ✅ Güvenli | key.properties/keystore git'te DEĞİL; SHA-1 doğrulandı; sertifika 2053'e kadar |
 | — | flutter analyze | ✅ Temiz | Kullanılmayan import kaldırıldı (station_bottom_sheet.dart) |
 | — | flutter test + backend unit tests | ✅ Geçti | 17 backend test OK |
-| — | Release AAB | ✅ Üretildi & imzalandı | `app-release.aab` 25.0 MB (16 Haz 17:22), release keystore ile imzalı |
+| — | Release AAB | ✅ Üretildi & imzalandı | `app-release.aab` 25.7 MB (**12 Tem 14:07, sürüm 1.0.2+4**, Aşama 1-4 dahil), upload keystore SHA-1 doğrulandı |
 
 ---
 
@@ -28,9 +28,11 @@ Bu doküman, denetim raporundaki ([FULLET_RELEASE_DENETIMI.md](FULLET_RELEASE_DE
 
 ### A1 — Google Maps API key kısıtlama + bütçe (TEK GERÇEK MALİYET RİSKİ)
 
-> **Önemli bağlam (denetimi yumuşatan bulgu):** Repo **private** ve admin panel/Pages Maps key içermiyor. Key sadece AndroidManifest.xml'de ve yayınlanan APK'dan zaten çıkarılabilir (her Android Maps key'i için kaçınılmaz). Yani **key'i rotate etmek ACİL DEĞİL** — gereken tek şey aşağıdaki kısıtlama. (İstersen yine de rotate edebilirsin, zararı yok.)
+> **Önemli bağlam (denetimi yumuşatan bulgu):** Repo **private** ve admin panel/Pages Maps key içermiyor. Key sadece AndroidManifest.xml'de ve yayınlanan APK'dan zaten çıkarılabilir (her Android Maps key'i için kaçınılmaz).
+>
+> **Güncelleme (12 Tem 2026):** Eski key (`AIzaSyC4Slx...8fLow`) 16 Haziran'da rotate edildi (commit `ddcbde6`). Uygulamada şu an **`AIzaSyAyLf...t0Nk`** (fullet-d59c7 projesi) kullanılıyor — kısıtlamaları bu key üzerinde doğrula/tamamla.
 
-Google Cloud Console → APIs & Services → Credentials → Maps key (`AIzaSyC4Slx...8fLow`):
+Google Cloud Console → APIs & Services → Credentials → Maps key (`AIzaSyAyLf...t0Nk` — manifest'teki aktif key):
 
 1. **Application restrictions → Android apps:**
    - Package name: `com.fullet.app`
@@ -59,7 +61,7 @@ Yukarıdaki SQL ile 4 job'ı gör. Kritik iki fiyat job'ı zaten canlı veriyle 
 🔵 Hazır olanlar (repoda mevcut):
 - Store görselleri: `play_store_assets/upload/` (telefon 6 + 7"/10" tablet) · feature graphic 1024×500 · 512 ikon.
 - Privacy policy: `https://yakupefecaliskann.github.io/Fullet/privacy.html` (güncellendi, canlı).
-- AAB: `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` (sürüm 1.0.2+3).
+- AAB: `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` (sürüm **1.0.2+4** — 12 Tem 2026'da Aşama 1-4 dahil yeniden üretildi; 16 Haziran tarihli 1.0.2+3 AAB geçersiz).
 
 👤 Yapılacaklar:
 1. **Play App Signing** kurulumunu tamamla (AAB ilk yüklemede). Verilen App signing SHA-1'i A1'deki Maps key'e ekle.
