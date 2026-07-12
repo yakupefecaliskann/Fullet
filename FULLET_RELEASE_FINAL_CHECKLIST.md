@@ -20,7 +20,7 @@ Bu doküman, denetim raporundaki ([FULLET_RELEASE_DENETIMI.md](FULLET_RELEASE_DE
 | — | Release imzalama | ✅ Güvenli | key.properties/keystore git'te DEĞİL; SHA-1 doğrulandı; sertifika 2053'e kadar |
 | — | flutter analyze | ✅ Temiz | Kullanılmayan import kaldırıldı (station_bottom_sheet.dart) |
 | — | flutter test + backend unit tests | ✅ Geçti | 17 backend test OK |
-| — | Release AAB | ✅ Üretildi & imzalandı | `app-release.aab` 25.7 MB (**12 Tem 14:07, sürüm 1.0.2+4**, Aşama 1-4 dahil), upload keystore SHA-1 doğrulandı |
+| — | Release AAB | ✅ Üretildi & imzalandı | `app-release.aab` (**12 Tem, sürüm 1.0.2+5**, Aşama 1-4 dahil), upload keystore SHA-1 doğrulandı. Not: versionCode 4 Play Console'da daha önce kullanıldığı için +5'e yükseltildi |
 
 ---
 
@@ -61,7 +61,7 @@ Yukarıdaki SQL ile 4 job'ı gör. Kritik iki fiyat job'ı zaten canlı veriyle 
 🔵 Hazır olanlar (repoda mevcut):
 - Store görselleri: `play_store_assets/upload/` (telefon 6 + 7"/10" tablet) · feature graphic 1024×500 · 512 ikon.
 - Privacy policy: `https://yakupefecaliskann.github.io/Fullet/privacy.html` (güncellendi, canlı).
-- AAB: `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` (sürüm **1.0.2+4** — 12 Tem 2026'da Aşama 1-4 dahil yeniden üretildi; 16 Haziran tarihli 1.0.2+3 AAB geçersiz).
+- AAB: `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` (sürüm **1.0.2+5** — 12 Tem 2026'da Aşama 1-4 dahil yeniden üretildi; versionCode 4 Console'da kullanılmış olduğundan +5'e yükseltildi; eski AAB'ler geçersiz).
 
 👤 Yapılacaklar:
 1. **Play App Signing** kurulumunu tamamla (AAB ilk yüklemede). Verilen App signing SHA-1'i A1'deki Maps key'e ekle.
