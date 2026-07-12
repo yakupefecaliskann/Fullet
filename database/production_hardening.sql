@@ -1,5 +1,20 @@
+-- ==============================================================================
+-- FULL MAINTENANCE SCRIPT WARNING
+-- ==============================================================================
+-- This file contains historical data cleanup blocks, including DELETE statements
+-- for invalid/duplicate maintenance rows. Do NOT use it as the day-to-day
+-- production status migration.
+--
+-- For the current safe production path, run these smaller idempotent scripts:
+-- 1. database/add_status_columns.sql
+-- 2. database/create_postgis_rpc.sql
+-- 3. database/rls_policies.sql
+--
+-- Runtime scraper behavior must keep fuel prices by status
+-- (fresh/stale/unknown) instead of deleting them.
+-- ==============================================================================
+
 -- Fullet production hardening migration.
--- Safe to run multiple times in Supabase SQL Editor.
 
 BEGIN;
 
@@ -18,6 +33,7 @@ CREATE TABLE IF NOT EXISTS istasyonlar (
     boylam DOUBLE PRECISION,
     konum GEOGRAPHY(POINT, 4326),
     aktif BOOLEAN NOT NULL DEFAULT TRUE,
+    visibility_status TEXT NOT NULL DEFAULT 'visible',
     veri_kaynagi TEXT,
     olusturulma_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     guncellenme_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -29,6 +45,7 @@ CREATE TABLE IF NOT EXISTS fiyatlar (
     yakit_tipi TEXT NOT NULL,
     fiyat NUMERIC(10, 2) NOT NULL,
     son_guncelleme TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    price_status TEXT NOT NULL DEFAULT 'fresh',
     veri_kaynagi TEXT
 );
 
@@ -63,11 +80,13 @@ CREATE TABLE IF NOT EXISTS push_tokens (
 ALTER TABLE istasyonlar
     ALTER COLUMN id SET DEFAULT gen_random_uuid(),
     ADD COLUMN IF NOT EXISTS aktif BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS visibility_status TEXT NOT NULL DEFAULT 'visible',
     ADD COLUMN IF NOT EXISTS veri_kaynagi TEXT,
     ADD COLUMN IF NOT EXISTS guncellenme_tarihi TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 ALTER TABLE fiyatlar
     ALTER COLUMN id SET DEFAULT gen_random_uuid(),
+    ADD COLUMN IF NOT EXISTS price_status TEXT NOT NULL DEFAULT 'fresh',
     ADD COLUMN IF NOT EXISTS veri_kaynagi TEXT;
 
 ALTER TABLE fiyat_gecmisi
@@ -113,8 +132,8 @@ WHERE TRUE;
 
 DELETE FROM fiyatlar
 WHERE fiyat IS NULL
-   OR fiyat <= 0
-   OR fiyat >= 300
+   OR fiyat < 5
+   OR fiyat >= 200
    OR istasyon_id IS NULL
    OR yakit_tipi IS NULL
    OR TRIM(yakit_tipi) = '';
@@ -195,8 +214,15 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'fiyatlar_fiyat_positive'
     ) THEN
+        -- Gerçekçi Türkiye akaryakıt aralığı: 5-200 TL
+        -- (eski: 0-300, bot hataları 1 TL veya 150 TL yazsa kabul ediyordu)
         ALTER TABLE fiyatlar
-            ADD CONSTRAINT fiyatlar_fiyat_positive CHECK (fiyat > 0 AND fiyat < 300);
+            ADD CONSTRAINT fiyatlar_fiyat_positive CHECK (fiyat >= 5 AND fiyat < 200);
+    ELSE
+        -- Var olan constraint'i gerçekçi aralıkla güncelle
+        ALTER TABLE fiyatlar DROP CONSTRAINT fiyatlar_fiyat_positive;
+        ALTER TABLE fiyatlar
+            ADD CONSTRAINT fiyatlar_fiyat_positive CHECK (fiyat >= 5 AND fiyat < 200);
     END IF;
 
     IF NOT EXISTS (
@@ -206,6 +232,24 @@ BEGIN
             ADD CONSTRAINT istasyonlar_lat_lng_valid CHECK (
                 (enlem IS NULL AND boylam IS NULL)
                 OR (enlem BETWEEN 35 AND 43 AND boylam BETWEEN 25 AND 46)
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_visibility_status'
+    ) THEN
+        ALTER TABLE istasyonlar
+            ADD CONSTRAINT chk_visibility_status CHECK (
+                visibility_status IN ('visible', 'low_priority', 'hidden')
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_price_status'
+    ) THEN
+        ALTER TABLE fiyatlar
+            ADD CONSTRAINT chk_price_status CHECK (
+                price_status IN ('fresh', 'stale', 'unknown')
             );
     END IF;
 
@@ -305,8 +349,16 @@ STABLE
 AS $$
   SELECT *
   FROM istasyonlar
-  WHERE aktif = TRUE
-    AND konum IS NOT NULL
+  WHERE konum IS NOT NULL
+    AND visibility_status IN ('visible', 'low_priority')
+    AND (
+      aktif = TRUE
+      OR veri_kaynagi IN (
+        'apimobile.guzelenerji.com.tr/exapi/stations',
+        'www.tppd.com.tr/tr/stationmaplist',
+        'find.shell.com/tr/fuel'
+      )
+    )
     AND lat BETWEEN 35 AND 43
     AND lng BETWEEN 25 AND 46
     AND ST_DWithin(
@@ -315,7 +367,7 @@ AS $$
       LEAST(GREATEST(max_dist_meters, 1000), 100000)
     )
   ORDER BY konum <-> ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography
-  LIMIT LEAST(GREATEST(max_results, 1), 500);
+  LIMIT LEAST(GREATEST(max_results, 1), 1000);
 $$;
 
 GRANT EXECUTE ON FUNCTION get_nearby_stations(DOUBLE PRECISION, DOUBLE PRECISION, INT, INT) TO anon, authenticated;
@@ -340,7 +392,9 @@ DROP POLICY IF EXISTS "Kullanicilar sadece cihaz ekleyebilir" ON push_tokens;
 DROP POLICY IF EXISTS "Sadece oturum acan cihazlar push token ekleyebilir" ON push_tokens;
 DROP POLICY IF EXISTS "Sadece oturum açan cihazlar push token ekleyebilir" ON push_tokens;
 
-CREATE POLICY "public read istasyonlar" ON istasyonlar FOR SELECT TO anon, authenticated USING (aktif = TRUE);
+CREATE POLICY "public read istasyonlar" ON istasyonlar
+  FOR SELECT TO anon, authenticated
+  USING (aktif IS TRUE AND visibility_status IN ('visible', 'low_priority'));
 CREATE POLICY "public read fiyatlar" ON fiyatlar FOR SELECT TO anon, authenticated USING (true);
 CREATE POLICY "public read fiyat_gecmisi" ON fiyat_gecmisi FOR SELECT TO anon, authenticated USING (true);
 CREATE POLICY "public read haberler" ON haberler FOR SELECT TO anon, authenticated USING (true);

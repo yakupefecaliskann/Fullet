@@ -1,3 +1,17 @@
+-- ==============================================================================
+-- ⚠️ LEGACY SCRIPT WARNING ⚠️
+-- This is an old schema fix script and is kept only for historical reference.
+-- It has been SUPERCEDED by the new Enterprise Production Hardening scripts:
+-- 1. database/production_hardening.sql
+-- 2. database/add_status_columns.sql
+-- 3. database/create_postgis_rpc.sql
+-- 4. database/rls_policies.sql
+--
+-- Running this script on the modern database may OVERWRITE the visibility_status
+-- logic and revert the RPC and RLS policies to their legacy 'aktif' behavior.
+-- DO NOT RUN THIS SCRIPT on Production!
+-- ==============================================================================
+
 -- Fullet live public schema fix.
 -- Run this in Supabase SQL Editor for project xhkvlwecsacfjpbtyqcc.
 -- It is intentionally small and fully public-qualified.

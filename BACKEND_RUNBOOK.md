@@ -7,10 +7,13 @@ Bu dosya canlı Supabase backend'ini güvenli çalıştırmak için kısa operas
 Supabase Dashboard > SQL Editor içinde sırayla çalıştır:
 
 ```text
-database/production_hardening.sql
-database/rls_policies.sql
-database/drop_unique_koordinat.sql
-database/verify_live_schema.sql
+database/production_hardening.sql      ← Tablolar, indexler, constraint'ler (fiyat: 5-200 TL)
+database/add_status_columns.sql        ← visibility_status + price_status
+database/create_postgis_rpc.sql        ← get_nearby_stations v1 + v2 (istasyon+fiyat birleşik)
+database/rls_policies.sql              ← RLS politikaları
+database/drop_unique_koordinat.sql     ← Eski unique koordinat constraint'i temizle
+database/auto_price_staleness.sql      ← pg_cron: otomatik fresh→stale→unknown + token temizleme
+database/verify_live_schema.sql        ← Doğrulama sorguları
 ```
 
 `verify_live_schema.sql` çıktısında ilgili kontroller `true` dönmeli. Özellikle
@@ -18,8 +21,15 @@ database/verify_live_schema.sql
 olmadan yayın hazır sayılmaz. Eski canlı şemada eksik kolon/RPC varsa:
 
 ```text
-database/live_public_schema_fix.sql
+database/add_status_columns.sql
+database/create_postgis_rpc.sql
+database/rls_policies.sql
 ```
+
+`database/live_public_schema_fix.sql` legacy onarım betiğidir; modern
+`visibility_status`/`price_status` mimarisini geri alabilecği için normal
+release sırasında çalıştırılmaz.
+
 
 ## 2. Health Check
 

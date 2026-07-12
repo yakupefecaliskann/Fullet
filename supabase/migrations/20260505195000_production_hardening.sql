@@ -1,5 +1,13 @@
+-- ==============================================================================
+-- LEGACY MIGRATION WARNING
+-- ==============================================================================
+-- This migration predates the current visibility_status / price_status release
+-- flow. Keep it for migration history only. Do not paste this file manually into
+-- the production Supabase SQL editor. Use database/add_status_columns.sql,
+-- database/create_postgis_rpc.sql and database/rls_policies.sql instead.
+-- ==============================================================================
+
 -- Fullet production hardening migration.
--- Safe to run multiple times in Supabase SQL Editor.
 
 BEGIN;
 
