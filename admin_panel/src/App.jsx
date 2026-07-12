@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { hasSupabaseConfig, supabase } from './supabaseClient.js';
 
-const PRICE_STALE_HOURS = 48;
+const PRICE_STALE_HOURS = 72;
 const NEWS_STALE_HOURS = 48;
 const ACTIVE_NOW_MINUTES = 15;
 const PAGE_SIZE = 1000;
@@ -65,10 +65,11 @@ function normalizeStationRows(rows) {
   return rows.reduce((acc, row) => {
     const brand = row.marka || 'Bilinmeyen';
     if (!acc[brand]) {
-      acc[brand] = { total: 0, active: 0, cities: new Set() };
+      acc[brand] = { total: 0, active: 0, visible: 0, cities: new Set() };
     }
     acc[brand].total += 1;
     if (row.aktif === true) acc[brand].active += 1;
+    if (row.visibility_status === 'visible') acc[brand].visible += 1;
     if (row.il) acc[brand].cities.add(row.il);
     return acc;
   }, {});
@@ -79,9 +80,10 @@ function normalizePriceRows(priceRows, stationRows) {
   return priceRows.reduce((acc, row) => {
     const brand = stationBrand.get(row.istasyon_id) || 'Bilinmeyen';
     if (!acc[brand]) {
-      acc[brand] = { prices: 0, latest: null, fuels: new Map() };
+      acc[brand] = { prices: 0, unknownPrices: 0, latest: null, fuels: new Map() };
     }
     acc[brand].prices += 1;
+    if (row.price_status === 'unknown') acc[brand].unknownPrices += 1;
     acc[brand].fuels.set(row.yakit_tipi, (acc[brand].fuels.get(row.yakit_tipi) || 0) + 1);
     if (!acc[brand].latest || new Date(row.son_guncelleme) > new Date(acc[brand].latest)) {
       acc[brand].latest = row.son_guncelleme;
@@ -250,7 +252,7 @@ function App() {
           label: 'İstasyonlar',
           query: fetchAllRows(() => supabase
             .from('istasyonlar')
-            .select('id, marka, il, aktif')
+            .select('id, marka, il, aktif, visibility_status')
             .order('marka', { ascending: true })
             .order('id', { ascending: true })),
         },
@@ -259,7 +261,7 @@ function App() {
           label: 'Fiyatlar',
           query: fetchAllRows(() => supabase
             .from('fiyatlar')
-            .select('istasyon_id, yakit_tipi, son_guncelleme')
+            .select('istasyon_id, yakit_tipi, son_guncelleme, price_status')
             .order('id', { ascending: true })),
         },
       ];
@@ -412,8 +414,8 @@ function App() {
             <thead>
               <tr>
                 <th>Marka</th>
-                <th>Aktif</th>
-                <th>Fiyat</th>
+                <th>Aktif / Görünür</th>
+                <th>Toplam / Unknown Fiyat</th>
                 <th>Son fiyat</th>
                 <th>Durum</th>
               </tr>
@@ -426,8 +428,8 @@ function App() {
                 return (
                   <tr key={brand}>
                     <td>{brand}</td>
-                    <td>{station?.active || 0}</td>
-                    <td>{price?.prices || 0}</td>
+                    <td>{station?.active || 0} / {station?.visible || 0}</td>
+                    <td>{price?.prices || 0} / {price?.unknownPrices || 0}</td>
                     <td>{ageLabel(price?.latest)}</td>
                     <td><Badge tone={stale ? 'warn' : 'good'}>{stale ? 'Bayat' : 'Temiz'}</Badge></td>
                   </tr>
