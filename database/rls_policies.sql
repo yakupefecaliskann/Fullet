@@ -76,12 +76,19 @@ ON public.haberler FOR SELECT
 TO anon, authenticated
 USING (true);
 
-CREATE POLICY "anon insert push token"
+-- anon rolüne push token INSERT izni verilmiyor: hiçbir istemci (Flutter
+-- uygulaması dahil) şu an push_tokens'a yazmıyor, bu yüzden anon'a açık
+-- INSERT yalnızca kimliksiz doldurma (spam) riski taşıyan gereksiz bir
+-- yüzeydi. Sprint 4'te gerçek cihaz token kaydı eklendiğinde bu
+-- authenticated politikası (Firebase/Supabase JWT şartlı) yeterli olacak.
+CREATE POLICY "authenticated insert push token"
 ON public.push_tokens FOR INSERT
-TO anon, authenticated
+TO authenticated
 WITH CHECK (
   length(token) BETWEEN 20 AND 4096
   AND COALESCE(provider, 'fcm') IN ('fcm', 'expo', 'apns')
 );
+
+REVOKE INSERT ON public.push_tokens FROM anon;
 
 NOTIFY pgrst, 'reload schema';

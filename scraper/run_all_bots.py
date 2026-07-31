@@ -39,10 +39,12 @@ BOT_TIMEOUTS_SECONDS = {
 }
 
 DEFAULT_BOT_TIMEOUT_SECONDS = 300
-TOLERATED_FAILURE_BOTS = {
-    "shell_bot.py",
-    "shell_station_bot.py",
-}
+# Shell, en büyük marka (ops_report.py'de eşik 500 istasyon) — kalıcı
+# kırılsa bile pipeline'ın kırmızıya dönmemesi kabul edilemez bir kör
+# noktaydı (bkz. FULLET_KOD_MIMARI_DENETIMI.md Y1). Artık tolere edilen
+# hiçbir bot yok; herhangi bir bot başarısız olursa normal "error"
+# alarmı açılır ve pipeline kırmızıya döner.
+TOLERATED_FAILURE_BOTS: set[str] = set()
 
 # Her bot bağımsız bir web sitesini kazıyor — aynı anda birden fazla botun
 # ayrı subprocess olarak çalışması, tek bir botun (örn. shell_bot.py) kendi

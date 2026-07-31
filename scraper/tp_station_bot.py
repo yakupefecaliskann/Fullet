@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 
-import requests
+from http_utils import HTTP
 
 from db_utils import save_station_inventory_to_supabase
 
@@ -23,11 +23,11 @@ def scrape_data():
     scraped_data = []
 
     try:
-        response = requests.get(
+        response = HTTP.get(
             f"{BASE_URL}/tr/stationmaplist",
             params={"cityID": 0},
             headers=HEADERS,
-            timeout=30,
+            timeout=(5, 30),
         )
         response.raise_for_status()
         rows = response.json()

@@ -208,21 +208,44 @@ def _mark_unreported_prices_unknown(station_ids: list[str], fuels: set[str]) -> 
 
 def _reset_split_region_targets(items: list[dict[str, Any]]) -> None:
     assert supabase is not None
-    reset_groups = {
-        (item["marka"], item["il"])
-        for item in items
-        if item.get("veri_kapsami") == "regional_official"
-        and item.get("il") == "ISTANBUL"
-        and item.get("ilce") in ISTANBUL_REGION_DISTRICTS
-    }
-    for brand, city in sorted(reset_groups):
-        supabase.table("istasyonlar").update({
-            "aktif": False,
-            "guncellenme_tarihi": datetime.now(timezone.utc).isoformat(),
-        }).eq("marka", brand).eq("il", city).not_.ilike(
-            "isim", "%Fullet Verisi%"
-        ).execute()
-        print(f"[INFO] Reset {brand} {city} before split-region price write.")
+    # item["ilce"] bu satırlarda gerçek bir ilçe adı değil, bölge etiketi
+    # taşır ("ANADOLU"/"AVRUPA" — bkz. db_utils.normalize_scraped_item /
+    # istanbul_region_from_city). ISTANBUL_REGION_DISTRICTS'in anahtarları
+    # da tam olarak bu iki etiket, bu yüzden "tam kapsam" kontrolü gerçek
+    # ilçe listesine karşı değil, bu iki etikete karşı yapılmalı.
+    reset_groups: dict[tuple[str, str], set[str]] = {}
+    for item in items:
+        if (
+            item.get("veri_kapsami") == "regional_official"
+            and item.get("il") == "ISTANBUL"
+            and item.get("ilce") in ISTANBUL_REGION_DISTRICTS
+        ):
+            reset_groups.setdefault((item["marka"], item["il"]), set()).add(item["ilce"])
+
+    expected_regions = set(ISTANBUL_REGION_DISTRICTS.keys())  # {"ANADOLU", "AVRUPA"}
+
+    for (brand, city), seen_regions in sorted(reset_groups.items()):
+        if seen_regions != expected_regions:
+            missing = sorted(expected_regions - seen_regions)
+            print(
+                f"[WARN] {brand} {city} split-region kazıma eksik "
+                f"(bu run'da gelen bölgeler: {sorted(seen_regions)}, eksik: {missing}) "
+                f"— toplu gizleme ATLANDI (yarım veriyle istasyon gizlemek daha riskli)."
+            )
+            continue
+        try:
+            supabase.table("istasyonlar").update({
+                "aktif": False,
+                "guncellenme_tarihi": datetime.now(timezone.utc).isoformat(),
+            }).eq("marka", brand).eq("il", city).not_.ilike(
+                "isim", "%Fullet Verisi%"
+            ).execute()
+            print(f"[INFO] Reset {brand} {city} (tam kapsam doğrulandı: {sorted(seen_regions)}).")
+        except Exception as exc:
+            print(
+                f"[WARN] Reset {brand} {city} başarısız oldu: {exc} — istasyonlar "
+                "gizlenmedi (hata durumunda gizleme yapılmaz)."
+            )
 
 def _load_brand_stations(brands: Iterable[str]) -> dict[tuple[str, str], list[dict[str, Any]]]:
     assert supabase is not None

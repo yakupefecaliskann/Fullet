@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 
-import requests
+from http_utils import HTTP
 
 from db_utils import parse_price, save_to_supabase
 
@@ -16,10 +16,10 @@ def scrape_opet_data():
     scraped_data = []
 
     try:
-        response = requests.get(
+        response = HTTP.get(
             "https://api.opet.com.tr/api/fuelprices/allprices",
             headers={"User-Agent": "Mozilla/5.0 (Fullet fuel price monitor)"},
-            timeout=20,
+            timeout=(5, 20),
         )
         response.raise_for_status()
         data = response.json()

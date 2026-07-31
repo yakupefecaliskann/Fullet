@@ -3,9 +3,9 @@ import sys
 from datetime import datetime
 from urllib.parse import urljoin, urlparse
 
-import requests
 from bs4 import BeautifulSoup
 
+from http_utils import HTTP
 from db_utils import normalize_city, parse_price, save_regional_prices_to_supabase
 
 try:
@@ -19,10 +19,10 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Fullet fuel price monitor)"}
 
 
 def _price_page_urls():
-    response = requests.get(
+    response = HTTP.get(
         f"{BASE_URL}/akaryakit-fiyatlari",
         headers=HEADERS,
-        timeout=30,
+        timeout=(5, 30),
     )
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
@@ -57,7 +57,7 @@ def _city_from_page(soup, url):
 
 
 def _parse_city_page(url):
-    response = requests.get(url, headers=HEADERS, timeout=30)
+    response = HTTP.get(url, headers=HEADERS, timeout=(5, 30))
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
     city = _city_from_page(soup, url)

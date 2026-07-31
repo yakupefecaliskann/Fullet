@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 
-import requests
+from http_utils import HTTP
 
 from db_utils import parse_price, save_regional_prices_to_supabase
 
@@ -20,7 +20,7 @@ HEADERS = {
 
 
 def _get_json(path):
-    response = requests.get(f"{API_BASE}{path}", headers=HEADERS, timeout=30)
+    response = HTTP.get(f"{API_BASE}{path}", headers=HEADERS, timeout=(5, 30))
     response.raise_for_status()
     return response.json()
 

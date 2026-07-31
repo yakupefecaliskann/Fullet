@@ -29,10 +29,16 @@ CREATE INDEX IF NOT EXISTS push_tokens_provider_idx ON push_tokens(provider);
 ALTER TABLE push_tokens ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "anon insert push token" ON push_tokens;
-CREATE POLICY "anon insert push token"
+DROP POLICY IF EXISTS "authenticated insert push token" ON push_tokens;
+
+-- anon rolüne INSERT verilmiyor — hiçbir istemci şu an bu tabloya
+-- yazmıyor, açık anon INSERT yalnızca doldurma riski taşıyordu.
+CREATE POLICY "authenticated insert push token"
 ON push_tokens FOR INSERT
-TO anon, authenticated
+TO authenticated
 WITH CHECK (
   length(token) BETWEEN 20 AND 4096
   AND provider IN ('fcm', 'expo', 'apns')
 );
+
+REVOKE INSERT ON push_tokens FROM anon;
