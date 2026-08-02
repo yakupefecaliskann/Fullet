@@ -5,6 +5,7 @@ from playwright.sync_api import sync_playwright
 
 from column_mapping import describe_column_map, prices_from_row, resolve_fuel_columns
 from db_utils import finish_bot_run, normalize_city, parse_price, save_regional_prices_to_supabase, supabase
+from normalization import PROVINCES
 
 TARGET_LOCATIONS = [
     {"il": "ISTANBUL", "ilce": "KADIKOY"},
@@ -13,23 +14,6 @@ TARGET_LOCATIONS = [
 ]
 
 DEFAULT_MAX_TARGETS_PER_RUN = 150
-
-PROVINCES = {
-    "ADANA", "ADIYAMAN", "AFYONKARAHISAR", "AGRI", "AKSARAY", "AMASYA",
-    "ANKARA", "ANTALYA", "ARDAHAN", "ARTVIN", "AYDIN", "BALIKESIR",
-    "BARTIN", "BATMAN", "BAYBURT", "BILECIK", "BINGOL", "BITLIS",
-    "BOLU", "BURDUR", "BURSA", "CANAKKALE", "CANKIRI", "CORUM",
-    "DENIZLI", "DIYARBAKIR", "DUZCE", "EDIRNE", "ELAZIG", "ERZINCAN",
-    "ERZURUM", "ESKISEHIR", "GAZIANTEP", "GIRESUN", "GUMUSHANE",
-    "HAKKARI", "HATAY", "IGDIR", "ISPARTA", "ISTANBUL", "IZMIR",
-    "KAHRAMANMARAS", "KARABUK", "KARAMAN", "KARS", "KASTAMONU",
-    "KAYSERI", "KILIS", "KIRIKKALE", "KIRKLARELI", "KIRSEHIR",
-    "KOCAELI", "KONYA", "KUTAHYA", "MALATYA", "MANISA", "MARDIN",
-    "MERSIN", "MUGLA", "MUS", "NEVSEHIR", "NIGDE", "ORDU", "OSMANIYE",
-    "RIZE", "SAKARYA", "SAMSUN", "SANLIURFA", "SIIRT", "SINOP",
-    "SIRNAK", "SIVAS", "TEKIRDAG", "TOKAT", "TRABZON", "TUNCELI",
-    "USAK", "VAN", "YALOVA", "YOZGAT", "ZONGULDAK",
-}
 
 LOCATION_FIXES = {
     ("BUYUKKARISTIRAN", "LULEBURGAZ"): ("KIRKLARELI", "LULEBURGAZ"),
@@ -150,13 +134,100 @@ def _prices_from_row(cols, column_map):
     return prices_from_row(cols, column_map, parse=parse_price)
 
 
+# DevExpress combobox'ları grid callback'i sürerken DOM'da KALIR ama görünmez
+# olur. Eski kod sabit 750 ms bekleyip `click(force=True)` çağırıyordu;
+# `force` yalnızca "stable / receives events / enabled" kontrollerini atlar,
+# GÖRÜNÜRLÜĞÜ atlamaz — bu yüzden yavaş callback'lerde Playwright
+# "Element is not visible" fırlatıyor, hedef `except` tarafından yutuluyor ve
+# bot yine exit 0 dönüyordu. Canlı ölçüm (8 koşu, bot_runs stdout'u):
+# denenen ~44 hedefin ~28'i (%63) tam olarak böyle kayboluyordu.
+# Çözüm: sabit uyku yerine görünürlük bekle, hedef bazında bir kez daha dene.
+ELEMENT_TIMEOUT_MS = 15000
+TARGET_MAX_ATTEMPTS = 2
+
+
+def _settle(page):
+    """Devam eden DevExpress callback'lerinin bitmesini bekler."""
+    for selector in ("#cb_all_grdPrices_LD", ".dxeLoadingDivWithContent"):
+        try:
+            page.wait_for_selector(selector, state="hidden", timeout=ELEMENT_TIMEOUT_MS)
+        except Exception:
+            # Yükleme göstergesi hiç oluşmamış olabilir; bu bir hata değil.
+            pass
+
+
+class _OptionMissing(Exception):
+    """Aranan il/ilçe açılır listede yok — tekrar denemek işe yaramaz."""
+
+
+def _select_from_combo(page, button_selector, list_selector, value):
+    button = page.locator(button_selector)
+    button.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+    button.click(force=True)
+
+    option = page.locator(f"{list_selector} td:has-text('{value}')").first
+    try:
+        option.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+    except Exception as exc:
+        page.keyboard.press("Escape")
+        raise _OptionMissing(value) from exc
+    option.click(force=True)
+    _settle(page)
+
+
+def _scrape_target(page, city, district, column_map):
+    """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map)."""
+    _settle(page)
+    _select_from_combo(
+        page, "#cb_all_cb_province_B-1Img", "#cb_all_cb_province_DDD_L_LBT", city
+    )
+    _select_from_combo(
+        page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", district
+    )
+
+    search = page.locator("#cb_all_ASPxButton1_CD")
+    search.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+    search.click(force=True)
+    _settle(page)
+
+    if column_map is None:
+        column_map = _read_column_map(page)
+    if not column_map:
+        raise RuntimeError("kolon başlıkları okunamadı")
+
+    rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
+    print(f"[INFO] {len(rows)} Shell rows found.")
+    scraped = []
+    for row in rows:
+        cols = row.locator("td").all_inner_texts()
+        if len(cols) < 13:
+            continue
+        prices = _prices_from_row(cols, column_map)
+        if not prices:
+            continue
+        scraped.append({
+            "marka": "Shell",
+            "il": city,
+            "ilce": cols[2].strip(),
+            "fiyatlar": prices,
+            "veri_kaynagi": "turkiyeshell.com/pompatest/History.aspx",
+        })
+    return scraped, column_map
+
+
 def scrape_shell_data(target_locations=None):
+    """Döner: (kayıtlar, kapsama istatistikleri).
+
+    İstatistikler `finish_bot_run`'a gider: hedeflerin çoğu kaybolduğunda koşu
+    artık sessizce 'success' görünmüyor.
+    """
     target_locations = target_locations or _targets_from_supabase() or TARGET_LOCATIONS
     target_locations = _limited_targets(target_locations)
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Shell bot started.")
     print(f"[INFO] Shell targets: {len(target_locations)}")
     scraped_data = []
     column_map = None
+    stats = {"attempted": 0, "ok": 0, "missing": 0, "failed": 0}
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -167,81 +238,55 @@ def scrape_shell_data(target_locations=None):
                 city = loc["il"]
                 district = loc["ilce"]
                 print(f"[INFO] Shell target: {city} / {district}")
-                try:
-                    page.locator("#cb_all_cb_province_B-1Img").click(force=True)
-                    page.wait_for_timeout(750)
-                    city_loc = page.locator(
-                        f"#cb_all_cb_province_DDD_L_LBT td:has-text('{city}')"
-                    ).first
-                    if city_loc.count() > 0:
-                        city_loc.click(force=True)
-                        page.wait_for_timeout(1000)
-                    else:
-                        page.keyboard.press("Escape")
-                        continue
-
-                    page.locator("#cb_all_cb_county_B-1Img").click(force=True)
-                    page.wait_for_timeout(750)
-                    dist_loc = page.locator(
-                        f"#cb_all_cb_county_DDD_L_LBT td:has-text('{district}')"
-                    ).first
-                    if dist_loc.count() > 0:
-                        dist_loc.click(force=True)
-                        page.wait_for_timeout(1000)
-                    else:
-                        page.keyboard.press("Escape")
-                        continue
-
-                    page.locator("#cb_all_ASPxButton1_CD").click(force=True)
+                stats["attempted"] += 1
+                last_error = None
+                for attempt in range(TARGET_MAX_ATTEMPTS):
                     try:
-                        page.wait_for_selector(
-                            "#cb_all_grdPrices_LD", state="hidden", timeout=20000
-                        )
-                        page.wait_for_selector(
-                            ".dxeLoadingDivWithContent", state="hidden", timeout=5000
-                        )
+                        rows, column_map = _scrape_target(page, city, district, column_map)
+                        scraped_data.extend(rows)
+                        stats["ok"] += 1
+                        last_error = None
+                        break
+                    except _OptionMissing:
+                        # İl/ilçe listede yok: istasyon envanterindeki değer
+                        # Shell'in kendi listesiyle uyuşmuyor (ör. mahalle adı
+                        # ilçe kolonuna yazılmış). Tekrar denemek anlamsız.
+                        print(f"[MISS] {city}/{district}: listede yok.")
+                        stats["missing"] += 1
+                        last_error = None
+                        break
                     except Exception as exc:
-                        print(f"[WARN] {city}/{district} loading: {exc}")
-                    page.wait_for_timeout(1500)
-
-                    if column_map is None:
-                        column_map = _read_column_map(page)
-                    if not column_map:
-                        print(f"[WARN] {city}/{district}: kolon başlıkları okunamadı, atlanıyor.")
-                        continue
-
-                    rows = page.locator(
-                        "#cb_all_grdPrices_DXMainTable tr.dxgvDataRow"
-                    ).all()
-                    print(f"[INFO] {len(rows)} Shell rows found.")
-                    for row in rows:
-                        cols = row.locator("td").all_inner_texts()
-                        if len(cols) < 13:
-                            continue
-                        station_district = cols[2].strip()
-                        prices = _prices_from_row(cols, column_map)
-                        if not prices:
-                            continue
-                        scraped_data.append({
-                            "marka": "Shell",
-                            "il": city,
-                            "ilce": station_district,
-                            "fiyatlar": prices,
-                            "veri_kaynagi": "turkiyeshell.com/pompatest/History.aspx",
-                        })
-                except Exception as exc:
-                    print(f"[WARN] Shell scrape {city}/{district}: {exc}")
+                        last_error = exc
+                        if attempt + 1 < TARGET_MAX_ATTEMPTS:
+                            print(f"[RETRY] {city}/{district}: {exc}")
+                            _settle(page)
+                if last_error is not None:
+                    print(f"[WARN] Shell scrape {city}/{district}: {last_error}")
+                    stats["failed"] += 1
         except Exception as exc:
             print(f"[WARN] Shell scrape failed: {exc}")
         finally:
             browser.close()
 
-    return scraped_data
+    print(
+        f"[INFO] Shell hedef sonucu: ok={stats['ok']} "
+        f"listede-yok={stats['missing']} hata={stats['failed']} "
+        f"denenen={stats['attempted']}"
+    )
+    return scraped_data, stats
 
 
 if __name__ == "__main__":
     start_time = datetime.now()
-    data = scrape_shell_data()
+    data, stats = scrape_shell_data()
     summary = save_regional_prices_to_supabase(data, default_brand="Shell")
     print(f"[OK] Shell finished in {(datetime.now() - start_time).total_seconds():.1f}s.")
-    raise SystemExit(finish_bot_run("shell_bot.py", scraped=len(data), summary=summary))
+    raise SystemExit(
+        finish_bot_run(
+            "shell_bot.py",
+            scraped=len(data),
+            summary=summary,
+            targets_ok=stats["ok"],
+            targets_total=stats["attempted"],
+        )
+    )

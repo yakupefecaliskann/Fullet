@@ -119,7 +119,10 @@ function latestRunsByBot(runs) {
 
 function runTone(status) {
   if (status === 'success') return 'good';
-  if (status === 'timeout' || status === 'skipped') return 'warn';
+  // 'degraded' = veri yazıldı ama hedeflerin çoğu okunamadı (bkz.
+  // db_utils.MIN_TARGET_COVERAGE). Kırmızı değil sarı: koşu başarısız
+  // olmadı, eksik kaldı. 'empty' ise kırmızı kalır — o gerçekten veri yok.
+  if (status === 'timeout' || status === 'skipped' || status === 'degraded') return 'warn';
   return 'bad';
 }
 

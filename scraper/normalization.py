@@ -35,6 +35,57 @@ def normalize_city(value: Any) -> str:
     }
     return city_aliases.get(text, text)
 
+# Türkiye'nin 81 ili, normalize edilmiş (ASCII, büyük harf) biçimde.
+# shell_bot._split_city bu listeyi buradan alır — eskiden kendi kopyasını
+# taşıyordu ve iki liste ayrışabilirdi.
+PROVINCES = frozenset({
+    "ADANA", "ADIYAMAN", "AFYONKARAHISAR", "AGRI", "AKSARAY", "AMASYA",
+    "ANKARA", "ANTALYA", "ARDAHAN", "ARTVIN", "AYDIN", "BALIKESIR",
+    "BARTIN", "BATMAN", "BAYBURT", "BILECIK", "BINGOL", "BITLIS",
+    "BOLU", "BURDUR", "BURSA", "CANAKKALE", "CANKIRI", "CORUM",
+    "DENIZLI", "DIYARBAKIR", "DUZCE", "EDIRNE", "ELAZIG", "ERZINCAN",
+    "ERZURUM", "ESKISEHIR", "GAZIANTEP", "GIRESUN", "GUMUSHANE",
+    "HAKKARI", "HATAY", "IGDIR", "ISPARTA", "ISTANBUL", "IZMIR",
+    "KAHRAMANMARAS", "KARABUK", "KARAMAN", "KARS", "KASTAMONU",
+    "KAYSERI", "KILIS", "KIRIKKALE", "KIRKLARELI", "KIRSEHIR",
+    "KOCAELI", "KONYA", "KUTAHYA", "MALATYA", "MANISA", "MARDIN",
+    "MERSIN", "MUGLA", "MUS", "NEVSEHIR", "NIGDE", "ORDU", "OSMANIYE",
+    "RIZE", "SAKARYA", "SAMSUN", "SANLIURFA", "SIIRT", "SINOP",
+    "SIRNAK", "SIVAS", "TEKIRDAG", "TOKAT", "TRABZON", "TUNCELI",
+    "USAK", "VAN", "YALOVA", "YOZGAT", "ZONGULDAK",
+})
+
+
+def split_province_district(value: Any) -> tuple[str, str]:
+    """'MERAM/KONYA' -> ('KONYA', 'MERAM'). İl değilse ('', '') döner.
+
+    İstasyon envanterinde 20 satırın `il` kolonu "İLÇE/İL" birleşik biçimde
+    yazılmıştı (`MERAM/KONYA`, `KECIOREN/ANKARA`, ...). `_station_targets`
+    fiyat yazarken `.eq("il", "KONYA")` sorguluyor; bu satırlar hiçbir
+    sorguya uymadığı için canlı ölçümde **20'sinin de 0 taze fiyatı** vardı.
+    Hangi tarafın il olduğu konuma göre değil, 81 il listesine bakılarak
+    belirlenir — kaynaklar iki sırayı da kullanıyor.
+    """
+    text = normalize_city(value)
+    if "/" not in text:
+        return "", ""
+    parts = [part.strip() for part in text.split("/") if part.strip()]
+    if len(parts) != 2:
+        return "", ""
+    left, right = parts
+    if right in PROVINCES and left not in PROVINCES:
+        return right, left
+    if left in PROVINCES and right not in PROVINCES:
+        return left, right
+    return "", ""
+
+
+def normalize_province(value: Any) -> str:
+    """İl bekleyen alanlar için normalize_city + birleşik değer çözümlemesi."""
+    province, _ = split_province_district(value)
+    return province or normalize_city(value)
+
+
 def istanbul_region_from_city(value: Any) -> str:
     text = clean_text(value).translate(CITY_REPLACEMENTS).upper()
     if "ISTANBUL" not in text:

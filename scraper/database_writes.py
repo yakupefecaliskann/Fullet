@@ -9,7 +9,12 @@ import requests
 from config import supabase, SUPABASE_URL, SUPABASE_KEY, CANONICAL_FUELS, ISTANBUL_REGION_DISTRICTS, is_write_allowed, is_dry_run
 from freshness import needs_verification_write, now_utc
 from matching import _station_inventory_coord_key, _station_inventory_key, _existing_station_inventory_indexes, _station_targets, _regional_targets_from_loaded
-from normalization import clean_text, normalize_city
+from normalization import (
+    clean_text,
+    normalize_city,
+    normalize_province,
+    split_province_district,
+)
 from models import SaveSummary
 
 def _chunks(items: list[Any], size: int = 100) -> Iterable[list[Any]]:
@@ -315,8 +320,13 @@ def _load_brand_stations(brands: Iterable[str]) -> dict[tuple[str, str], list[di
                 or []
             )
             for row in rows:
-                normalized_city = normalize_city(row.get("il"))
+                # DB'de "İLÇE/İL" birleşik yazılmış satırlar var; il tarafını
+                # ayıklamazsak bu istasyonlar hiçbir bölgesel eşleşmeye
+                # girmez (canlı: 20 satır, 0 taze fiyat).
+                normalized_city = normalize_province(row.get("il"))
                 normalized_district = normalize_city(row.get("ilce"))
+                if not normalized_district:
+                    _, normalized_district = split_province_district(row.get("il"))
                 row["_normalized_city"] = normalized_city
                 row["_normalized_district"] = normalized_district
                 stations_by_brand_city.setdefault((brand, normalized_city), []).append(row)

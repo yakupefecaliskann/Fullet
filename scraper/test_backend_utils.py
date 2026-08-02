@@ -292,5 +292,65 @@ class BackendUtilsTest(unittest.TestCase):
         self.assertEqual(inserted_row["visibility_status"], "low_priority")
         self.assertTrue(inserted_row["aktif"])
 
+
+class ProvinceSplitTest(unittest.TestCase):
+    """`il` kolonu "İLÇE/İL" birleşik yazılmış 20 istasyon vardı ve
+    `_station_targets` `.eq("il", "KONYA")` sorguladığı için hiçbiri
+    eşleşmiyordu — canlı ölçümde 20'sinin de 0 taze fiyatı vardı."""
+
+    def test_district_slash_province_is_resolved(self):
+        from normalization import split_province_district
+
+        self.assertEqual(split_province_district("MERAM/KONYA"), ("KONYA", "MERAM"))
+        self.assertEqual(
+            split_province_district("KECIOREN/ANKARA"), ("ANKARA", "KECIOREN")
+        )
+
+    def test_either_order_is_accepted(self):
+        # Kaynaklar iki sırayı da kullanıyor; karar konuma değil 81 il
+        # listesine göre verilir.
+        from normalization import split_province_district
+
+        self.assertEqual(split_province_district("MUGLA/MARMARIS"), ("MUGLA", "MARMARIS"))
+
+    def test_spaces_around_slash_are_tolerated(self):
+        from normalization import split_province_district
+
+        self.assertEqual(split_province_district("MERAM / KONYA"), ("KONYA", "MERAM"))
+
+    def test_plain_province_is_untouched(self):
+        from normalization import normalize_province, split_province_district
+
+        self.assertEqual(split_province_district("KONYA"), ("", ""))
+        self.assertEqual(normalize_province("KONYA"), "KONYA")
+        self.assertEqual(normalize_province("İstanbul"), "ISTANBUL")
+
+    def test_ambiguous_pair_is_left_alone(self):
+        # İki taraf da il ise hangisinin il olduğu bilinemez; uydurma yapma.
+        from normalization import split_province_district
+
+        self.assertEqual(split_province_district("KONYA/ANKARA"), ("", ""))
+
+    def test_scraped_item_recovers_province_and_district(self):
+        item = db_utils.normalize_scraped_item(
+            {"marka": "Opet", "il": "MERAM/KONYA", "fiyatlar": {"Motorin": 82.1},
+             "veri_kaynagi": "api.opet.com.tr/api/fuelprices/allprices"},
+            default_brand="Opet",
+        )
+        self.assertIsNotNone(item)
+        self.assertEqual(item["il"], "KONYA")
+        self.assertEqual(item["ilce"], "MERAM")
+
+    def test_explicit_district_wins_over_embedded_one(self):
+        item = db_utils.normalize_scraped_item(
+            {"marka": "Opet", "il": "MERAM/KONYA", "ilce": "SELCUKLU",
+             "fiyatlar": {"Motorin": 82.1},
+             "veri_kaynagi": "api.opet.com.tr/api/fuelprices/allprices"},
+            default_brand="Opet",
+        )
+        self.assertEqual(item["il"], "KONYA")
+        self.assertEqual(item["ilce"], "SELCUKLU")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -143,17 +143,28 @@ def check_fuel_sanity(
     return rejected, reasons
 
 
-def apply_sanity_gate(items: list[dict[str, Any]], brand: str) -> list[dict[str, Any]]:
+def apply_sanity_gate(
+    items: list[dict[str, Any]],
+    brand: str,
+) -> tuple[list[dict[str, Any]], set[str]]:
     """Şüpheli yakıtları öğelerden çıkarır, alarm açar/kapatır.
 
-    Yakıtı kalmayan öğeler tamamen elenir.
+    Döner: (filtrelenmiş öğeler, reddedilen yakıtlar). Yakıtı kalmayan öğeler
+    tamamen elenir.
+
+    Reddedilen yakıt kümesini ÇAĞIRANA döndürmek şart: `save_to_supabase`
+    sonrasında "bu koşuda raporlanmayan yakıtları unknown yap" süpürgesi
+    çalışıyor. Kapı bir yakıtı reddettiğinde o yakıt öğelerden düştüğü için
+    süpürge onu "raporlanmadı" sayıp mevcut SAĞLAM fiyatları unknown'a
+    çeviriyordu — yani kapı, koruması gereken veriyi siliyordu. Çağıran bu
+    kümeyi süpürgeden muaf tutar (bkz. db_utils).
     """
     rejected, reasons = check_fuel_sanity(items, brand)
     source = f"sanity_gate:{brand}"
 
     if not rejected:
         resolve_system_alerts(source=source)
-        return items
+        return items, rejected
 
     for fuel in sorted(rejected):
         print(f"[CRITICAL] {reasons[fuel]}")
@@ -175,4 +186,4 @@ def apply_sanity_gate(items: list[dict[str, Any]], brand: str) -> list[dict[str,
         if not prices:
             continue
         filtered.append({**item, "fiyatlar": prices})
-    return filtered
+    return filtered, rejected

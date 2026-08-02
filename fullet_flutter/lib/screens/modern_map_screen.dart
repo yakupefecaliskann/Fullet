@@ -32,6 +32,7 @@ import '../services/notification_service.dart';
 import '../services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/app_version.dart';
 
 class ModernMapScreen extends StatefulWidget {
   final bool openGarageOnStart;
@@ -1363,7 +1364,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     SettingsSheet.show(
       context,
       isDark: _currentIsDark,
-      appVersion: '1.0.2',
+      appVersion: AppVersion.current,
       currentUser: _currentUser,
       stations: _stations,
       onSignIn: _onSignInTapped,
@@ -1760,7 +1761,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
               },
               news: _news,
               stationCount: _stations.length,
-              appVersion: '1.0.2',
+              appVersion: AppVersion.current,
               allStations: _stations,
               favoriteStationIds: prefs.favoriteStationIds,
               selectedFuel: prefs.selectedFuel,

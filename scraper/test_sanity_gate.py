@@ -50,12 +50,15 @@ class SanityGateTest(unittest.TestCase):
         with self._patch_reference({"LPG": 31.30, "Motorin": 82.00}), \
                 unittest.mock.patch("sanity_gate.create_system_alert") as alert, \
                 unittest.mock.patch("sanity_gate.resolve_system_alerts"):
-            filtered = apply_sanity_gate(items, "Shell")
+            filtered, rejected = apply_sanity_gate(items, "Shell")
 
         self.assertEqual(len(filtered), 10)
         for item in filtered:
             self.assertNotIn("LPG", item["fiyatlar"])
             self.assertEqual(item["fiyatlar"]["Motorin"], 81.75)
+        # Reddedilen yakıt çağırana bildirilmeli: "raporlanmayanı unknown yap"
+        # süpürgesi bu yakıtı muaf tutmazsa kapı, koruduğu veriyi siler.
+        self.assertEqual(rejected, {"LPG"})
         alert.assert_called_once()
         self.assertEqual(alert.call_args.kwargs["severity"], "critical")
 
@@ -81,8 +84,31 @@ class SanityGateTest(unittest.TestCase):
         with self._patch_reference({"LPG": 31.30}), \
                 unittest.mock.patch("sanity_gate.create_system_alert"), \
                 unittest.mock.patch("sanity_gate.resolve_system_alerts"):
-            filtered = apply_sanity_gate(_items("LPG", 37.68), "Shell")
+            filtered, rejected = apply_sanity_gate(_items("LPG", 37.68), "Shell")
         self.assertEqual(filtered, [])
+        self.assertEqual(rejected, {"LPG"})
+
+    def test_rejected_fuel_is_exempt_from_unknown_sweep(self):
+        """Kapı reddettiği yakıtı unknown süpürgesinden muaf tutmalı.
+
+        Regresyon: kapı LPG'yi reddedince LPG öğelerden düşüyor, süpürge de
+        onu "bu koşuda raporlanmadı" sayıp mevcut SAĞLAM LPG fiyatlarını
+        unknown'a çeviriyordu. Kapı, koruması gereken veriyi siliyordu.
+        """
+        import db_utils
+
+        with self._patch_reference({"LPG": 31.30, "Motorin": 82.00}), \
+                unittest.mock.patch("sanity_gate.create_system_alert"), \
+                unittest.mock.patch("sanity_gate.resolve_system_alerts"):
+            kept, rejected = db_utils._apply_sanity_gate_for_brands([
+                {"marka": "Shell", "il": f"IL{i}",
+                 "fiyatlar": {"LPG": 37.68, "Motorin": 81.75}}
+                for i in range(10)
+            ])
+
+        self.assertEqual(rejected, {"LPG"})
+        self.assertEqual(len(kept), 10)
+        self.assertTrue(all("LPG" not in item["fiyatlar"] for item in kept))
 
 
 if __name__ == "__main__":

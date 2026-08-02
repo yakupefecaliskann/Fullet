@@ -13,6 +13,8 @@ from config import supabase, is_dry_run, is_write_allowed, CANONICAL_FUELS, OFFI
 from normalization import (
     clean_text,
     normalize_city,
+    normalize_province,
+    split_province_district,
     normalize_brand,
     normalize_fuel,
     parse_price,
@@ -34,11 +36,19 @@ from database_writes import (
     _chunks,
 )
 
-def _apply_sanity_gate_for_brands(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _apply_sanity_gate_for_brands(
+    items: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], set[str]]:
     """Çapraz doğrulama kapısını marka bazında uygular.
 
     Bir koşuda birden fazla marka olabileceği için (nadiren) markalara ayrılıp
     her biri kendi referansına göre değerlendirilir.
+
+    Döner: (filtrelenmiş öğeler, koşuda reddedilen yakıtların birleşimi).
+    Birleşim kullanmak markalar arası kaba bir yaklaşımdır; pratikte her bot
+    tek marka yazdığı için kayıp yoktur ve hata yönü GÜVENLİ taraftadır:
+    fazladan muaf tutulan bir yakıt yalnızca "unknown'a düşürmeyi geciktirir",
+    pg_cron zaten yaşa göre düşürür.
     """
     from sanity_gate import apply_sanity_gate
 
@@ -47,12 +57,28 @@ def _apply_sanity_gate_for_brands(items: list[dict[str, Any]]) -> list[dict[str,
         by_brand.setdefault(item["marka"], []).append(item)
 
     result: list[dict[str, Any]] = []
+    rejected_fuels: set[str] = set()
     for brand, brand_items in by_brand.items():
-        result.extend(apply_sanity_gate(brand_items, brand))
-    return result
+        kept, rejected = apply_sanity_gate(brand_items, brand)
+        result.extend(kept)
+        rejected_fuels |= rejected
+    return result, rejected_fuels
 
 
-def finish_bot_run(bot_name: str, *, scraped: int, summary: SaveSummary | None = None) -> int:
+# Hedef bazlı kazıma yapan botlarda (şu an yalnızca shell_bot) bir koşunun
+# "sağlıklı" sayılması için okunması gereken hedef oranı. Altına düşen koşu
+# başarısız DEĞİL 'degraded' sayılır — gerekçe için bkz. finish_bot_run.
+MIN_TARGET_COVERAGE = 0.70
+
+
+def finish_bot_run(
+    bot_name: str,
+    *,
+    scraped: int,
+    summary: SaveSummary | None = None,
+    targets_ok: int | None = None,
+    targets_total: int | None = None,
+) -> int:
     """Botun makine-okur kayıt satırını basar ve dürüst çıkış kodunu döner.
 
     run_all_bots.py stdout'taki [RECORDS] satırını parse edip bot_runs
@@ -61,24 +87,56 @@ def finish_bot_run(bot_name: str, *, scraped: int, summary: SaveSummary | None =
     aylarca 'success' görünmesine yol açıyordu (yol haritası S0-1). Yazılan
     kayıt sayısına (prices/stations) göre başarısızlık kararı VERİLMEZ:
     zero-cost diff nedeniyle değişmemiş fiyatlar meşru olarak 0 yazım üretir.
+
+    --- Hedef kapsaması: Faz 0'ın kapatmadığı boşluk ---------------------------
+
+    Faz 0 yalnızca "bot HİÇ kayıt üretmedi mi?" sorusunu görünür kıldı.
+    "Bot hedeflerinin çoğunu kaybetti mi?" sorusu sorulmuyordu. shell_bot her
+    koşuda 150 hedeften ~95'ini "Element is not visible" ile sessizce atlayıp
+    yine de yüzlerce kayıt döndürüyor, dolayısıyla `success` görünüyordu.
+    Sonuç canlıda ölçüldü: Shell'in 1.152 fiyat satırının yalnızca %26'sı
+    taze, %36'sı bayat, %38'i bilinmiyor — diğer altı markada bayat SIFIR.
+
+    Kapsama düşükse çıkış kodu 0 KALIR ve koşu 'degraded' işaretlenir.
+    Gerekçe: 30 kapsamayla bile yazılan veri doğrudur ve değerlidir; exit 1
+    dönmek 9 dakikalık kazımayı yeniden denetip aynı sonucu üretir ve
+    pipeline'ı kalıcı kırmızıya boyar. 'degraded', "veri yazıldı ama eksik"
+    durumunun kendi adıdır — 'success' yalanı ile 'failed' abartısı arasında.
     """
     stations = summary.stations_touched if summary else 0
     prices = summary.prices_touched if summary else 0
-    print(f"[RECORDS] scraped={scraped} stations={stations} prices={prices}")
+    records_line = f"[RECORDS] scraped={scraped} stations={stations} prices={prices}"
+    if targets_total:
+        records_line += f" targets_ok={targets_ok or 0} targets_total={targets_total}"
+    print(records_line)
+
     if scraped == 0:
         print(
             f"[FAIL] {bot_name}: kaynak 0 kayıt döndürdü — "
             "parser kırık veya site erişilemez."
         )
         return 1
+
+    if targets_total:
+        coverage = (targets_ok or 0) / targets_total
+        print(f"[COVERAGE] {bot_name}: {coverage:.0%} ({targets_ok}/{targets_total})")
+        if coverage < MIN_TARGET_COVERAGE:
+            print(
+                f"[DEGRADED] {bot_name}: hedef kapsaması %{coverage * 100:.0f} "
+                f"< %{MIN_TARGET_COVERAGE * 100:.0f} — veri yazıldı ama eksik."
+            )
     return 0
 
 
 def normalize_scraped_item(item: dict[str, Any], default_brand: str | None = None) -> dict[str, Any] | None:
     brand = normalize_brand(item.get("marka") or item.get("brand") or item.get("istasyon_adi"), default_brand)
     raw_city = item.get("il")
-    city = normalize_city(raw_city)
+    city = normalize_province(raw_city)
     district = normalize_city(item.get("ilce"))
+    # "İLÇE/İL" birleşik geldiyse ilçe tarafını da kurtar (ilce boşsa).
+    if not district:
+        _, embedded_district = split_province_district(raw_city)
+        district = embedded_district
     istanbul_region = istanbul_region_from_city(raw_city)
     if city == "ISTANBUL" and not district and istanbul_region:
         district = istanbul_region
@@ -143,8 +201,11 @@ def normalize_scraped_data(data: Iterable[dict[str, Any]], default_brand: str | 
 def normalize_station_inventory_item(item: dict[str, Any], default_brand: str | None = None) -> dict[str, Any] | None:
     brand = normalize_brand(item.get("marka") or item.get("brand") or item.get("istasyon_adi"), default_brand)
     station_name = clean_text(item.get("istasyon_adi") or item.get("isim") or item.get("name"))
-    city = normalize_city(item.get("il") or item.get("city"))
+    raw_city = item.get("il") or item.get("city")
+    city = normalize_province(raw_city)
     district = normalize_city(item.get("ilce") or item.get("district") or item.get("county"))
+    if not district:
+        _, district = split_province_district(raw_city)
     latitude = parse_coordinate(item.get("enlem") or item.get("lat") or item.get("latitude"), latitude=True)
     longitude = parse_coordinate(item.get("boylam") or item.get("lng") or item.get("longitude"), latitude=False)
     source = clean_text(item.get("veri_kaynagi")) or clean_text(item.get("source"))
@@ -235,7 +296,7 @@ def save_regional_prices_to_supabase(
     # Çapraz doğrulama kapısı: bir yakıtın medyanı diğer markalardan %10'dan
     # fazla sapıyorsa o yakıt yazılmaz (yol haritası S1-4).
     before = len(normalized)
-    normalized = _apply_sanity_gate_for_brands(normalized)
+    normalized, rejected_fuels = _apply_sanity_gate_for_brands(normalized)
     skipped += before - len(normalized)
     if not normalized:
         print("[WARN] Çapraz doğrulama sonrası yazılacak veri kalmadı.")
@@ -280,6 +341,12 @@ def save_regional_prices_to_supabase(
 
     prices_touched = _bulk_upsert_prices(price_rows)
     for fuel in CANONICAL_FUELS:
+        # Kapının reddettiği yakıtı "raporlanmadı" sayma: reddetmek
+        # "bu değere güvenmiyorum" demektir, "bu istasyonda bu yakıt yok"
+        # demek değildir. Muaf tutulmazsa kapı, mevcut sağlam fiyatları
+        # unknown'a çevirir — koruması gereken veriyi silerdi.
+        if fuel in rejected_fuels:
+            continue
         stale_station_ids = [
             station_id
             for station_id, fuels in station_fuels.items()
@@ -347,7 +414,7 @@ def save_to_supabase(
 
     # Çapraz doğrulama kapısı (yol haritası S1-4) — bkz. sanity_gate.py
     before = len(normalized)
-    normalized = _apply_sanity_gate_for_brands(normalized)
+    normalized, rejected_fuels = _apply_sanity_gate_for_brands(normalized)
     skipped += before - len(normalized)
     if not normalized:
         print("[WARN] Çapraz doğrulama sonrası yazılacak veri kalmadı.")
@@ -390,6 +457,9 @@ def save_to_supabase(
             print(f"[WARN] DB write skipped for {item.get('marka')} {item.get('il')} {item.get('ilce')}: {exc}")
 
     for fuel in CANONICAL_FUELS:
+        # bkz. save_regional_prices_to_supabase'deki aynı muafiyet.
+        if fuel in rejected_fuels:
+            continue
         stale_station_ids = [
             station_id
             for station_id, fuels in station_fuels.items()

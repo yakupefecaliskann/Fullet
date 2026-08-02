@@ -16,9 +16,13 @@ import 'services/analytics_service.dart';
 import 'services/app_heartbeat_service.dart';
 import 'services/notification_service.dart';
 import 'theme/ful_theme.dart';
+import 'utils/app_version.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Sürümü heartbeat'ten ÖNCE oku: app_heartbeats.app_version kohort
+  // analizini besliyor, yanlış kohort verisi haftalar sonra fark edilir.
+  await AppVersion.init();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
@@ -37,10 +41,23 @@ Future<void> main() async {
     debugPrint('Firebase init failed (missing config): $e');
   }
 
-  await dotenv.load(fileName: '.env');
+  // .env pubspec.yaml'da asset olarak listeli ama .gitignore'da: temiz bir
+  // checkout + build'de dosya YOKTUR. dotenv.load o durumda fırlatır, runApp
+  // hiç çağrılmaz ve kullanıcı beyaz ekran görür — hata mesajı bile yok.
+  // Aşağıdaki "yüklendi ama boş" kontrolü bu asıl riskli durumu yakalamıyordu.
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    debugPrint('dotenv.load failed (.env asset missing?): $e');
+  }
 
-  final supabaseUrl = dotenv.env['SUPABASE_URL'];
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  // dotenv.env, load başarısız olduysa NotInitializedError FIRLATIR
+  // (flutter_dotenv 6.0.1, dotenv.dart:39). Yalnızca load'ı try/catch'e almak
+  // çökmeyi bir satır aşağı taşırdı; isInitialized kontrolü şart.
+  final supabaseUrl =
+      dotenv.isInitialized ? dotenv.env['SUPABASE_URL'] : null;
+  final supabaseAnonKey =
+      dotenv.isInitialized ? dotenv.env['SUPABASE_ANON_KEY'] : null;
   if (supabaseUrl == null ||
       supabaseUrl.isEmpty ||
       supabaseAnonKey == null ||

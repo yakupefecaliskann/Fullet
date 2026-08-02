@@ -8,7 +8,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from db_utils import create_system_alert, record_bot_run, resolve_system_alerts
+from db_utils import (
+    MIN_TARGET_COVERAGE,
+    create_system_alert,
+    record_bot_run,
+    resolve_system_alerts,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -90,6 +95,23 @@ def _parse_scraped_records(stdout):
     return int(match.group(1)) if match else None
 
 
+def _parse_target_coverage(stdout):
+    """'[RECORDS] ... targets_ok=A targets_total=B' -> (A, B) ya da None.
+
+    Yalnızca hedef bazlı kazıma yapan botlar (shell_bot) bu alanları basar;
+    bölgesel botlarda tek sayfa okunduğu için kapsama kavramı yoktur."""
+    if not stdout:
+        return None
+    match = re.search(
+        r"^\[RECORDS\].*\btargets_ok=(\d+) targets_total=(\d+)",
+        stdout,
+        re.MULTILINE,
+    )
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
 def _run_subprocess_once(script_name, env_overrides, timeout, mode):
     """Tek bir deneme: subprocess'i çalıştırır, telemetriyi kaydeder, başarı
     durumunu döner. Alarm kararı vermez — bu, retry sarmalayıcısının işi
@@ -148,6 +170,36 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
     # database/add_bot_runs_records_written.sql
     if status == "success" and records == 0:
         status = "empty"
+
+    # Kısmi kazıma: veri yazıldı ama hedeflerin çoğu okunamadı. 'success'
+    # demek yalan, 'failed' demek abartı olurdu (bkz. finish_bot_run).
+    coverage = _parse_target_coverage(result.stdout)
+    if status == "success" and coverage:
+        targets_ok, targets_total = coverage
+        ratio = targets_ok / targets_total if targets_total else 1.0
+        if ratio < MIN_TARGET_COVERAGE:
+            status = "degraded"
+            create_system_alert(
+                severity="warning",
+                source=f"bot:{script_name}",
+                title=f"{script_name} hedeflerin çoğunu okuyamadı",
+                message=(
+                    f"{script_name} {targets_total} hedeften yalnızca {targets_ok}'sini "
+                    f"okuyabildi (%{ratio * 100:.0f} < %{MIN_TARGET_COVERAGE * 100:.0f}). "
+                    "Yazılan veri doğru ama eksik; kapsanmayan istasyonların "
+                    "fiyatları bayatlayacak."
+                ),
+                metadata={
+                    "targets_ok": targets_ok,
+                    "targets_total": targets_total,
+                    "coverage": round(ratio, 3),
+                },
+            )
+        else:
+            resolve_system_alerts(
+                source=f"bot:{script_name}",
+                title=f"{script_name} hedeflerin çoğunu okuyamadı",
+            )
     record_bot_run(
         bot_name=script_name,
         mode=mode,
@@ -163,6 +215,13 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
     )
     if status == "success":
         print(f"[OK] {script_name} finished in {elapsed:.1f}s.")
+        return True
+
+    if status == "degraded":
+        # Kısmi veri başarısızlık değildir: yeniden denemek aynı 9 dakikalık
+        # kazımayı tekrarlar ve pipeline'ı kalıcı kırmızıya boyar. Durum
+        # bot_runs'ta ve açık bir system_alert'te görünür — sessiz değil.
+        print(f"[DEGRADED] {script_name} finished in {elapsed:.1f}s with partial coverage.")
         return True
 
     if status == "empty":
@@ -188,7 +247,16 @@ def run_bot_with_retries(script_name, env_overrides=None, timeout=180, mode=None
             break
 
     if ok:
-        resolve_system_alerts(source=f"bot:{script_name}")
+        # Yalnızca BU sarmalayıcının açtığı başarısızlık alarmlarını kapat.
+        # Kaynağın tamamını körü körüne kapatmak, aynı kaynağa yazan diğer
+        # alarmları (hedef kapsaması uyarısı, ardışık-hata alarmı) da
+        # susturur — ops_report'ta tam bu hata vardı (yol haritası S3-1).
+        for title in (
+            f"{script_name} failed",
+            f"{script_name} failed (tolerated)",
+            f"{script_name} timed out",
+        ):
+            resolve_system_alerts(source=f"bot:{script_name}", title=title)
         return True
 
     if should_open_failure_alert(script_name):

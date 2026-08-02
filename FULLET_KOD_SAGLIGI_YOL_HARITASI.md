@@ -665,9 +665,95 @@ Veri düzeldikten sonra görüntüyü düzeltin — tersi sırada neyin düzeldi
 17. ⚠️ **`_normalize`'a `'İ'` çevirisini ekle** (`toLowerCase` öncesi). *(S2-4)*
     → **Bulgu yanlıştı** (bkz. S2-4 düzeltme notu). Hata yoktu; değişiklik
     normalleştirici birleştirmesi olarak korundu.
-18. **`son_tetiklenme`'yi `toUtc()` ile yaz.** *(S2-6)*
-19. **`dotenv.load`'ı try/catch'e al**, hata durumunda `_ConfigurationErrorApp`. *(S3-8)*
-20. **Sürüm numarasını `package_info_plus`'tan oku**, üç sabiti sil. *(S3-9)*
+18. ✅ **`son_tetiklenme`'yi `toUtc()` ile yaz.** *(S2-6)*
+19. ✅ **`dotenv.load`'ı try/catch'e al**, hata durumunda `_ConfigurationErrorApp`. *(S3-8)*
+    → Yalnızca `load`'ı sarmalamak YETMİYOR: `dotenv.env` getter'ı da
+    `NotInitializedError` fırlatıyor (flutter_dotenv 6.0.1, `dotenv.dart:39`),
+    yani çökme bir satır aşağı kayardı. `dotenv.isInitialized` kontrolü eklendi.
+20. ✅ **Sürüm numarasını `package_info_plus`'tan oku**, üç sabiti sil. *(S3-9)*
+    → `utils/app_version.dart` tek kaynak; `main()` içinde `AppVersion.init()`
+    heartbeat'ten ÖNCE çağrılıyor. Yan etki: `package_info_plus` `win32`'yi
+    `<6.0.0` serbest bıraktığı için çözümleyici 5.2.0'ı seçti; o sürüm Dart
+    3.4'te kaldırılan `UnmodifiableUint8ListView`'i kullanıyor ve `flutter test`
+    derlemesini kırıyordu. `win32: ^5.5.4` sabitlendi, `sdk` alt sınırı
+    gerçeği yansıtacak şekilde `>=3.3.0` yapıldı.
+
+---
+
+### FAZ 0–2 DENETİMİ (3 Ağustos 2026) — kapatılan boşluklar
+
+Faz 0/1/2 tamamlandıktan sonra yapılan gözden geçirme, üretim verisiyle
+doğrulanan **dört yeni bulgu** çıkardı. Hepsi düzeltildi.
+
+#### D1 — Hedef kapsaması ölçülmüyordu (Faz 0'ın kapatmadığı boşluk) ❗
+Faz 0 yalnızca *"bot HİÇ kayıt üretmedi mi?"* sorusunu görünür kıldı
+(`empty`). *"Bot hedeflerinin çoğunu kaybetti mi?"* sorusu sorulmuyordu.
+
+Canlı `bot_runs.stdout_excerpt` üzerinden 8 koşu sayıldı — sonuç her koşuda
+neredeyse aynı:
+
+| Koşu | Denenen hedef | `Element is not visible` | Grid okundu |
+|---|---|---|---|
+| 02 Ağu 16:24 | 42 | 27 | 11 |
+| 02 Ağu 11:01 | 45 | 27 | 13 |
+| 02 Ağu 06:23 | 44 | 29 | 10 |
+| 01 Ağu 22:18 | 40 | 34 | 5 |
+
+**Shell hedeflerinin ~%63'ünü her koşuda sessizce kaybediyordu** ve yine
+yüzlerce kayıt döndürdüğü için `success` görünüyordu. Sonuç canlıda:
+Shell'in 1.152 fiyat satırının %26'sı taze, %36'sı **bayat**, %38'i
+bilinmiyor — diğer altı markada bayat **sıfır**.
+
+*Kök neden:* `page.locator(...).click(force=True)` + sabit
+`wait_for_timeout(750)`. DevExpress combobox'ı grid callback'i sürerken
+DOM'da kalıyor ama görünmez oluyor; `force` **görünürlük kontrolünü
+atlamaz**, dolayısıyla Playwright fırlatıyor ve hedef `except` tarafından
+yutuluyordu.
+
+*Düzeltme:* sabit uyku yerine görünürlük bekleme (`_settle` + `wait_for`),
+hedef başına bir kez retry, ve kapsama muhasebesi:
+`[RECORDS] ... targets_ok=A targets_total=B` →
+`run_all_bots` → yeni **`degraded`** bot_runs durumu + `warning` alarmı
+(eşik: `db_utils.MIN_TARGET_COVERAGE` = %70).
+`degraded` pipeline'ı kırmızıya döndürmez — kısmi veri doğrudur ve exit 1
+9 dakikalık kazımayı boşuna tekrarlardı. Migration:
+`database/add_bot_runs_degraded_status.sql` (canlıya uygulandı).
+
+#### D2 — Çapraz doğrulama kapısı, koruduğu veriyi siliyordu ❗
+`save_to_supabase` / `save_regional_prices_to_supabase` sonunda
+"bu koşuda raporlanmayan yakıtları `unknown` yap" süpürgesi çalışıyor.
+Kapı bir yakıtı reddedince o yakıt öğelerden düşüyor, süpürge de onu
+"raporlanmadı" sayıp **mevcut sağlam fiyatları `unknown`'a çeviriyordu.**
+Yani Faz 1'de eklenen güvenlik mekanizması, tek bir hatalı koşuda o markanın
+o yakıttaki tüm geçmişini silebilirdi. `apply_sanity_gate` artık reddedilen
+yakıt kümesini çağırana döndürüyor ve o yakıtlar süpürgeden muaf tutuluyor.
+
+#### D3 — Faz 2'nin 18/19/20. maddeleri (yukarıda işaretlendi)
+
+#### D4 — "İLÇE/İL" birleşik `il` değerleri
+20 istasyonun `il` kolonu `MERAM/KONYA` biçimindeydi ve `_station_targets`
+`.eq("il","KONYA")` sorguladığı için **20'sinin de taze fiyatı yoktu.**
+`normalization.split_province_district` / `normalize_province` eklendi
+(81 il listesine bakar, konuma değil) ve ingest + okuma yollarına bağlandı;
+`database/repair_composite_province_values.sql` mevcut satırları onardı
+(18/20 taşındı, distinct `il` 119 → 108). Kalan 2 satır `unique_isim_ilce`
+kısıtına takılıyor ve **kopya değil** — koordinatları hedeflerinden 2,4 km
+ve 3,5 km uzakta, yani ayrı gerçek istasyonlar. Asıl kusur kısıtta: `isim`
+bu markalarda marka adı olduğu için aynı ilçedeki iki Petrol Ofisi şemada
+temsil edilemiyor. Kısıtı değiştirmek istasyon kimliği/dedupe mantığını
+etkilediğinden ayrı bir karar olarak bırakıldı.
+
+#### Doğrulanıp REDDEDİLEN bulgu — madde 12 (S1-6, eşleştirmeyi tekilleştir)
+Yol haritası "DB'de Türkçe karakter varsa `_station_targets` sessizce 0 hedef
+döndürür" diyordu. Canlı ölçüm bunu **çürüttü**: Türkçe `ilce` içeren 234
+istasyonun **%96,2'sinin** taze fiyatı var; ASCII olanlarda bu oran %52,6.
+Sebep: bu yolu kullanan botlar (Opet/PO/BP/Aytemiz) **il düzeyinde** fiyat
+yazıyor, `item["ilce"]` boş, dolayısıyla `ilike("ilce", ...)` filtresi hiç
+çalışmıyor. Madde 12'nin gerekçesi mevcut bot bileşiminde geçerli değil;
+eşleştirmeyi tekilleştirmek 1.100+ istasyonun çalışan yazma yolunu riske
+atacağı için **yapılmadı**. Bu, denetimin **üçüncü** yanlış bulgusu
+(S1-2 ve S2-4'ten sonra) — ders yine aynı: mekanizma iddiası ölçülmeden
+düzeltme yazılmamalı.
 
 ---
 

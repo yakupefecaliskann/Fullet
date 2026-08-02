@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 
 from column_mapping import resolve_fuel_columns
 from shell_bot import _prices_from_row
@@ -74,6 +75,110 @@ class ShellRowParsingTest(unittest.TestCase):
         self.assertEqual(prices["Kursunsuz 95"], 64.47)
         # Kolon 10 (Y.K. Fuel Oil) dolu olsa bile LPG kolon 12'den okunur.
         self.assertEqual(prices["LPG"], 35.02)
+
+
+class ShellTargetCoverageTest(unittest.TestCase):
+    """Hedef kaybı sayılmalı ve geçici hatalarda tekrar denenmeli.
+
+    Canlı ölçüm (8 koşu, bot_runs stdout'u): denenen ~44 hedefin ~28'i
+    "Element is not visible" ile kayboluyor, ama bot yine de yüzlerce kayıt
+    döndürdüğü için 'success' görünüyordu. Sabit `wait_for_timeout(750)` +
+    `click(force=True)` bunun sebebiydi: `force` görünürlük kontrolünü
+    ATLAMAZ, callback sürerken combobox görünmez olur.
+    """
+
+    def _run(self, outcomes):
+        """`outcomes`: hedef başına sonuç listesi (deneme sırasına göre)."""
+        import shell_bot
+
+        calls = []
+
+        def fake_scrape_target(page, city, district, column_map):
+            calls.append((city, district))
+            result = outcomes[(city, district)].pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result, {"Motorin": [5]}
+
+        targets = [{"il": c, "ilce": d} for c, d in outcomes]
+        with unittest.mock.patch.object(shell_bot, "_scrape_target", fake_scrape_target), \
+                unittest.mock.patch.object(shell_bot, "sync_playwright", _FakePlaywright), \
+                unittest.mock.patch.object(shell_bot, "_limited_targets", lambda t: t), \
+                unittest.mock.patch.object(shell_bot, "_settle", lambda page: None):
+            data, stats = shell_bot.scrape_shell_data(targets)
+        return data, stats, calls
+
+    def test_transient_error_is_retried_and_counted_ok(self):
+        rows = [{"marka": "Shell"}]
+        _, stats, calls = self._run({
+            ("ANKARA", "CANKAYA"): [Exception("Element is not visible"), rows],
+        })
+        self.assertEqual(stats, {"attempted": 1, "ok": 1, "missing": 0, "failed": 0})
+        self.assertEqual(len(calls), 2)
+
+    def test_persistent_error_counts_as_failed(self):
+        _, stats, calls = self._run({
+            ("ANKARA", "CANKAYA"): [
+                Exception("Element is not visible"),
+                Exception("Element is not visible"),
+            ],
+        })
+        self.assertEqual(stats["failed"], 1)
+        self.assertEqual(stats["ok"], 0)
+        # İki denemeden fazlası yapılmamalı (9 dakikalık kazıma bütçesi).
+        self.assertEqual(len(calls), 2)
+
+    def test_missing_option_is_not_retried(self):
+        # İlçe Shell'in listesinde yoksa tekrar denemek bütçe israfıdır;
+        # bu bir envanter/veri uyuşmazlığıdır, geçici hata değil.
+        from shell_bot import _OptionMissing
+
+        _, stats, calls = self._run({
+            ("ISTANBUL", "HOROZLUHAN MAH Y"): [_OptionMissing("yok")],
+        })
+        self.assertEqual(stats["missing"], 1)
+        self.assertEqual(stats["failed"], 0)
+        self.assertEqual(len(calls), 1)
+
+    def test_stats_cover_every_attempted_target(self):
+        rows = [{"marka": "Shell"}]
+        data, stats, _ = self._run({
+            ("ANKARA", "CANKAYA"): [rows],
+            ("ANKARA", "MAMAK"): [Exception("boom"), Exception("boom")],
+            ("IZMIR", "KONAK"): [rows],
+        })
+        self.assertEqual(stats["attempted"], 3)
+        self.assertEqual(stats["ok"] + stats["missing"] + stats["failed"], 3)
+        self.assertEqual(len(data), 2)
+
+
+class _FakePage:
+    def goto(self, *args, **kwargs):
+        return None
+
+
+class _FakeBrowser:
+    def new_page(self):
+        return _FakePage()
+
+    def close(self):
+        return None
+
+
+class _FakePlaywright:
+    """`with sync_playwright() as p:` protokolünü taklit eder."""
+
+    def __init__(self):
+        self.chromium = self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def launch(self, **kwargs):
+        return _FakeBrowser()
 
 
 if __name__ == "__main__":

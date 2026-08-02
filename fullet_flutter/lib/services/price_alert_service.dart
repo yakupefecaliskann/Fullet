@@ -81,8 +81,13 @@ class PriceAlertService {
               '${alert.fuelType}: ${price.toStringAsFixed(2)} ₺ (eşik: ${alert.thresholdPrice.toStringAsFixed(2)} ₺)',
           payload: 'price_alert:${alert.stationId}',
         );
+        // toUtc() ŞART: DateTime.now() yerel saattir ve toIso8601String()
+        // offset yazmaz, dolayısıyla Postgres "2026-08-02T21:00:00.000" metnini
+        // UTC sanır. Türkiye'de (UTC+3) bu, tetiklenme zamanını 3 saat GERİDE
+        // gösterir; yukarıdaki 24 saatlik tekrar-bildirim koruması 21 saatte
+        // açılır ve kullanıcı aynı alarmı günde iki kez alabilir.
         await SupabaseService.client.from('price_alerts').update(
-            {'son_tetiklenme': now.toIso8601String()}).eq('id', alert.id);
+            {'son_tetiklenme': now.toUtc().toIso8601String()}).eq('id', alert.id);
       }
     } catch (e) {
       debugPrint('checkAlerts failed: $e');

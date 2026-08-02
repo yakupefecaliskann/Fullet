@@ -4,11 +4,11 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/app_version.dart';
 import 'supabase_service.dart';
 
 class AppHeartbeatService {
   static const _installIdKey = 'fullet_install_id';
-  static const _appVersion = '1.0.2';
   static const _heartbeatInterval = Duration(minutes: 15);
   static Timer? _timer;
   static bool _isSending = false;
@@ -27,7 +27,7 @@ class AppHeartbeatService {
       final installId = await _installId();
       await SupabaseService.client.rpc('record_app_heartbeat', params: {
         'p_install_id': installId,
-        'p_app_version': _appVersion,
+        'p_app_version': AppVersion.current,
         'p_platform': defaultTargetPlatform.name,
       });
     } catch (error) {
