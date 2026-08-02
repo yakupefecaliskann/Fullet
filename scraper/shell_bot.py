@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
@@ -143,14 +144,41 @@ def _prices_from_row(cols, column_map):
 # denenen ~44 hedefin ~28'i (%63) tam olarak böyle kayboluyordu.
 # Çözüm: sabit uyku yerine görünürlük bekle, hedef bazında bir kez daha dene.
 ELEMENT_TIMEOUT_MS = 15000
+
+# Açılır liste, düğmeye tıklandıktan sonra hızlıca render edilir. Bir ilçenin
+# listede OLUP OLMADIĞINI anlamak için 15 saniye beklemek pahalı bir hataydı:
+# Shell'in listesinde gerçekten bulunmayan ilçeler (envanterde mahalle adı
+# ilçe kolonuna yazılmış kayıtlar: "HOROZLUHAN MAH Y", "MASLAK", "ISKITLER")
+# eski kodda `.count() > 0` ile ANINDA eleniyordu. 15 saniyelik bekleme,
+# 150 hedeflik koşuyu 9 dakikadan ~25 dakikaya çıkarıp 1800 sn'lik subprocess
+# bütçesini deldi. Yokluk kararı 3 saniyede verilebilir; asıl kırılganlık olan
+# combobox DÜĞMESİNİN görünürlüğü uzun timeout'u hak eder.
+OPTION_TIMEOUT_MS = 3000
+
+# Hedefe BAŞLAMADAN önceki "yatışma" kritik değil; önceki callback zaten
+# bitmiş olabilir, uzun timeout burada boşa harcanır.
+SETTLE_TIMEOUT_MS = 5000
+
+# ARAMA sonrası grid yüklemesi ise kritik: erken dönersek bir önceki ilçenin
+# satırlarını okur ya da boş grid görürüz. Orijinal kodun 20 sn'lik değeri
+# korunur — bu bekleme kısaltılamaz.
+GRID_TIMEOUT_MS = 20000
+
 TARGET_MAX_ATTEMPTS = 2
 
+# Duvar saati bütçesi. run_all_bots shell_bot'u 1800 sn'de ÖLDÜRÜR; öldürülen
+# süreç `[RECORDS]` satırını hiç basamaz, yani görünür kılmaya çalıştığımız
+# kapsama verisi tam da en çok ihtiyaç duyulan anda kaybolur (status yalnızca
+# 'timeout' olur, "kaç hedef okundu" bilinmez). Bot kendi bütçesini yönetip
+# temiz çıkar ve dürüst sayıları raporlar.
+RUN_BUDGET_SECONDS = int(os.environ.get("SHELL_RUN_BUDGET_SECONDS", 1500))
 
-def _settle(page):
+
+def _settle(page, timeout=SETTLE_TIMEOUT_MS):
     """Devam eden DevExpress callback'lerinin bitmesini bekler."""
     for selector in ("#cb_all_grdPrices_LD", ".dxeLoadingDivWithContent"):
         try:
-            page.wait_for_selector(selector, state="hidden", timeout=ELEMENT_TIMEOUT_MS)
+            page.wait_for_selector(selector, state="hidden", timeout=timeout)
         except Exception:
             # Yükleme göstergesi hiç oluşmamış olabilir; bu bir hata değil.
             pass
@@ -167,7 +195,7 @@ def _select_from_combo(page, button_selector, list_selector, value):
 
     option = page.locator(f"{list_selector} td:has-text('{value}')").first
     try:
-        option.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+        option.wait_for(state="visible", timeout=OPTION_TIMEOUT_MS)
     except Exception as exc:
         page.keyboard.press("Escape")
         raise _OptionMissing(value) from exc
@@ -188,7 +216,9 @@ def _scrape_target(page, city, district, column_map):
     search = page.locator("#cb_all_ASPxButton1_CD")
     search.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
     search.click(force=True)
-    _settle(page)
+    # Grid yüklemesi kritik: erken dönmek bir önceki ilçenin satırlarını
+    # okumaya yol açar (sessiz veri bozulması).
+    _settle(page, timeout=GRID_TIMEOUT_MS)
 
     if column_map is None:
         column_map = _read_column_map(page)
@@ -227,7 +257,16 @@ def scrape_shell_data(target_locations=None):
     print(f"[INFO] Shell targets: {len(target_locations)}")
     scraped_data = []
     column_map = None
-    stats = {"attempted": 0, "ok": 0, "missing": 0, "failed": 0}
+    # `planned`, bu koşuda kapsanması GEREKEN hedef sayısı; `attempted` ise
+    # bütçe içinde sırası gelenler. Kapsama oranı planned'a göre hesaplanır —
+    # aksi halde bütçe 40 hedefte kesilse ve 38'i okunsa "%95 kapsama" gibi
+    # sahte bir rakam çıkar, oysa Shell'in yalnızca dörtte biri tazelenmiştir.
+    stats = {
+        "planned": len(target_locations),
+        "attempted": 0, "ok": 0, "missing": 0, "failed": 0,
+        "budget_exhausted": False,
+    }
+    deadline = time.monotonic() + RUN_BUDGET_SECONDS
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -235,6 +274,14 @@ def scrape_shell_data(target_locations=None):
         try:
             page.goto("https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000)
             for loc in target_locations:
+                if time.monotonic() >= deadline:
+                    stats["budget_exhausted"] = True
+                    print(
+                        f"[BUDGET] {RUN_BUDGET_SECONDS}s doldu; kalan "
+                        f"{stats['planned'] - stats['attempted']} hedef atlandı. "
+                        "Temiz çıkılıyor (öldürülen süreç kapsama raporlayamaz)."
+                    )
+                    break
                 city = loc["il"]
                 district = loc["ilce"]
                 print(f"[INFO] Shell target: {city} / {district}")
@@ -271,7 +318,8 @@ def scrape_shell_data(target_locations=None):
     print(
         f"[INFO] Shell hedef sonucu: ok={stats['ok']} "
         f"listede-yok={stats['missing']} hata={stats['failed']} "
-        f"denenen={stats['attempted']}"
+        f"denenen={stats['attempted']} planlanan={stats['planned']}"
+        + (" (BÜTÇE DOLDU)" if stats["budget_exhausted"] else "")
     )
     return scraped_data, stats
 
@@ -287,6 +335,7 @@ if __name__ == "__main__":
             scraped=len(data),
             summary=summary,
             targets_ok=stats["ok"],
-            targets_total=stats["attempted"],
+            # planned, attempted değil: bütçe kesintisi kapsamayı DÜŞÜRMELİ.
+            targets_total=stats["planned"],
         )
     )

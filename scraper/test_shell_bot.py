@@ -113,7 +113,11 @@ class ShellTargetCoverageTest(unittest.TestCase):
         _, stats, calls = self._run({
             ("ANKARA", "CANKAYA"): [Exception("Element is not visible"), rows],
         })
-        self.assertEqual(stats, {"attempted": 1, "ok": 1, "missing": 0, "failed": 0})
+        self.assertEqual(
+            stats,
+            {"planned": 1, "attempted": 1, "ok": 1, "missing": 0, "failed": 0,
+             "budget_exhausted": False},
+        )
         self.assertEqual(len(calls), 2)
 
     def test_persistent_error_counts_as_failed(self):
@@ -148,8 +152,50 @@ class ShellTargetCoverageTest(unittest.TestCase):
             ("IZMIR", "KONAK"): [rows],
         })
         self.assertEqual(stats["attempted"], 3)
+        self.assertEqual(stats["planned"], 3)
         self.assertEqual(stats["ok"] + stats["missing"] + stats["failed"], 3)
         self.assertEqual(len(data), 2)
+        self.assertFalse(stats["budget_exhausted"])
+
+    def test_option_lookup_uses_the_short_timeout(self):
+        """Yokluk kararı 3 sn'de verilmeli, 15 sn'de değil.
+
+        Regresyon: ilk düzeltmede tek bir 15 sn'lik timeout kullanılmıştı.
+        Shell'in listesinde gerçekten bulunmayan ilçeler (envanterde mahalle
+        adı yazılmış kayıtlar) eski kodda anında eleniyordu; 15 sn'lik bekleme
+        150 hedeflik koşuyu 9 dk'dan ~25 dk'ya çıkarıp 1800 sn'lik subprocess
+        bütçesini deldi ve bot canlıda timeout'a gitti.
+        """
+        import shell_bot
+
+        self.assertLessEqual(shell_bot.OPTION_TIMEOUT_MS, 5000)
+        self.assertGreater(shell_bot.ELEMENT_TIMEOUT_MS, shell_bot.OPTION_TIMEOUT_MS)
+
+    def test_budget_stops_the_run_and_lowers_coverage(self):
+        """Bütçe kesintisi kapsamayı DÜŞÜRMELİ, gizlememeli.
+
+        Kapsama `ok/planned` üzerinden hesaplanır. `ok/attempted` kullanılsaydı
+        bütçe 1 hedefte kesildiğinde "%100 kapsama" gibi sahte bir rakam
+        çıkardı — oysa Shell'in geri kalanı hiç tazelenmemiş olurdu.
+        """
+        import shell_bot
+
+        rows = [{"marka": "Shell"}]
+        outcomes = {
+            ("ANKARA", "CANKAYA"): [rows],
+            ("ANKARA", "MAMAK"): [rows],
+            ("IZMIR", "KONAK"): [rows],
+        }
+        with unittest.mock.patch.object(shell_bot, "RUN_BUDGET_SECONDS", 0):
+            _, stats, calls = self._run(outcomes)
+
+        self.assertTrue(stats["budget_exhausted"])
+        self.assertEqual(stats["attempted"], 0)
+        self.assertEqual(stats["planned"], 3)
+        self.assertEqual(calls, [])
+        # planned'a göre kapsama sıfır -> degraded. attempted'a göre olsaydı
+        # 0/0 çıkar ve sorun görünmezdi.
+        self.assertEqual(stats["ok"] / stats["planned"], 0.0)
 
 
 class _FakePage:
