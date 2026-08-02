@@ -35,34 +35,51 @@ def record_bot_run(
     summary: str | None = None,
     stdout: str | None = None,
     stderr: str | None = None,
+    records_written: int | None = None,
 ) -> None:
     if not supabase:
         return
-    try:
-        supabase.table("bot_runs").insert({
-            "bot_name": clean_text(bot_name),
-            "run_mode": clean_text(mode),
-            "status": status,
-            "started_at": started_at.astimezone(timezone.utc).isoformat(),
-            "finished_at": finished_at.astimezone(timezone.utc).isoformat() if finished_at else None,
-            "duration_seconds": round(duration_seconds, 2) if duration_seconds is not None else None,
-            "exit_code": exit_code,
-            "summary": _compact_log(summary or "", 500),
-            "stdout_excerpt": _compact_log(stdout or ""),
-            "stderr_excerpt": _compact_log(stderr or ""),
-        }).execute()
-    except Exception as exc:
-        if not _observability_table_missing(exc):
-            print(f"[WARN] Bot run telemetry skipped: {exc}")
 
-    # --- Ardışık Hata Tespiti ---
-    # Bot başarısız olduysa son çalışmalara bak.
-    # Aynı bot arka arkaya 2+ kez başarısız olduysa critical alarm üret.
+    # --- Ardışık Hata Tespiti (INSERT'TEN ÖNCE) ---
+    # Sorgu bu koşuyu henüz içermediği için current_status listeye elle
+    # eklenir. Eskiden insert SONRASI çağrılıyordu ve mevcut koşu hem
+    # sorgudan hem elle ekten gelip iki kez sayılıyordu — tek hata
+    # "2 ardışık hata" görünüp ilk denemede critical alarm patlatıyordu.
     if status not in ("success", "ok"):
         _check_consecutive_failures(bot_name, current_status=status)
     else:
         # Başarılıysa o bot'a ait açık hata alarmlarını kapat
         resolve_system_alerts(source=f"bot:{bot_name}", title=f"{bot_name} arka arkaya başarısız")
+
+    payload = {
+        "bot_name": clean_text(bot_name),
+        "run_mode": clean_text(mode),
+        "status": status,
+        "started_at": started_at.astimezone(timezone.utc).isoformat(),
+        "finished_at": finished_at.astimezone(timezone.utc).isoformat() if finished_at else None,
+        "duration_seconds": round(duration_seconds, 2) if duration_seconds is not None else None,
+        "exit_code": exit_code,
+        "summary": _compact_log(summary or "", 500),
+        "stdout_excerpt": _compact_log(stdout or ""),
+        "stderr_excerpt": _compact_log(stderr or ""),
+    }
+    if records_written is not None:
+        payload["records_written"] = records_written
+    try:
+        supabase.table("bot_runs").insert(payload).execute()
+    except Exception as exc:
+        # records_written kolonu henüz migrate edilmemişse kolonsuz tekrar dene
+        # (bkz. database/add_bot_runs_records_written.sql)
+        if "records_written" in str(exc) and "records_written" in payload:
+            print("[WARN] bot_runs.records_written is missing; run database/add_bot_runs_records_written.sql.")
+            try:
+                fallback = {k: v for k, v in payload.items() if k != "records_written"}
+                supabase.table("bot_runs").insert(fallback).execute()
+            except Exception as fallback_exc:
+                if not _observability_table_missing(fallback_exc):
+                    print(f"[WARN] Bot run telemetry skipped: {fallback_exc}")
+        elif not _observability_table_missing(exc):
+            print(f"[WARN] Bot run telemetry skipped: {exc}")
 
 
 def _check_consecutive_failures(bot_name: str, current_status: str) -> None:

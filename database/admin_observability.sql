@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS public.bot_runs (
   id BIGSERIAL PRIMARY KEY,
   bot_name TEXT NOT NULL,
   run_mode TEXT,
-  status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'timeout', 'skipped')),
+  -- 'empty' = exit 0 ama 0 kayıt scrape edildi (add_bot_runs_records_written.sql)
+  status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'timeout', 'skipped', 'empty')),
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   finished_at TIMESTAMPTZ,
   duration_seconds NUMERIC,
@@ -110,6 +111,8 @@ CREATE TABLE IF NOT EXISTS public.bot_runs (
   summary TEXT,
   stdout_excerpt TEXT,
   stderr_excerpt TEXT,
+  -- Scrape edilen kayıt sayısı; DB'ye yazılan satır sayısı değil
+  records_written INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

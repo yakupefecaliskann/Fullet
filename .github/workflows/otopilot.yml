@@ -156,7 +156,10 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           FULLET_DRY_RUN: ${{ steps.mode.outputs.dry_run }}
-          FULLET_FAIL_ON_BOT_ERROR: "0"
+          # FULLET_FAIL_ON_BOT_ERROR kasıtlı olarak set EDİLMİYOR (varsayılan "1"):
+          # bot başarısızlığı hem system_alerts kaydı açar hem bu adımı kırmızıya
+          # boyar. Eski "0" değeri tüm alarm altyapısını sessizce kapatıyordu
+          # (bkz. FULLET_KOD_SAGLIGI_YOL_HARITASI.md S0-2).
         run: |
           SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-${SUPABASE_SERVICE_KEY:-${SUPABASE_KEY:-}}}"
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY"

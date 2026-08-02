@@ -128,6 +128,8 @@ def save_news(news_items):
 if __name__ == "__main__":
     items = scrape_fuel_news()
     count = save_news(items)
+    # Diğer botlarla aynı makine-okur telemetri satırı (run_all_bots parse eder)
+    print(f"[RECORDS] scraped={len(items)} stations=0 prices={max(count, 0)}")
     if count < 0:
         raise SystemExit(1)
     print(f"[OK] News bot finished. Processed: {count}.")

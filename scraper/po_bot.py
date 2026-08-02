@@ -5,7 +5,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 from http_utils import HTTP
-from db_utils import parse_price, save_to_supabase
+from db_utils import finish_bot_run, parse_price, save_to_supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -66,5 +66,6 @@ def scrape_data():
 if __name__ == "__main__":
     start_time = datetime.now()
     data = scrape_data()
-    save_to_supabase(data, default_brand="Petrol Ofisi")
+    summary = save_to_supabase(data, default_brand="Petrol Ofisi")
     print(f"[OK] Petrol Ofisi finished in {(datetime.now() - start_time).total_seconds():.1f}s.")
+    raise SystemExit(finish_bot_run("po_bot.py", scraped=len(data), summary=summary))

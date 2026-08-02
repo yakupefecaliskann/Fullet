@@ -34,6 +34,28 @@ from database_writes import (
     _chunks,
 )
 
+def finish_bot_run(bot_name: str, *, scraped: int, summary: SaveSummary | None = None) -> int:
+    """Botun makine-okur kayıt satırını basar ve dürüst çıkış kodunu döner.
+
+    run_all_bots.py stdout'taki [RECORDS] satırını parse edip bot_runs
+    telemetrisine yazar. Scrape 0 kayıt döndürdüyse bot BAŞARISIZ sayılır
+    (exit 1) — eski "boş liste + exit 0" kombinasyonu, kırık parser'ların
+    aylarca 'success' görünmesine yol açıyordu (yol haritası S0-1). Yazılan
+    kayıt sayısına (prices/stations) göre başarısızlık kararı VERİLMEZ:
+    zero-cost diff nedeniyle değişmemiş fiyatlar meşru olarak 0 yazım üretir.
+    """
+    stations = summary.stations_touched if summary else 0
+    prices = summary.prices_touched if summary else 0
+    print(f"[RECORDS] scraped={scraped} stations={stations} prices={prices}")
+    if scraped == 0:
+        print(
+            f"[FAIL] {bot_name}: kaynak 0 kayıt döndürdü — "
+            "parser kırık veya site erişilemez."
+        )
+        return 1
+    return 0
+
+
 def normalize_scraped_item(item: dict[str, Any], default_brand: str | None = None) -> dict[str, Any] | None:
     brand = normalize_brand(item.get("marka") or item.get("brand") or item.get("istasyon_adi"), default_brand)
     raw_city = item.get("il")

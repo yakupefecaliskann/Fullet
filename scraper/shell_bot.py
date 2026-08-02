@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 
-from db_utils import normalize_city, parse_price, save_regional_prices_to_supabase, supabase
+from db_utils import finish_bot_run, normalize_city, parse_price, save_regional_prices_to_supabase, supabase
 
 TARGET_LOCATIONS = [
     {"il": "ISTANBUL", "ilce": "KADIKOY"},
@@ -215,5 +215,6 @@ def scrape_shell_data(target_locations=None):
 if __name__ == "__main__":
     start_time = datetime.now()
     data = scrape_shell_data()
-    save_regional_prices_to_supabase(data, default_brand="Shell")
+    summary = save_regional_prices_to_supabase(data, default_brand="Shell")
     print(f"[OK] Shell finished in {(datetime.now() - start_time).total_seconds():.1f}s.")
+    raise SystemExit(finish_bot_run("shell_bot.py", scraped=len(data), summary=summary))

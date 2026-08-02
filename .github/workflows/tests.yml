@@ -1,0 +1,70 @@
+name: Tests
+
+# Faz 0 / S3-7: Depoda 26 Python + 13 Flutter testi vardı ama hiçbir workflow
+# çalıştırmıyordu. Bu workflow her push/PR'da ikisini de koşar — testler artık
+# regresyon kilidi olarak gerçekten görev yapar.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    name: Scraper tests (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: scraper/requirements.txt
+
+      - name: Install dependencies
+        working-directory: ./scraper
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        working-directory: ./scraper
+        # Supabase env değişkenleri kasıtlı olarak YOK: testler config.supabase=None
+        # yoluyla çalışır, canlı veritabanına asla dokunmaz.
+        run: python -m unittest discover -v -p "test_*.py"
+
+  flutter-tests:
+    name: App tests (Flutter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create placeholder .env asset
+        working-directory: ./fullet_flutter
+        # pubspec.yaml .env'i asset olarak listeliyor ama dosya .gitignore'da —
+        # dosya yoksa flutter test asset bundling'de kırılır (yol haritası S3-8).
+        run: touch .env
+
+      - name: Install dependencies
+        working-directory: ./fullet_flutter
+        run: flutter pub get
+
+      - name: Run unit tests
+        working-directory: ./fullet_flutter
+        run: flutter test

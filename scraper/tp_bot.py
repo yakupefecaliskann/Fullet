@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from http_utils import HTTP
-from db_utils import normalize_city, parse_price, save_regional_prices_to_supabase
+from db_utils import finish_bot_run, normalize_city, parse_price, save_regional_prices_to_supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -124,5 +124,6 @@ def scrape_data():
 if __name__ == "__main__":
     start_time = datetime.now()
     data = scrape_data()
-    save_regional_prices_to_supabase(data, default_brand="Türkiye Petrolleri")
+    summary = save_regional_prices_to_supabase(data, default_brand="Türkiye Petrolleri")
     print(f"[OK] Türkiye Petrolleri finished in {(datetime.now() - start_time).total_seconds():.1f}s.")
+    raise SystemExit(finish_bot_run("tp_bot.py", scraped=len(data), summary=summary))

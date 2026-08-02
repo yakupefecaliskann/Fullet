@@ -1,6 +1,7 @@
 import os
 import argparse
 import concurrent.futures
+import re
 import subprocess
 import sys
 import time
@@ -78,6 +79,17 @@ def should_open_failure_alert(bot_name):
     return fail_on_bot_error() and not is_tolerated_failure(bot_name)
 
 
+def _parse_scraped_records(stdout):
+    """Bot stdout'undaki '[RECORDS] scraped=N ...' satırından kayıt sayısını
+    çeker (bkz. db_utils.finish_bot_run). Satır yoksa None döner — eski
+    formatta çıktı veren bir bot telemetride 'bilinmiyor' olarak kalır,
+    yanlışlıkla 'empty' sayılmaz."""
+    if not stdout:
+        return None
+    match = re.search(r"^\[RECORDS\] scraped=(\d+)", stdout, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
 def _run_subprocess_once(script_name, env_overrides, timeout, mode):
     """Tek bir deneme: subprocess'i çalıştırır, telemetriyi kaydeder, başarı
     durumunu döner. Alarm kararı vermez — bu, retry sarmalayıcısının işi
@@ -127,7 +139,15 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
 
     elapsed = time.time() - start_time
     finished_at = datetime.now(timezone.utc)
+    records = _parse_scraped_records(result.stdout)
     status = "success" if result.returncode == 0 else "failed"
+    # Savunma hattı: bot exit 0 dönse bile 0 kayıt scrape ettiyse bu bir
+    # başarı değildir. (Botların kendisi de bu durumda exit 1 döner —
+    # bkz. finish_bot_run — ama helper'ı çağırmayan/eski bir bot buradan
+    # yakalanır.) 'empty' status'u bot_runs CHECK kısıtında tanımlı olmalı:
+    # database/add_bot_runs_records_written.sql
+    if status == "success" and records == 0:
+        status = "empty"
     record_bot_run(
         bot_name=script_name,
         mode=mode,
@@ -139,12 +159,16 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
         summary=f"{script_name} {status} in {elapsed:.1f}s",
         stdout=result.stdout,
         stderr=result.stderr,
+        records_written=records,
     )
-    if result.returncode == 0:
+    if status == "success":
         print(f"[OK] {script_name} finished in {elapsed:.1f}s.")
         return True
 
-    print(f"[FAIL] {script_name} exited with code {result.returncode} in {elapsed:.1f}s.")
+    if status == "empty":
+        print(f"[FAIL] {script_name} exited 0 but scraped 0 records in {elapsed:.1f}s.")
+    else:
+        print(f"[FAIL] {script_name} exited with code {result.returncode} in {elapsed:.1f}s.")
     return False
 
 

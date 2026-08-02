@@ -3,7 +3,7 @@ from datetime import datetime
 
 from http_utils import HTTP
 
-from db_utils import save_station_inventory_to_supabase
+from db_utils import finish_bot_run, save_station_inventory_to_supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -53,5 +53,6 @@ if __name__ == "__main__":
     start_time = datetime.now()
     data = scrape_data()
     print(f"[INFO] Turkiye Petrolleri official station rows fetched: {len(data)}")
-    save_station_inventory_to_supabase(data, default_brand="Türkiye Petrolleri")
+    summary = save_station_inventory_to_supabase(data, default_brand="Türkiye Petrolleri")
     print(f"[OK] Turkiye Petrolleri station bot finished in {(datetime.now() - start_time).total_seconds():.1f}s.")
+    raise SystemExit(finish_bot_run("tp_station_bot.py", scraped=len(data), summary=summary))

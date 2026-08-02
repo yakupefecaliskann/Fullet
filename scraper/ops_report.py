@@ -213,8 +213,12 @@ def main() -> int:
         return 1
 
     resolve_system_alerts(source="ops_report")
-    resolve_system_alerts(source="bot:shell_bot.py")
-    resolve_system_alerts(source="bot:shell_station_bot.py")
+    # NOT: bot:* kaynaklı alarmlar burada KAPATILMAZ. Rapor istasyon/fiyat
+    # SAYILARINA bakar, botun son koşusunun gerçekten başarılı olup olmadığına
+    # değil — o alarmları yalnızca botun kendi başarılı koşusu kapatır
+    # (run_all_bots.run_bot_with_retries). Eski "tolere edilen Shell" döneminden
+    # kalan kör resolve satırları kalıcı Shell arızasını görünmez kılıyordu
+    # (yol haritası S3-1).
     print("\n[OK] Live data operations report is clean.")
     return 0
 
