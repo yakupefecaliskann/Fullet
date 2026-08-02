@@ -1,3 +1,4 @@
+import re
 import sys
 from datetime import datetime
 
@@ -11,6 +12,14 @@ try:
 except AttributeError:
     pass
 
+# Yalnızca "68,91" / "68.91" gibi saf sayı hücrelerini fiyat sayar; başlık
+# metinlerinin içindeki rakamları (95 Oktan, TL/lt) fiyat sanmaz.
+_PRICE_TOKEN_RE = re.compile(r"^\d{1,3}[.,]\d{1,3}$")
+
+
+def _is_price_token(token):
+    return bool(_PRICE_TOKEN_RE.match((token or "").strip()))
+
 
 def _parse_table_rows(soup):
     table = soup.select_one("table")
@@ -18,11 +27,32 @@ def _parse_table_rows(soup):
         return
 
     tokens = table.get_text("\n", strip=True).split("\n")
-    price_start = 6
+
+    # Aytemiz tablosu hücre yapısı olarak ayrıştırılamıyor (bs4 tek blok metin
+    # görüyor), bu yüzden token yürüyüşü korunuyor. Ama sihirli "6" sabitleri
+    # kaldırıldı: satır genişliği ve veri başlangıcı tablodan ölçülüyor.
+    #
+    # parse_price burada kullanılamaz — başlık metni "Benzin (Aytemiz Optimum
+    # Kurş. 95 Oktan) (TL/lt)" noktalama artıklarından 0,95 olarak
+    # ayrıştırılıyor ve satır hizasını kaydırıyor. Saf sayı tokenı şart.
+    boundaries = [
+        index
+        for index in range(len(tokens) - 1)
+        if not _is_price_token(tokens[index]) and _is_price_token(tokens[index + 1])
+    ]
+    if not boundaries:
+        return
+
+    price_start = boundaries[0]
+    row_width = (boundaries[1] - boundaries[0]) if len(boundaries) > 1 else 6
+
     index = price_start
-    while index + 5 < len(tokens):
+    # Okunan en sağdaki kolon index+2 olduğu için yeterli koşul budur. Eski
+    # "index + 5 < len(tokens)" koşulu tablonun SON satırını her zaman
+    # düşürüyordu (yol haritası S1-3).
+    while index + 2 < len(tokens):
         city = tokens[index]
-        if parse_price(tokens[index + 1]) is None:
+        if not _is_price_token(tokens[index + 1]):
             index += 1
             continue
         yield [
@@ -30,7 +60,7 @@ def _parse_table_rows(soup):
             tokens[index + 1],
             tokens[index + 2],
         ]
-        index += 6
+        index += row_width
 
 
 def scrape_data():

@@ -61,19 +61,31 @@ def normalize_brand(value: Any, default_brand: str | None = None) -> str | None:
     return default_brand if default_brand in VALID_BRANDS else None
 
 def normalize_fuel(value: Any) -> str | None:
-    text = clean_text(value).lower()
+    # CITY_REPLACEMENTS Türkçe harfleri ASCII'ye indirger (ş->S, ı->I, ...).
+    # Bu olmadan "kurşunsuz" metni "kursunsuz" testine takılmıyor ve sınıflama
+    # yalnızca sondaki "95" fallback'i sayesinde tesadüfen doğru çalışıyordu —
+    # kaynak "95" yazmayı bıraktığında sessizce bozulurdu (yol haritası S1-7).
+    text = clean_text(value).translate(CITY_REPLACEMENTS).lower()
     if not text:
         return None
     if "kursunsuz" in text or "benzin" in text or "95" in text:
         return "Kursunsuz 95"
-    if "motorin" in text or "dizel" in text or "mazot" in text:
+    # "diesel" (İngilizce) şart: Petrol Ofisi "V/Max Diesel", BP "BP Diesel",
+    # Shell "Fuelsave Diesel" başlıklarını kullanıyor. Başlık tabanlı kolon
+    # eşlemesi (column_mapping.py) bu kelimeyi tanımazsa motorin kolonu
+    # bulunamaz.
+    if (
+        "motorin" in text
+        or "dizel" in text
+        or "diesel" in text
+        or "mazot" in text
+    ):
         return "Motorin"
     if "lpg" in text or "oto gaz" in text or "otogaz" in text:
         return "LPG"
     if (
         "elektrik" in text
         or "sarj" in text
-        or "şarj" in text
         or "kwh" in text
         or text == "ev"
     ):

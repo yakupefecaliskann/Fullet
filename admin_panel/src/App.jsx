@@ -13,7 +13,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { hasSupabaseConfig, supabase } from './supabaseClient.js';
 
-const PRICE_STALE_HOURS = 72;
+// Tazelik eşikleri scraper/freshness.py ve database/add_price_verification.sql
+// ile AYNI olmalı. Eskiden burası 72 saatti; pg_cron 12 saatte bayat
+// işaretlediği için panel "Temiz" derken uygulama aynı fiyata "⚠️ Bayat"
+// diyordu (yol haritası S0-4).
+const PRICE_STALE_HOURS = 12;
 const NEWS_STALE_HOURS = 48;
 const ACTIVE_NOW_MINUTES = 15;
 const PAGE_SIZE = 1000;
@@ -85,8 +89,11 @@ function normalizePriceRows(priceRows, stationRows) {
     acc[brand].prices += 1;
     if (row.price_status === 'unknown') acc[brand].unknownPrices += 1;
     acc[brand].fuels.set(row.yakit_tipi, (acc[brand].fuels.get(row.yakit_tipi) || 0) + 1);
-    if (!acc[brand].latest || new Date(row.son_guncelleme) > new Date(acc[brand].latest)) {
-      acc[brand].latest = row.son_guncelleme;
+    // Tazelik "son doğrulama"ya bakar, "son değişim"e değil: fiyat aylarca
+    // değişmeden doğru kalabilir (bkz. database/add_price_verification.sql).
+    const verifiedAt = row.son_dogrulama || row.son_guncelleme;
+    if (!acc[brand].latest || new Date(verifiedAt) > new Date(acc[brand].latest)) {
+      acc[brand].latest = verifiedAt;
     }
     return acc;
   }, {});
@@ -261,7 +268,7 @@ function App() {
           label: 'Fiyatlar',
           query: fetchAllRows(() => supabase
             .from('fiyatlar')
-            .select('istasyon_id, yakit_tipi, son_guncelleme, price_status')
+            .select('istasyon_id, yakit_tipi, son_guncelleme, son_dogrulama, price_status')
             .order('id', { ascending: true })),
         },
       ];

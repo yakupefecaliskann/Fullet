@@ -7,6 +7,7 @@ from typing import Any, Iterable
 import requests
 
 from config import supabase, SUPABASE_URL, SUPABASE_KEY, CANONICAL_FUELS, ISTANBUL_REGION_DISTRICTS, is_write_allowed, is_dry_run
+from freshness import needs_verification_write, now_utc
 from matching import _station_inventory_coord_key, _station_inventory_key, _existing_station_inventory_indexes, _station_targets, _regional_targets_from_loaded
 from normalization import clean_text, normalize_city
 from models import SaveSummary
@@ -16,6 +17,21 @@ def _chunks(items: list[Any], size: int = 100) -> Iterable[list[Any]]:
         yield items[index:index + size]
 
 def _bulk_upsert_prices(rows: list[dict[str, Any]]) -> int:
+    """Fiyatları yazar ve doğrulama izini (`son_dogrulama`) günceller.
+
+    İki ayrı yazma yolu vardır — bu ayrım `son_guncelleme` semantiğini korur:
+
+      * **Değişen/yeni fiyat** -> tam upsert. `son_guncelleme` ilerler
+        (trigger `log_fiyat_degisimi` fiyat_gecmisi'ne kayıt düşer).
+      * **Değişmemiş fiyat** -> yalnızca `son_dogrulama` + `price_status`
+        güncellenir. `fiyat` alanına dokunulmadığı için trigger tetiklenmez ve
+        "son değişim zamanı" bozulmaz.
+
+    Eski kod değişmemiş fiyatları TAMAMEN atlıyordu (veya 24 saati aşınca
+    `son_guncelleme`'yi sahte biçimde ilerletiyordu). Atlanan satır "bu fiyatı
+    bugün doğruladık" bilgisini kaybettiriyor, 12 saatlik pg_cron eşiği de
+    doğru fiyatı bayat işaretliyordu (bkz. freshness.py).
+    """
     assert supabase is not None
     if not rows:
         return 0
@@ -28,13 +44,16 @@ def _bulk_upsert_prices(rows: list[dict[str, Any]]) -> int:
 
     station_ids = list(set(row["istasyon_id"] for row in unique_rows))
     existing_prices = {}
-    
+
     # Fetch existing prices for zero-cost diffing
     for batch in _chunks(station_ids, 200):
         try:
             res = (
                 supabase.table("fiyatlar")
-                .select("istasyon_id, yakit_tipi, fiyat, price_status, son_guncelleme")
+                .select(
+                    "istasyon_id, yakit_tipi, fiyat, price_status, "
+                    "son_guncelleme, son_dogrulama"
+                )
                 .in_("istasyon_id", batch)
                 .execute()
             )
@@ -43,71 +62,103 @@ def _bulk_upsert_prices(rows: list[dict[str, Any]]) -> int:
         except Exception as exc:
             print(f"[WARN] Failed to fetch existing prices for diffing: {exc}")
 
-    now_utc = datetime.now(timezone.utc)
-    rows_to_upsert = []
+    reference = now_utc()
+    verified_at = reference.isoformat()
+    rows_to_upsert: list[dict[str, Any]] = []
+    # (yakit_tipi -> istasyon_id listesi): fiyatı değişmemiş, yalnızca
+    # doğrulama izi güncellenecek satırlar.
+    confirm_by_fuel: dict[str, list[str]] = {}
 
     for row in unique_rows:
         key = (row["istasyon_id"], row["yakit_tipi"])
         existing = existing_prices.get(key)
+        row["son_dogrulama"] = verified_at
 
-        if existing:
-            # Check if price changed
-            if float(existing.get("fiyat", 0)) != float(row.get("fiyat", 0)):
-                row["price_status"] = "fresh"
-                rows_to_upsert.append(row)
-                continue
-
-            # Check if status is not fresh
-            if existing.get("price_status") != "fresh":
-                row["price_status"] = "fresh"
-                rows_to_upsert.append(row)
-                continue
-
-            # Check if it needs a freshness bump (older than 24 hours)
-            son_guncelleme = existing.get("son_guncelleme")
-            if son_guncelleme:
-                try:
-                    # Handle ISO format parsing
-                    parsed_date = datetime.fromisoformat(son_guncelleme.replace("Z", "+00:00"))
-                    if (now_utc - parsed_date).total_seconds() > 86400: # 24 hours
-                        row["price_status"] = "fresh"
-                        rows_to_upsert.append(row)
-                        continue
-                except ValueError:
-                    row["price_status"] = "fresh"
-                    rows_to_upsert.append(row)
-                    continue
-                    
-            # Unchanged and fresh -> SKIP! (Zero-Cost!)
-        else:
-            # Completely new row
+        if not existing:
             row["price_status"] = "fresh"
             rows_to_upsert.append(row)
+            continue
 
+        price_changed = float(existing.get("fiyat", 0)) != float(row.get("fiyat", 0))
+        if price_changed:
+            row["price_status"] = "fresh"
+            rows_to_upsert.append(row)
+            continue
+
+        # Fiyat aynı: tam satır yazmaya gerek yok, doğrulama izi yeterli.
+        if needs_verification_write(
+            existing.get("son_dogrulama") or existing.get("son_guncelleme"),
+            existing.get("price_status"),
+            reference=reference,
+        ):
+            confirm_by_fuel.setdefault(row["yakit_tipi"], []).append(row["istasyon_id"])
+
+    written = _write_price_rows(rows_to_upsert)
+    written += _confirm_unchanged_prices(confirm_by_fuel, verified_at)
+    return written
+
+
+def _write_price_rows(rows_to_upsert: list[dict[str, Any]]) -> int:
     if not rows_to_upsert:
         return 0
 
-    try:
-        for batch in _chunks(rows_to_upsert, 500):
+    def _upsert(batch_rows: list[dict[str, Any]]) -> None:
+        for batch in _chunks(batch_rows, 500):
             supabase.table("fiyatlar").upsert(
                 batch,
                 on_conflict="istasyon_id,yakit_tipi",
             ).execute()
+
+    try:
+        _upsert(rows_to_upsert)
     except Exception as exc:
-        if "veri_kaynagi" not in str(exc):
+        message = str(exc)
+        missing = next(
+            (col for col in ("veri_kaynagi", "son_dogrulama") if col in message),
+            None,
+        )
+        if missing is None:
             raise
-        print("[WARN] fiyatlar.veri_kaynagi is missing; run database/production_hardening.sql for source traceability.")
+        print(
+            f"[WARN] fiyatlar.{missing} kolonu yok; "
+            "database/add_price_verification.sql (ve production_hardening.sql) çalıştırılmalı."
+        )
         fallback_rows = [
-            {key: value for key, value in row.items() if key != "veri_kaynagi"}
+            {key: value for key, value in row.items() if key != missing}
             for row in rows_to_upsert
         ]
-        for batch in _chunks(fallback_rows, 500):
-            supabase.table("fiyatlar").upsert(
-                batch,
-                on_conflict="istasyon_id,yakit_tipi",
-            ).execute()
-            
+        _upsert(fallback_rows)
+
     return len(rows_to_upsert)
+
+
+def _confirm_unchanged_prices(
+    confirm_by_fuel: dict[str, list[str]],
+    verified_at: str,
+) -> int:
+    """Fiyatı değişmemiş satırlarda yalnızca doğrulama izini günceller.
+
+    `fiyat` yazılmadığı için `log_fiyat_degisimi` trigger'ı tetiklenmez —
+    fiyat_gecmisi'ne sahte değişim kaydı düşmez ve `son_guncelleme` korunur.
+    """
+    confirmed = 0
+    for fuel, station_ids in confirm_by_fuel.items():
+        for batch in _chunks(sorted(set(station_ids)), 500):
+            try:
+                supabase.table("fiyatlar").update({
+                    "son_dogrulama": verified_at,
+                    "price_status": "fresh",
+                }).in_("istasyon_id", batch).eq("yakit_tipi", fuel).execute()
+                confirmed += len(batch)
+            except Exception as exc:
+                if "son_dogrulama" in str(exc):
+                    print(
+                        "[WARN] fiyatlar.son_dogrulama kolonu yok; "
+                        "database/add_price_verification.sql çalıştırılmalı."
+                    )
+                    return confirmed
+                print(f"[WARN] {fuel} doğrulama izi güncellenemedi: {exc}")
+    return confirmed
 
 def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
     assert supabase is not None

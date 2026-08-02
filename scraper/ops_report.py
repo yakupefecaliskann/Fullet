@@ -12,6 +12,7 @@ from db_utils import (
     resolve_system_alerts,
     supabase,
 )
+from freshness import STALE_MAX_HOURS
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -51,7 +52,8 @@ MIN_PRICE_ROWS = {
     "Aytemiz": 50,
 }
 
-MAX_PRICE_AGE_HOURS = 48
+# Tek tanım kaynağı: scraper/freshness.py (yol haritası S0-4).
+MAX_PRICE_AGE_HOURS = STALE_MAX_HOURS
 VERIFIED_SOURCES = OFFICIAL_REGIONAL_SOURCES | OFFICIAL_STATION_SOURCES
 
 

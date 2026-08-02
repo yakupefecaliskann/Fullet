@@ -1,11 +1,11 @@
 import sys
-import re
 from datetime import datetime
 
 from bs4 import BeautifulSoup
 
+from column_mapping import describe_column_map, prices_from_row, resolve_fuel_columns
 from http_utils import HTTP
-from db_utils import finish_bot_run, parse_price, save_to_supabase
+from db_utils import finish_bot_run, save_to_supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -13,9 +13,16 @@ except AttributeError:
     pass
 
 
-def _first_price(cell_text):
-    match = re.search(r"\d{1,3}[.,]\d{2}", cell_text or "")
-    return parse_price(match.group(0)) if match else None
+def _header_cells(table):
+    """Tablonun başlık satırındaki metinleri döner (th varsa th, yoksa ilk tr)."""
+    rows = table.select("tr")
+    if not rows:
+        return []
+    header_row = next((row for row in rows if row.find_all("th")), rows[0])
+    return [
+        cell.get_text(" ", strip=True)
+        for cell in header_row.find_all(["th", "td"])
+    ]
 
 
 def scrape_data():
@@ -31,7 +38,21 @@ def scrape_data():
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
-        rows = soup.select("table tr")
+        table = soup.select_one("table")
+        if table is None:
+            print("[WARN] BP: fiyat tablosu bulunamadı.")
+            return scraped_data
+
+        # BP tablosu PO'dan farklı kolon sayısına sahip (Ultimate ürünleri ayrı
+        # kolonlarda). Sabit indeks yerine başlıktan çözüyoruz; "BP Ultimate"
+        # kolonları premium sayılıp standart kolonlardan sonra denenir.
+        column_map = resolve_fuel_columns(_header_cells(table))
+        print(f"[INFO] BP kolon eşlemesi: {describe_column_map(column_map)}")
+        if not column_map:
+            print("[WARN] BP: yakıt kolonu eşleşmedi, kazıma durduruldu.")
+            return scraped_data
+
+        rows = table.select("tr")
         for row in rows:
             cols = [cell.get_text(" ", strip=True) for cell in row.find_all("td")]
             if len(cols) < 3:
@@ -40,13 +61,7 @@ def scrape_data():
                 continue
 
             city = cols[0]
-            prices = {
-                "Kursunsuz 95": _first_price(cols[1]),
-                "Motorin": _first_price(cols[3] if len(cols) > 3 else cols[2]),
-            }
-            if len(cols) > 8:
-                prices["LPG"] = _first_price(cols[8])
-            prices = {fuel: price for fuel, price in prices.items() if price is not None}
+            prices = prices_from_row(cols, column_map)
             if not prices:
                 continue
 

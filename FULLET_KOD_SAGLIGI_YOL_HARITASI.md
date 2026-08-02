@@ -167,6 +167,28 @@ Her ikisi de `petrolofisi.com.tr` üzerinde aynı tablo yapısını okuyor
 bu tutarsızlıkla uyumlu. **Canlı sayfadan doğrulanmalı** — ama asıl çözüm sabit indeks
 değil, başlık metnine göre kolon bulma (S1-4).
 
+> ### ⚠️ DÜZELTME (2 Ağustos, Faz 1) — bu bulgu YANLIŞTI
+>
+> Canlı sayfalar çekildi. İki sayfa **farklı kolon sayısına** sahip ve her iki bot
+> da kendi tablosu için **doğru** indeksleri kullanıyordu:
+>
+> ```
+> PO: Şehir | V/Max Kurşunsuz 95 | V/Max Diesel | Gazyağı | Kalorifer | Fuel Oil | PO/gaz Otogaz
+>            [1] ✓                 [2] ✓                                           [6] ✓
+> BP: Şehir | BP Kurşunsuz | BP Ultimate | BP Diesel | BP Ultimate Diesel | ... | Otogaz | Y.K.Fuel Oil
+>            [1] ✓                         [3] ✓                                 [8] ✓
+> ```
+>
+> Aynı şekilde Aytemiz'in `price_start=6` sabiti ve TP'nin indeksleri de doğruydu.
+> **Tek gerçek veri bozan kolon hatası Shell LPG'ydi (S1-1).**
+>
+> Yine de beşi de başlık tabanlı çözüme taşındı: sabit indeks doğru olsa bile
+> kırılgandır — Shell'de tam olarak bu yüzden patladı.
+>
+> **Ders:** "İki bot aynı sayfayı farklı okuyor" çıkarımı, sayfaların aynı olduğu
+> **varsayımına** dayanıyordu. Kaynağı görmeden yapılan çıkarım yanıltıcıydı;
+> raporda "canlı doğrulanmalı" işareti bu yüzden konmuştu.
+
 ---
 
 #### S1-3 — Aytemiz parser'ı sihirli sayılarla token yürüyor
@@ -689,14 +711,45 @@ görür. Veri hattı düzelmeden görüntü düzeltmek şikâyeti dönüştürü
 | Sessiz başarısızlığı bitir | Faz 0 / madde 1-3 | Genişletildi: CI bayrağı da dahil |
 | Opet/PO/TP/Aytemiz neden yazmıyor? | S1-2, S1-5, S1-6 | **Cevaplandı** (aşağıda) |
 
-**"4 bot neden hiç taze fiyat yazmıyor?" sorusunun cevabı üç katmanlı:**
-1. Parser kırıldığında bot sessizce boş liste dönüyor (S0-1) — bu yüzden fark edilmedi.
-2. PO'nun kolon indeksleri BP'ninkiyle çelişiyor (S1-2) — en az biri yanlış.
-3. `_station_targets` normalize edilmemiş `il` ile sorguladığı için hedef bulamamış
-   olabilir (S1-6) — Opet/PO/BP/Aytemiz tam olarak bu yolu kullanıyor.
+**"4 bot neden hiç taze fiyat yazmıyor?" — CEVAP (2 Ağustos, canlı veriyle kesinleşti):**
 
-Bu üçü Faz 0 + Faz 1 ile birlikte kapanıyor. **Faz 1 sonundaki `ops_report` çıktısı
-hipotezi kesin olarak doğrulayacak.**
+Hipotezlerimden ikisi yanlıştı, biri doğruydu:
+
+| Hipotez | Sonuç |
+|---|---|
+| Parser kırık, bot sessizce boş dönüyor (S0-1) | ❌ **Yanlış** — botlar çalışıyor ve yazıyordu |
+| PO kolon indeksleri yanlış (S1-2) | ❌ **Yanlış** — indeksler doğruydu (yukarıdaki düzeltme) |
+| Tazelik muhasebesi bozuk (S0-3) | ✅ **DOĞRU — tek ve yeterli sebep** |
+
+Canlı `bot_runs` + `fiyatlar` zaman damgaları mekanizmayı birebir gösterdi:
+
+```
+01 Ağu 22:13  Opet/PO/Aytemiz/TP yazdı        -> fresh
+02 Ağu 06:14  bot koştu, fiyat aynı, yaş 8s   -> diff ATLADI (doğrulama izi yok)
+02 Ağu 10:14  pg_cron (12s eşiği)             -> stale      <- "0 taze fiyat"
+02 Ağu 16:20  bir sonraki koşu                -> tekrar fresh
+```
+
+Yani dört marka **ölü değildi, salınıyordu.** Karar protokolündeki "%0 taze"
+ölçümü, salınımın bayat evresinde alınmış bir anlık görüntüydü. BP ve
+TotalEnergies'in aynı anda taze görünmesinin sebebi de fiyatlarının o koşuda
+gerçekten değişmiş olmasıydı (değişen fiyat diff'i atlamaz).
+
+**Faz 1 sonrası ölçüm (aynı gün, düzeltmelerden sonra):**
+
+| Marka | Önce (taze) | Sonra (taze) | Bayat |
+|---|---|---|---|
+| TotalEnergies | %50,0 | **%89,6** | 0 |
+| Opet | **%0,0** | **%87,7** | 0 |
+| Petrol Ofisi | **%0,0** | **%47,2** | 0 |
+| Aytemiz | **%0,0** | **%45,8** | 0 |
+| Türkiye Petrolleri | **%0,0** | **%45,1** | 0 |
+| BP | %19,0 | **%42,2** | 0 |
+
+Altı markada da **bayat sayısı sıfır** — salınım tamamen durdu. Kalan `unknown`
+satırlar meşru: o istasyonda satılmayan yakıtlar (LPG) ve hiç doldurulmamış
+`Elektrik`. Doğrulama: `Kursunsuz 95` ve `Motorin` taze sayıları (1394), altı
+botun yazdığı istasyon toplamıyla birebir eşleşiyor.
 
 > Not: Karar protokolü "yeni özellik yok, yalnızca doğruluk borcu" diyordu. Bu yol
 > haritasının tamamı o tanıma uyuyor — hiçbir maddede yeni kullanıcı özelliği yok.

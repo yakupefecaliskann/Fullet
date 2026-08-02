@@ -5,8 +5,9 @@ from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
+from column_mapping import prices_from_row, resolve_fuel_columns
 from http_utils import HTTP
-from db_utils import finish_bot_run, normalize_city, parse_price, save_regional_prices_to_supabase
+from db_utils import finish_bot_run, normalize_city, save_regional_prices_to_supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -28,12 +29,18 @@ def _price_page_urls():
     soup = BeautifulSoup(response.text, "html.parser")
     urls = []
     seen = set()
+    # "-akaryakit-fiyatlari" son ekiyle eşleşen ama il sayfası OLMAYAN
+    # bağlantılar (örn. /gecmis-akaryakit-fiyatlari) elenmeli; aksi halde
+    # "GECMIS" sahte bir il gibi kazınıp boşa istek üretiyor.
+    non_city_slugs = {"gecmis", "guncel", "tarihce"}
     for link in soup.select("a[href$='-akaryakit-fiyatlari']"):
         href = link.get("href")
         if not href:
             continue
         url = urljoin(BASE_URL, href)
         if url in seen or url == f"{BASE_URL}/akaryakit-fiyatlari":
+            continue
+        if _city_from_url(url).strip().lower().replace(" ", "-") in non_city_slugs:
             continue
         seen.add(url)
         urls.append(url)
@@ -68,9 +75,24 @@ def _parse_city_page(url):
     if table is None:
         return []
 
+    rows = table.select("tr")
+    if not rows:
+        return []
+    header_row = next((row for row in rows if row.find_all("th")), rows[0])
+    header_cells = [
+        cell.get_text(" ", strip=True) for cell in header_row.find_all(["th", "td"])
+    ]
+    # Sabit indeks yerine başlıktan çözüm. TP tablosunda iki ayrı "MOTORİN
+    # (TL/LT)" kolonu var (ikisi de aynı değeri taşıyor) ve kilogram bazlı
+    # ürünler (KALORİFER, FUEL OIL, Y.K. FUEL OIL) birim kapısıyla eleniyor.
+    column_map = resolve_fuel_columns(header_cells)
+    if not column_map:
+        print(f"[WARN] TP {city}: yakıt kolonu eşleşmedi, sayfa atlandı.")
+        return []
+
     parsed = []
     normalized_city = normalize_city(city)
-    for row in table.select("tr")[1:]:
+    for row in rows[1:]:
         cols = [cell.get_text(" ", strip=True) for cell in row.select("td")]
         if len(cols) < 4:
             continue
@@ -82,17 +104,7 @@ def _parse_city_page(url):
         if re.match(r"^ISTANBUL\s*-\s*(ANADOLU|AVRUPA)$", normalized_district):
             continue
 
-        prices = {
-            "Kursunsuz 95": parse_price(cols[1]),
-            "Motorin": parse_price(cols[3]),
-        }
-        if len(cols) > 8:
-            prices["LPG"] = parse_price(cols[8])
-        prices = {
-            fuel: price
-            for fuel, price in prices.items()
-            if price is not None
-        }
+        prices = prices_from_row(cols, column_map)
         if not prices:
             continue
 

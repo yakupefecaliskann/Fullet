@@ -34,6 +34,24 @@ from database_writes import (
     _chunks,
 )
 
+def _apply_sanity_gate_for_brands(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Çapraz doğrulama kapısını marka bazında uygular.
+
+    Bir koşuda birden fazla marka olabileceği için (nadiren) markalara ayrılıp
+    her biri kendi referansına göre değerlendirilir.
+    """
+    from sanity_gate import apply_sanity_gate
+
+    by_brand: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        by_brand.setdefault(item["marka"], []).append(item)
+
+    result: list[dict[str, Any]] = []
+    for brand, brand_items in by_brand.items():
+        result.extend(apply_sanity_gate(brand_items, brand))
+    return result
+
+
 def finish_bot_run(bot_name: str, *, scraped: int, summary: SaveSummary | None = None) -> int:
     """Botun makine-okur kayıt satırını basar ve dürüst çıkış kodunu döner.
 
@@ -214,6 +232,15 @@ def save_regional_prices_to_supabase(
         print("[WARN] Supabase env values are missing. Nothing was written.")
         return SaveSummary(0, 0, skipped, ())
 
+    # Çapraz doğrulama kapısı: bir yakıtın medyanı diğer markalardan %10'dan
+    # fazla sapıyorsa o yakıt yazılmaz (yol haritası S1-4).
+    before = len(normalized)
+    normalized = _apply_sanity_gate_for_brands(normalized)
+    skipped += before - len(normalized)
+    if not normalized:
+        print("[WARN] Çapraz doğrulama sonrası yazılacak veri kalmadı.")
+        return SaveSummary(0, 0, skipped, ())
+
     _reset_split_region_targets(normalized)
 
     refreshed_at = datetime.now(timezone.utc).isoformat()
@@ -316,6 +343,14 @@ def save_to_supabase(
 
     if not supabase:
         print("[WARN] Supabase env values are missing. Nothing was written.")
+        return SaveSummary(0, 0, skipped, ())
+
+    # Çapraz doğrulama kapısı (yol haritası S1-4) — bkz. sanity_gate.py
+    before = len(normalized)
+    normalized = _apply_sanity_gate_for_brands(normalized)
+    skipped += before - len(normalized)
+    if not normalized:
+        print("[WARN] Çapraz doğrulama sonrası yazılacak veri kalmadı.")
         return SaveSummary(0, 0, skipped, ())
 
     stations_touched = 0

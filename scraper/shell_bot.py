@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 
+from column_mapping import describe_column_map, prices_from_row, resolve_fuel_columns
 from db_utils import finish_bot_run, normalize_city, parse_price, save_regional_prices_to_supabase, supabase
 
 TARGET_LOCATIONS = [
@@ -121,12 +122,32 @@ def _price_at(cols, index):
     return parse_price(cols[index]) if len(cols) > index else None
 
 
-def _prices_from_row(cols):
-    return {
-        "Kursunsuz 95": _price_at(cols, 4) or _price_at(cols, 3),
-        "Motorin": _price_at(cols, 5) or _price_at(cols, 6),
-        "LPG": _price_at(cols, 12) or _price_at(cols, 10),
-    }
+# Shell grid'inin sabit kolon indeksleriyle okunması, projenin en pahalı veri
+# hatasıydı: "LPG": _price_at(12) or _price_at(10). Kolon 12 gerçek Otogaz'dır
+# ama çoğu ilçede boştur ("-"); `or` fallback'i devreye girip kolon 10'u —
+# "Yüksek Kükürtlü Fuel Oil (TL/Kg)" — LPG diye yazıyordu. Kilogram başına
+# fuel oil fiyatı (38,51), litre başına LPG olarak kaydedildi ve Shell LPG
+# ortalamasını diğer markalardan %20 yukarı çekti (37,68 vs ~31,3).
+# Artık kolonlar başlık metninden çözülüyor (column_mapping.py) ve fallback
+# yalnızca AYNI yakıtın kolonları arasında yapılıyor.
+SHELL_HEADER_SELECTOR = "#cb_all_grdPrices td.dxgvHeader, #cb_all_grdPrices th.dxgvHeader"
+
+
+def _read_column_map(page):
+    """Grid başlıklarından yakıt->kolon eşlemesi okur. Başlıklar sorgular
+    arasında değişmediği için ilk başarılı okumadan sonra tekrar okunmaz."""
+    headers = page.locator(SHELL_HEADER_SELECTOR).all_inner_texts()
+    if not headers:
+        return None
+    column_map = resolve_fuel_columns(headers)
+    print(f"[INFO] Shell kolon eşlemesi: {describe_column_map(column_map)}")
+    if "LPG" not in column_map:
+        print("[WARN] Shell Otogaz kolonu başlıklarda bulunamadı — LPG yazılmayacak.")
+    return column_map
+
+
+def _prices_from_row(cols, column_map):
+    return prices_from_row(cols, column_map, parse=parse_price)
 
 
 def scrape_shell_data(target_locations=None):
@@ -135,6 +156,7 @@ def scrape_shell_data(target_locations=None):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Shell bot started.")
     print(f"[INFO] Shell targets: {len(target_locations)}")
     scraped_data = []
+    column_map = None
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -182,6 +204,12 @@ def scrape_shell_data(target_locations=None):
                         print(f"[WARN] {city}/{district} loading: {exc}")
                     page.wait_for_timeout(1500)
 
+                    if column_map is None:
+                        column_map = _read_column_map(page)
+                    if not column_map:
+                        print(f"[WARN] {city}/{district}: kolon başlıkları okunamadı, atlanıyor.")
+                        continue
+
                     rows = page.locator(
                         "#cb_all_grdPrices_DXMainTable tr.dxgvDataRow"
                     ).all()
@@ -191,8 +219,7 @@ def scrape_shell_data(target_locations=None):
                         if len(cols) < 13:
                             continue
                         station_district = cols[2].strip()
-                        prices = _prices_from_row(cols)
-                        prices = {f: p for f, p in prices.items() if p is not None}
+                        prices = _prices_from_row(cols, column_map)
                         if not prices:
                             continue
                         scraped_data.append({

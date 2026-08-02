@@ -264,15 +264,42 @@ def main():
     if args.mode in ("news", "all"):
         _run_news_bot(failures=failures, mode=args.mode)
 
-    if args.mode == "all":
+    # Fiyat tazeliği bakımı her fiyat koşusundan sonra çalışmalı. Eskiden bu
+    # blok yalnızca mode == "all" iken çalışıyordu — ama cron hiçbir zaman
+    # "all" göndermiyor (prices/news/stations), yani bu adım üretimde HİÇ
+    # koşmadı (yol haritası S1-5).
+    if args.mode in ("prices", "all"):
         print("\n=====================================")
         print("Running: quarantine_old_prices.py")
         print("=====================================")
-        subprocess.run(
+        # env=bot_env ortamı GENİŞLETMEZ, EZER: alt sürece yalnızca
+        # FULLET_PUSH_SUMMARY geçiyordu; SUPABASE_URL, servis anahtarı,
+        # FULLET_ALLOW_DB_WRITE ve hatta PATH yoktu. Script bunu görüp
+        # exit 1 ile çıkıyor, dönüş kodu da kontrol edilmiyordu.
+        quarantine_env = os.environ.copy()
+        quarantine_env.update(bot_env)
+        result = subprocess.run(
             [sys.executable, str(SCRAPER_DIR / "quarantine_old_prices.py")],
             cwd=SCRAPER_DIR,
-            env=bot_env,
+            env=quarantine_env,
         )
+        if result.returncode != 0:
+            print(
+                f"[FAIL] quarantine_old_prices.py exited with code {result.returncode}."
+            )
+            failures.append("quarantine_old_prices.py")
+            create_system_alert(
+                severity="error",
+                source="bot:quarantine_old_prices.py",
+                title="quarantine_old_prices.py failed",
+                message=(
+                    "Fiyat tazelik bakımı başarısız oldu — bayat fiyatlar "
+                    "işaretlenmemiş olabilir."
+                ),
+                metadata={"mode": args.mode, "exit_code": result.returncode},
+            )
+        else:
+            resolve_system_alerts(source="bot:quarantine_old_prices.py")
 
     if failures:
         print(f"[WARN] Completed with failing/skipped bots: {', '.join(failures)}")
