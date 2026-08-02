@@ -155,6 +155,10 @@ ELEMENT_TIMEOUT_MS = 15000
 # combobox DÜĞMESİNİN görünürlüğü uzun timeout'u hak eder.
 OPTION_TIMEOUT_MS = 3000
 
+# Açılır listenin açılmasını bekleme ve açamazsak tekrar deneme sayısı.
+COMBO_OPEN_TIMEOUT_MS = 4000
+COMBO_OPEN_ATTEMPTS = 3
+
 # Hedefe BAŞLAMADAN önceki "yatışma" kritik değil; önceki callback zaten
 # bitmiş olabilir, uzun timeout burada boşa harcanır.
 SETTLE_TIMEOUT_MS = 5000
@@ -188,18 +192,66 @@ class _OptionMissing(Exception):
     """Aranan il/ilçe açılır listede yok — tekrar denemek işe yaramaz."""
 
 
-def _select_from_combo(page, button_selector, list_selector, value):
-    button = page.locator(button_selector)
-    button.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
-    button.click(force=True)
+def _open_combo(page, button_selector, list_selector):
+    """Açılır listeyi açar ve GERÇEKTEN açıldığını doğrular.
 
+    DevExpress liste konteynerini bir kez render edip gizler; yani liste
+    KAPALIYKEN de DOM'da durur. Bu yüzden "öğe var mı?" kontrolü, listenin
+    hiç açılmadığı durumu yakalayamaz — sonra görünmez öğeye tıklanır ve
+    `force=True` görünürlüğü atlamadığı için "Element is not visible" gelir.
+    Yerel ölçümde kalan 7 hatanın tamamı buydu. Konteynerin görünür olmasını
+    beklemek, "açıldı" ile "DOM'da duruyor"u ayıran tek sinyaldir.
+    """
+    button = page.locator(button_selector)
+    listbox = page.locator(list_selector)
+    last_error = None
+    for _ in range(COMBO_OPEN_ATTEMPTS):
+        try:
+            # DÜĞME: görünürlük beklenir. Asıl kırılganlık burasıydı — grid
+            # callback'i sürerken düğme DOM'da kalıp görünmez oluyor ve
+            # `force` bunu ATLAMIYOR.
+            button.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+            button.click(force=True)
+            listbox.wait_for(state="visible", timeout=COMBO_OPEN_TIMEOUT_MS)
+            return
+        except Exception as exc:
+            last_error = exc
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(250)
+    raise RuntimeError(f"açılır liste açılamadı ({button_selector}): {last_error}")
+
+
+def _select_from_combo(page, button_selector, list_selector, value):
+    _open_combo(page, button_selector, list_selector)
+
+    # LİSTE ÖĞESİ: görünürlük DEĞİL, VARLIK kontrolü.
+    #
+    # DevExpress açılır listesi kaydırılabilir; 81 illik ve uzun ilçe
+    # listelerinde alt sıradaki öğeler DOM'da bulunmasına rağmen görünür
+    # DEĞİLDİR. Burada `wait_for(state="visible")` kullanmak, gerçekte var
+    # olan ilçeleri "listede yok" saymaya yol açtı: yerel ölçümde 34 hedefin
+    # 34'ü _OptionMissing'e düştü (kapsama %0) ve üretimde her hedef 15 sn
+    # bekleyip 1800 sn'lik bütçeyi patlattı. Eski kodun `.count() > 0`
+    # yaklaşımı bu açıdan DOĞRUYDU; korunması gereken buydu.
     option = page.locator(f"{list_selector} td:has-text('{value}')").first
+    deadline = time.monotonic() + OPTION_TIMEOUT_MS / 1000
+    while option.count() == 0:
+        if time.monotonic() >= deadline:
+            page.keyboard.press("Escape")
+            raise _OptionMissing(value)
+        page.wait_for_timeout(100)
+
+    # Kaydırma olmadan tıklama "Element is outside of the viewport" verir.
     try:
-        option.wait_for(state="visible", timeout=OPTION_TIMEOUT_MS)
-    except Exception as exc:
-        page.keyboard.press("Escape")
-        raise _OptionMissing(value) from exc
-    option.click(force=True)
+        option.scroll_into_view_if_needed(timeout=OPTION_TIMEOUT_MS)
+    except Exception:
+        pass
+    try:
+        option.click(force=True)
+    except Exception:
+        # Uzun listelerde kaydırma bazen yetmiyor; DevExpress liste öğeleri
+        # onclick'e bağlı olduğu için DOM tıklaması eşdeğer çalışır.
+        option.evaluate("el => el.click()")
     _settle(page)
 
 

@@ -198,6 +198,112 @@ class ShellTargetCoverageTest(unittest.TestCase):
         self.assertEqual(stats["ok"] / stats["planned"], 0.0)
 
 
+class ComboSelectionTest(unittest.TestCase):
+    """Açılır liste seçiminin iki ayrı semantiği karıştırılmamalı.
+
+    Bu oturumun en pahalı hatası buydu: `.count() > 0` (VARLIK) kontrolü
+    `wait_for(state="visible")` (GÖRÜNÜRLÜK) ile değiştirildi. DevExpress
+    listesi kaydırılabilir ve kapalıyken de DOM'da durur; sonuç:
+      * gerçek ilçeler "listede yok" sayıldı  -> yerel ölçümde kapsama %0
+      * her hedef 15 sn bekledi               -> üretimde 1800 sn timeout
+    Doğru ayrım: KONTEYNER görünür olmalı (liste açıldı mı?), ÖĞE ise
+    yalnızca DOM'da bulunmalı (kaydırma dışında olabilir).
+    """
+
+    def _combo(self, *, listbox_visible=True, option_count=1):
+        events = []
+
+        class FakeLocator:
+            def __init__(self, kind):
+                self.kind = kind
+                self.first = self
+
+            def wait_for(self, state=None, timeout=None):
+                events.append((self.kind, "wait_for", state))
+                if self.kind == "listbox" and not listbox_visible:
+                    raise RuntimeError("listbox açılmadı")
+
+            def click(self, force=False):
+                events.append((self.kind, "click", None))
+
+            def count(self):
+                events.append((self.kind, "count", None))
+                return option_count
+
+            def scroll_into_view_if_needed(self, timeout=None):
+                events.append((self.kind, "scroll", None))
+
+            def evaluate(self, script):
+                events.append((self.kind, "evaluate", None))
+
+        class FakeKeyboard:
+            def press(self, key):
+                events.append(("keyboard", "press", key))
+
+        class FakePage:
+            keyboard = FakeKeyboard()
+
+            def locator(self, selector):
+                if "B-1Img" in selector:
+                    return FakeLocator("button")
+                if "td:has-text" in selector:
+                    return FakeLocator("option")
+                return FakeLocator("listbox")
+
+            def wait_for_timeout(self, ms):
+                events.append(("page", "sleep", ms))
+
+            def wait_for_selector(self, selector, state=None, timeout=None):
+                events.append(("page", "wait_selector", state))
+
+        return FakePage(), events
+
+    def test_option_presence_is_checked_with_count_not_visibility(self):
+        import shell_bot
+
+        page, events = self._combo()
+        shell_bot._select_from_combo(
+            page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "CANKAYA"
+        )
+        option_events = [e for e in events if e[0] == "option"]
+        self.assertIn(("option", "count", None), option_events)
+        # Öğe için GÖRÜNÜRLÜK beklenmemeli — kaydırma dışındaki gerçek
+        # ilçeleri "yok" sayan hata tam olarak buydu.
+        self.assertNotIn("wait_for", [e[1] for e in option_events])
+
+    def test_listbox_visibility_is_required(self):
+        """Konteyner görünür olmalı: liste kapalıyken de DOM'da durduğu için
+        tek ayırt edici sinyal budur."""
+        import shell_bot
+
+        page, events = self._combo()
+        shell_bot._select_from_combo(
+            page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "CANKAYA"
+        )
+        self.assertIn(("listbox", "wait_for", "visible"), events)
+
+    def test_unopenable_dropdown_is_an_error_not_a_missing_option(self):
+        # Liste hiç açılamadıysa "ilçe yok" demek yanlış teşhistir; bu
+        # geçici bir etkileşim hatasıdır ve retry hakkı olmalıdır.
+        import shell_bot
+
+        page, _ = self._combo(listbox_visible=False)
+        with self.assertRaises(RuntimeError):
+            shell_bot._select_from_combo(
+                page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "X"
+            )
+
+    def test_absent_option_raises_option_missing(self):
+        import shell_bot
+
+        page, _ = self._combo(option_count=0)
+        with self.assertRaises(shell_bot._OptionMissing):
+            shell_bot._select_from_combo(
+                page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT",
+                "HOROZLUHAN MAH Y",
+            )
+
+
 class _FakePage:
     def goto(self, *args, **kwargs):
         return None
