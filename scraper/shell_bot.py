@@ -159,6 +159,9 @@ OPTION_TIMEOUT_MS = 3000
 COMBO_OPEN_TIMEOUT_MS = 4000
 COMBO_OPEN_ATTEMPTS = 3
 
+# İl seçimi sonrası ilçe listesinin sunucu callback'iyle yenilenme süresi.
+COUNTY_REFRESH_TIMEOUT_MS = 8000
+
 # Hedefe BAŞLAMADAN önceki "yatışma" kritik değil; önceki callback zaten
 # bitmiş olabilir, uzun timeout burada boşa harcanır.
 SETTLE_TIMEOUT_MS = 5000
@@ -224,22 +227,34 @@ def _open_combo(page, button_selector, list_selector):
 def _select_from_combo(page, button_selector, list_selector, value):
     _open_combo(page, button_selector, list_selector)
 
-    # LİSTE ÖĞESİ: görünürlük DEĞİL, VARLIK kontrolü.
+    # LİSTE ÖĞESİ: metinleri okuyup İKİ TARAFI DA normalize ederek eşleştir.
     #
-    # DevExpress açılır listesi kaydırılabilir; 81 illik ve uzun ilçe
-    # listelerinde alt sıradaki öğeler DOM'da bulunmasına rağmen görünür
-    # DEĞİLDİR. Burada `wait_for(state="visible")` kullanmak, gerçekte var
-    # olan ilçeleri "listede yok" saymaya yol açtı: yerel ölçümde 34 hedefin
-    # 34'ü _OptionMissing'e düştü (kapsama %0) ve üretimde her hedef 15 sn
-    # bekleyip 1800 sn'lik bütçeyi patlattı. Eski kodun `.count() > 0`
-    # yaklaşımı bu açıdan DOĞRUYDU; korunması gereken buydu.
-    option = page.locator(f"{list_selector} td:has-text('{value}')").first
+    # `td:has-text('ARNAVUTKOY')` büyük/küçük harfe duyarsızdır ama AKSANA
+    # DUYARLIDIR. Hedef listemiz ASCII'ye indirgenmiş (`normalize_city`),
+    # Shell'in açılır listesi ise Türkçe yazıyor: ARNAVUTKÖY, ATAŞEHİR,
+    # BAĞCILAR, BEŞİKTAŞ, KÂĞITHANE... Bu yüzden Shell'in gerçekten istasyonu
+    # olan onlarca ilçe "listede yok" sayılıyordu. Üretim ölçümü: 150 hedefin
+    # 83'ü bu sebeple kayboldu (etkileşim hatası SIFIRDI).
+    #
+    # Ek fayda: normalize edilmiş TAM eşleşme, alt dize eşleşmesinin
+    # "YENI" -> "YENIMAHALLE" gibi yanlış hedeflerini de ortadan kaldırır.
+    cells = page.locator(f"{list_selector} td")
     deadline = time.monotonic() + OPTION_TIMEOUT_MS / 1000
-    while option.count() == 0:
+    index = None
+    while index is None:
+        texts = cells.all_inner_texts()
+        for position, text in enumerate(texts):
+            if normalize_city(text) == value:
+                index = position
+                break
+        if index is not None:
+            break
         if time.monotonic() >= deadline:
             page.keyboard.press("Escape")
             raise _OptionMissing(value)
         page.wait_for_timeout(100)
+
+    option = cells.nth(index)
 
     # Kaydırma olmadan tıklama "Element is outside of the viewport" verir.
     try:
@@ -255,14 +270,60 @@ def _select_from_combo(page, button_selector, list_selector, value):
     _settle(page)
 
 
-def _scrape_target(page, city, district, column_map):
-    """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map)."""
+COUNTY_LIST_SELECTOR = "#cb_all_cb_county_DDD_L_LBT"
+
+
+def _county_signature(page):
+    """İlçe listesinin o anki içeriğinin imzası (açmaya gerek yok, DOM'da)."""
+    try:
+        return tuple(page.locator(f"{COUNTY_LIST_SELECTOR} td").all_inner_texts())
+    except Exception:
+        return ()
+
+
+def _wait_for_county_refresh(page, previous_signature):
+    """İl seçiminden sonra ilçe listesinin YENİLENMESİNİ bekler.
+
+    İl seçmek sunucu tarafı bir cascade callback'i tetikliyor; ilçe listesi
+    o callback bitene kadar ÖNCEKİ İLİN ilçelerini göstermeye devam ediyor.
+    Bu beklemesiz kod, ANKARA seçiliyken İSTANBUL'un listesini okuyordu —
+    canlı kanıt (Shell'in kendi listesi dökülerek):
+
+        ### ANKARA: Shell'de 43 ilce -> ['BOGAZKOY','ISTANBUL_ANA','ADALAR',
+                                         'CATALCA','SILE','SILIVRI', ...]
+        BIZDE VAR SHELL'DE YOK (16): ALTINDAG, CANKAYA, KECIOREN, MAMAK, ...
+
+    Yani ANKARA'nın gerçek ilçelerinin tamamı "listede yok" sayılıyordu.
+    Üretimde 150 hedefin 83'ünün kaybolmasının sebebi buydu (etkileşim
+    hatası sıfırdı — sorun teşhisin kendisindeydi).
+    """
+    deadline = time.monotonic() + COUNTY_REFRESH_TIMEOUT_MS / 1000
+    while time.monotonic() < deadline:
+        current = _county_signature(page)
+        if current and current != previous_signature:
+            return True
+        page.wait_for_timeout(150)
+    # Yenilenmediyse: aynı ile ait ardışık hedef olabilir (imza zaten doğru)
+    # ya da callback gecikmiştir. Çağıran yine de deneyecek; yanlış listeden
+    # okuma riskini _OptionMissing yakalar.
+    return False
+
+
+def _scrape_target(page, city, district, column_map, current_city=None):
+    """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map, il)."""
     _settle(page)
+    # İl zaten seçiliyse tekrar seçme: hem cascade callback'ini hem de
+    # ~2 sn'lik etkileşimi boşuna tetiklemeyelim (hedefler il il sıralı).
+    if city != current_city:
+        before = _county_signature(page)
+        _select_from_combo(
+            page, "#cb_all_cb_province_B-1Img", "#cb_all_cb_province_DDD_L_LBT", city
+        )
+        _wait_for_county_refresh(page, before)
+        current_city = city
+
     _select_from_combo(
-        page, "#cb_all_cb_province_B-1Img", "#cb_all_cb_province_DDD_L_LBT", city
-    )
-    _select_from_combo(
-        page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", district
+        page, "#cb_all_cb_county_B-1Img", COUNTY_LIST_SELECTOR, district
     )
 
     search = page.locator("#cb_all_ASPxButton1_CD")
@@ -294,7 +355,7 @@ def _scrape_target(page, city, district, column_map):
             "fiyatlar": prices,
             "veri_kaynagi": "turkiyeshell.com/pompatest/History.aspx",
         })
-    return scraped, column_map
+    return scraped, column_map, current_city
 
 
 def scrape_shell_data(target_locations=None):
@@ -313,6 +374,7 @@ def scrape_shell_data(target_locations=None):
     # bütçe içinde sırası gelenler. Kapsama oranı planned'a göre hesaplanır —
     # aksi halde bütçe 40 hedefte kesilse ve 38'i okunsa "%95 kapsama" gibi
     # sahte bir rakam çıkar, oysa Shell'in yalnızca dörtte biri tazelenmiştir.
+    current_city = None
     stats = {
         "planned": len(target_locations),
         "attempted": 0, "ok": 0, "missing": 0, "failed": 0,
@@ -341,7 +403,9 @@ def scrape_shell_data(target_locations=None):
                 last_error = None
                 for attempt in range(TARGET_MAX_ATTEMPTS):
                     try:
-                        rows, column_map = _scrape_target(page, city, district, column_map)
+                        rows, column_map, current_city = _scrape_target(
+                            page, city, district, column_map, current_city
+                        )
                         scraped_data.extend(rows)
                         stats["ok"] += 1
                         last_error = None

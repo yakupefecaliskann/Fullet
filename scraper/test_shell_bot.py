@@ -93,12 +93,12 @@ class ShellTargetCoverageTest(unittest.TestCase):
 
         calls = []
 
-        def fake_scrape_target(page, city, district, column_map):
+        def fake_scrape_target(page, city, district, column_map, current_city=None):
             calls.append((city, district))
             result = outcomes[(city, district)].pop(0)
             if isinstance(result, Exception):
                 raise result
-            return result, {"Motorin": [5]}
+            return result, {"Motorin": [5]}, city
 
         targets = [{"il": c, "ilce": d} for c, d in outcomes]
         with unittest.mock.patch.object(shell_bot, "_scrape_target", fake_scrape_target), \
@@ -210,12 +210,13 @@ class ComboSelectionTest(unittest.TestCase):
     yalnızca DOM'da bulunmalı (kaydırma dışında olabilir).
     """
 
-    def _combo(self, *, listbox_visible=True, option_count=1):
+    def _combo(self, *, listbox_visible=True, items=("ÇANKAYA", "KEÇİÖREN")):
         events = []
 
         class FakeLocator:
-            def __init__(self, kind):
+            def __init__(self, kind, index=None):
                 self.kind = kind
+                self.index = index
                 self.first = self
 
             def wait_for(self, state=None, timeout=None):
@@ -224,11 +225,14 @@ class ComboSelectionTest(unittest.TestCase):
                     raise RuntimeError("listbox açılmadı")
 
             def click(self, force=False):
-                events.append((self.kind, "click", None))
+                events.append((self.kind, "click", self.index))
 
-            def count(self):
-                events.append((self.kind, "count", None))
-                return option_count
+            def all_inner_texts(self):
+                events.append((self.kind, "all_inner_texts", None))
+                return list(items)
+
+            def nth(self, index):
+                return FakeLocator("option", index)
 
             def scroll_into_view_if_needed(self, timeout=None):
                 events.append((self.kind, "scroll", None))
@@ -246,8 +250,8 @@ class ComboSelectionTest(unittest.TestCase):
             def locator(self, selector):
                 if "B-1Img" in selector:
                     return FakeLocator("button")
-                if "td:has-text" in selector:
-                    return FakeLocator("option")
+                if selector.endswith(" td"):
+                    return FakeLocator("cells")
                 return FakeLocator("listbox")
 
             def wait_for_timeout(self, ms):
@@ -258,18 +262,25 @@ class ComboSelectionTest(unittest.TestCase):
 
         return FakePage(), events
 
-    def test_option_presence_is_checked_with_count_not_visibility(self):
+    def test_option_is_matched_on_normalized_text_not_raw(self):
+        """Shell listesi Türkçe yazıyor, hedeflerimiz ASCII.
+
+        `td:has-text('CANKAYA')` büyük/küçük harfe duyarsız ama AKSANA
+        duyarlıdır; 'ÇANKAYA' ile eşleşmez. İki tarafı da normalize etmek
+        şart — aksi halde Shell'in gerçekten istasyonu olan ilçeler
+        "listede yok" sayılır.
+        """
         import shell_bot
 
         page, events = self._combo()
         shell_bot._select_from_combo(
-            page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "CANKAYA"
+            page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "KECIOREN"
         )
-        option_events = [e for e in events if e[0] == "option"]
-        self.assertIn(("option", "count", None), option_events)
+        # 'KEÇİÖREN' listenin 1. sırasında; doğru indekse tıklanmalı.
+        self.assertIn(("option", "click", 1), events)
         # Öğe için GÖRÜNÜRLÜK beklenmemeli — kaydırma dışındaki gerçek
         # ilçeleri "yok" sayan hata tam olarak buydu.
-        self.assertNotIn("wait_for", [e[1] for e in option_events])
+        self.assertNotIn("option", [e[0] for e in events if e[1] == "wait_for"])
 
     def test_listbox_visibility_is_required(self):
         """Konteyner görünür olmalı: liste kapalıyken de DOM'da durduğu için
@@ -296,11 +307,68 @@ class ComboSelectionTest(unittest.TestCase):
     def test_absent_option_raises_option_missing(self):
         import shell_bot
 
-        page, _ = self._combo(option_count=0)
+        page, _ = self._combo(items=("ÇANKAYA",))
         with self.assertRaises(shell_bot._OptionMissing):
             shell_bot._select_from_combo(
                 page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT",
                 "HOROZLUHAN MAH Y",
+            )
+
+    def test_exact_match_prevents_substring_false_targets(self):
+        # Alt dize eşleşmesi 'YENI' hedefini 'YENIMAHALLE'ye bağlardı;
+        # normalize edilmiş TAM eşleşme bunu engeller.
+        import shell_bot
+
+        page, _ = self._combo(items=("YENİMAHALLE", "YENİKENT"))
+        with self.assertRaises(shell_bot._OptionMissing):
+            shell_bot._select_from_combo(
+                page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "YENI"
+            )
+
+
+class CountyCascadeTest(unittest.TestCase):
+    """İl değişince ilçe listesinin YENİLENMESİ beklenmeli.
+
+    İl seçmek sunucu tarafı cascade callback'i tetikliyor; beklemezsek ilçe
+    listesi ÖNCEKİ İLİN ilçelerini gösteriyor. Canlı kanıt: ANKARA seçiliyken
+    liste İSTANBUL'unkini ('BOGAZKOY','ISTANBUL_ANA','ADALAR',...) döndürdü ve
+    ANKARA'nın 16 gerçek ilçesinin tamamı "listede yok" sayıldı. Üretimde
+    150 hedefin 83'ünün kaybolma sebebi buydu.
+    """
+
+    def _page(self, signatures):
+        state = {"i": 0}
+
+        class FakeLocator:
+            def all_inner_texts(self):
+                index = min(state["i"], len(signatures) - 1)
+                state["i"] += 1
+                return list(signatures[index])
+
+        class FakePage:
+            def locator(self, selector):
+                return FakeLocator()
+
+            def wait_for_timeout(self, ms):
+                pass
+
+        return FakePage()
+
+    def test_waits_until_the_county_list_changes(self):
+        import shell_bot
+
+        page = self._page([("ADALAR", "SILE"), ("ADALAR", "SILE"), ("CANKAYA", "MAMAK")])
+        self.assertTrue(
+            shell_bot._wait_for_county_refresh(page, ("ADALAR", "SILE"))
+        )
+
+    def test_gives_up_without_blocking_forever(self):
+        import shell_bot
+
+        page = self._page([("ADALAR", "SILE")])
+        with unittest.mock.patch.object(shell_bot, "COUNTY_REFRESH_TIMEOUT_MS", 200):
+            self.assertFalse(
+                shell_bot._wait_for_county_refresh(page, ("ADALAR", "SILE"))
             )
 
 
