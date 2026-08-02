@@ -25,6 +25,7 @@ import '../utils/price_formatter.dart';
 import '../utils/marker_icon_factory.dart';
 import '../utils/distance_calculator.dart';
 import '../utils/brand_utils.dart';
+import '../utils/text_normalize.dart';
 import '../widgets/top_search_bar.dart';
 import '../theme/ful_theme.dart';
 import '../services/notification_service.dart';
@@ -387,10 +388,17 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     return result;
   }
 
+  /// Seçili yakıtı gösterilebilir fiyatla satan istasyonlar.
+  ///
+  /// Eskiden buradaki koşul `||` idi. `_stations` zaten `_parseStations`
+  /// içinde `isVisibleInApp` süzgecinden geçtiği için sağ taraf HER ZAMAN
+  /// true dönüyordu → yakıt filtresi hiç çalışmıyor, LPG satmayan istasyonlar
+  /// haritada "Yok" etiketiyle kalıyordu. `&&` doğru operatör; sağ taraf
+  /// savunma amaçlı bırakıldı (kaynak listesi ileride süzülmezse diye).
   List<Station> _stationsWithFuel(String fuelType) {
     final result = _stations
         .where((station) =>
-            station.hasDisplayablePriceFor(fuelType) || station.isVisibleInApp)
+            station.hasDisplayablePriceFor(fuelType) && station.isVisibleInApp)
         .toList(growable: false);
     return result;
   }
@@ -687,7 +695,6 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     final latitude = station.latitude;
     final longitude = station.longitude;
     final priceNum = station.priceValueFor(selectedFuel);
-    final trustedPriceNum = station.trustedPriceValueFor(selectedFuel);
     final priceStr = station.priceTextFor(selectedFuel);
     final priceStatus = station.priceStatusFor(selectedFuel);
     final hasPrice = priceNum != null;
@@ -695,11 +702,14 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
         ? station.id
 
         : '${station.brand}-$latitude-$longitude';
-    final isCheapest = trustedPriceNum != null &&
+    // S2-2: taç, marker'ın gösterdiği fiyatın ta kendisiyle tutarlı olmalı —
+    // eskiden burada `trustedPriceValueFor` vardı ve marker bayat fiyatı
+    // gösterirken taç başka istasyona gidiyordu.
+    final isCheapest = priceNum != null &&
         (_focusMode == MapFocusMode.cheapest ||
             _focusMode == MapFocusMode.smart) &&
         stationId == smartResult?.cheapestStationId;
-    final isMostLogical = trustedPriceNum != null &&
+    final isMostLogical = priceNum != null &&
         ((_focusMode == MapFocusMode.smart &&
                 stationId == smartResult?.mostLogicalStationId) ||
             (_focusMode == MapFocusMode.nearest &&
@@ -780,7 +790,8 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
       final latCell = (latitude / config.cellDegrees).floor();
       final lngCell = (longitude / config.cellDegrees).floor();
       final key = '$latCell:$lngCell';
-      final price = station.trustedPriceValueFor(fuelType);
+      // S2-2: declutter önceliği de haritanın gösterdiği havuzu kullanır.
+      final price = station.priceValueFor(fuelType);
       final distanceKm = getDistanceKm(
             _currentLocation.latitude,
             _currentLocation.longitude,
@@ -2134,7 +2145,8 @@ class _StationCluster {
   double? minPriceFor(String fuelType) {
     double? best;
     for (final station in stations) {
-      final price = station.trustedPriceValueFor(fuelType);
+      // S2-2: cluster rozeti de aynı havuzdan okur.
+      final price = station.priceValueFor(fuelType);
       if (price == null) continue;
       if (best == null || price < best) best = price;
     }
@@ -2532,16 +2544,7 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
     return results;
   }
 
-  String _normalize(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll('ı', 'i')
-        .replaceAll('ğ', 'g')
-        .replaceAll('ü', 'u')
-        .replaceAll('ş', 's')
-        .replaceAll('ö', 'o')
-        .replaceAll('ç', 'c');
-  }
+  String _normalize(String value) => normalizeTurkish(value);
 
   int _pinRank(_SearchResult result) {
     if (result.isFavorite) return 0;

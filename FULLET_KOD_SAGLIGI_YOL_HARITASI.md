@@ -374,6 +374,25 @@ Dart'ta `'İ'.toLowerCase()` → `'i' + U+0307` (birleşen nokta). `İSMAİL PET
 `"i̇smai̇l petrol"`; kullanıcının yazdığı `"ismail"` bu dizede **bulunmaz.**
 `brand_utils._normalizeBrandText` bu harfi ele alıyor, `_normalize` almıyor.
 
+> **DÜZELTME (Faz 2, canlı doğrulama) — BU BULGU YANLIŞTI.**
+> Dart 3.12.2'de `'İ'.toLowerCase()` **tek karakter** `'i'` (U+0069) döndürüyor;
+> birleşen nokta üretilmiyor. Ölçüldü: `'İ'.codeUnits == [304]`,
+> `'İ'.toLowerCase().codeUnits == [105]`. Eski `_normalize` `İSMAİL PETROL`'ü
+> zaten `"ismail petrol"` yapıyordu ve `"ismail"` araması **çalışıyordu.**
+> Canlı veride de sorun yok: `istasyonlar`ın 3.433 satırının **0**'ı birleşen
+> nokta içeriyor, hepsi NFC; 933 isimde `İ` var ve hepsi doğru eşleşiyor.
+>
+> Yine de yapılan değişiklik korundu, ama **hata düzeltmesi olarak değil**:
+> iki ayrı normalleştirici (`_normalize` + `_normalizeBrandText`) tek
+> `utils/text_normalize.dart`'a indirildi. `_normalizeBrandText` içindeki
+> `replaceAll('İ','i')` satırı `toLowerCase()`'ten sonra geldiği için zaten
+> **ölü koddu** — silindi. U+0307 temizliği savunma amaçlı duruyor ve
+> `text_normalize_test.dart` Dart tam Unicode eşlemesine geçerse düşecek
+> şekilde davranışı kilitliyor.
+>
+> Bu, S1-2'den sonra denetimin **ikinci** yanlış bulgusu. Ders aynı:
+> mekanizma iddiası ölçülmeden düzeltme yazılmamalı.
+
 ---
 
 #### S2-5 — `fuelMatches` fazla gevşek
@@ -627,16 +646,25 @@ görmeli ve marka-yakıt medyanları %10 bandı içinde olmalı. Olmuyorsa Faz 2
 
 Veri düzeldikten sonra görüntüyü düzeltin — tersi sırada neyin düzeldiğini ayırt edemezsiniz.
 
-14. **`_stationsWithFuel`'deki `||`'ı `&&` yap.** *(S2-1)* Tek karakter, en görünür
+14. ✅ **`_stationsWithFuel`'deki `||`'ı `&&` yap.** *(S2-1)* Tek karakter, en görünür
     kullanıcı hatasını kapatır. Sonrasında boş-durum kartı gerçekten çalışmaya başlar.
-15. **Bayat fiyat politikasını netleştir ve tek yerde uygula.** *(S2-2)*
+15. ✅ **Bayat fiyat politikasını netleştir ve tek yerde uygula.** *(S2-2)*
     Önerim: bayat fiyat haritada gösterilsin **ama** marker'da görsel olarak ayrışsın
     (zaten `marker_icon_factory.dart:86` turuncu paleti var) **ve** "en ucuz"/"en mantıklı"
     hesabı da aynı havuzu kullansın. Şu anki iki farklı havuz kabul edilemez.
-16. **`latestPriceUpdatedAt`'ten `dataUpdatedAt`'i çıkar.** *(S2-3)* İstasyon satırının
+    → Uygulandı: `Station.priceValueFor` tek havuz (fresh+stale, unknown hariç);
+    `SmartStationService` (2 yer), marker tacı, `_stationsForZoom`, `minPriceFor`
+    hepsi buna bağlandı. Eşit fiyatta taze olan tacı alır. `trustedPriceValueFor`
+    yalnızca **fiyat alarmında** kaldı (bildirim göndermenin eşiği gösterimden yüksek).
+16. ✅ **`latestPriceUpdatedAt`'ten `dataUpdatedAt`'i çıkar.** *(S2-3)* İstasyon satırının
     güncellenme zamanı fiyat tazeliği değildir. `getLastPriceChangeText`'i yakıt tipine
     duyarlı hale getirin.
-17. **`_normalize`'a `'İ'` çevirisini ekle** (`toLowerCase` öncesi). *(S2-4)*
+    → Ayrıca `station_bottom_sheet.dart`'taki `?? station.dataUpdatedAt` geri düşüşü
+    kaldırıldı; asıl "Güncel" yalanı **orada** görünüyordu (`getLastPriceChangeText`'in
+    hiç çağrılmadığı ortaya çıktı).
+17. ⚠️ **`_normalize`'a `'İ'` çevirisini ekle** (`toLowerCase` öncesi). *(S2-4)*
+    → **Bulgu yanlıştı** (bkz. S2-4 düzeltme notu). Hata yoktu; değişiklik
+    normalleştirici birleştirmesi olarak korundu.
 18. **`son_tetiklenme`'yi `toUtc()` ile yaz.** *(S2-6)*
 19. **`dotenv.load`'ı try/catch'e al**, hata durumunda `_ConfigurationErrorApp`. *(S3-8)*
 20. **Sürüm numarasını `package_info_plus`'tan oku**, üç sabiti sil. *(S3-9)*

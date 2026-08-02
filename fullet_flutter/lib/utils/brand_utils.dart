@@ -1,3 +1,5 @@
+import 'text_normalize.dart';
+
 class BrandOption {
   final String key;
   final String label;
@@ -74,15 +76,6 @@ String brandFilterSummary(Set<String> keys) {
   return keys.map(brandDisplayLabelForKey).join(', ');
 }
 
-String _normalizeBrandText(String value) {
-  return value
-      .toLowerCase()
-      .trim()
-      .replaceAll('ı', 'i')
-      .replaceAll('İ', 'i')
-      .replaceAll('ğ', 'g')
-      .replaceAll('ü', 'u')
-      .replaceAll('ş', 's')
-      .replaceAll('ö', 'o')
-      .replaceAll('ç', 'c');
-}
+// `replaceAll('İ', 'i')` burada `toLowerCase()`'ten SONRA geldiği için hiç
+// eşleşmiyordu (bkz. text_normalize.dart). Tek ortak normalleştiriciye taşındı.
+String _normalizeBrandText(String value) => normalizeTurkish(value);

@@ -163,8 +163,11 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
         : null;
 
     final priceStatus = station.priceStatusFor(widget.selectedFuel);
-    final priceUpdatedAt =
-        station.priceFor(widget.selectedFuel)?.updatedAt ?? station.dataUpdatedAt;
+    // S2-3: `?? station.dataUpdatedAt` geri düşüşü kaldırıldı. O kolon
+    // (`istasyonlar.guncellenme_tarihi`) hiç fiyat yazılmasa bile her bot
+    // koşusunda tazeleniyor; bandın "2 saat önce güncellendi" demesine yol
+    // açıyordu. Zaman damgası yoksa band zamansız metne düşer.
+    final priceUpdatedAt = station.priceFor(widget.selectedFuel)?.updatedAt;
     final shouldShowPriceStatus =
         hasPrice || priceStatus != 'fresh' || station.isLowPriority;
 

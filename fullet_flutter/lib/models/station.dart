@@ -117,9 +117,21 @@ class Station with ClusterItem {
     return price;
   }
 
+  /// TEK BAYAT FİYAT POLİTİKASI (S2-2).
+  ///
+  /// Haritada gösterilen fiyat ile "en ucuz" / "en mantıklı" hesabının
+  /// kullandığı fiyat AYNI havuzdan gelir: `fresh` + `stale` (yani
+  /// `isDisplayable`), `unknown` hariç. Eskiden marker bayat fiyatı
+  /// gösterirken taç yalnızca taze fiyatlar arasından seçiliyordu; kullanıcı
+  /// ekranda 79,50 yazan bir marker görürken mavi rozet 82,10'daki başka bir
+  /// istasyonda duruyordu. Bayatlık artık fiyatı havuzdan çıkararak değil,
+  /// marker'ın turuncu paletiyle ve fiyat durumu bandıyla anlatılır.
   double? priceValueFor(String selectedFuel) =>
       displayPriceFor(selectedFuel)?.price;
 
+  /// Yalnızca `fresh`. Haritada/sıralamada KULLANILMAZ — bkz. [priceValueFor].
+  /// Yalnızca kullanıcıya bildirim gönderen fiyat alarmı gibi, yanlış tetiklenmesi
+  /// gösterimden daha maliyetli olan yüzeyler için ayrılmıştır.
   double? trustedPriceValueFor(String selectedFuel) =>
       trustedPriceFor(selectedFuel)?.price;
 
@@ -148,11 +160,16 @@ class Station with ClusterItem {
   double? trendFor(String selectedFuel) =>
       latestHistoryFor(selectedFuel)?.difference;
 
+  /// Yalnızca FİYAT satırlarının zaman damgası (S2-3).
+  ///
+  /// Eskiden listeye `dataUpdatedAt` (= `istasyonlar.guncellenme_tarihi`) de
+  /// giriyordu. O kolon `matching._station_targets` tarafından her bot
+  /// koşusunda, hiç fiyat yazılmasa bile güncelleniyor; sonuç olarak üç
+  /// haftalık bir fiyat "Güncel" görünebiliyordu. İstasyon satırının
+  /// güncellenme zamanı fiyat tazeliği değildir.
   DateTime? get latestPriceUpdatedAt {
-    final candidates = [
-      ...prices.map((price) => price.updatedAt).whereType<DateTime>(),
-      if (dataUpdatedAt != null) dataUpdatedAt!,
-    ];
+    final candidates =
+        prices.map((price) => price.updatedAt).whereType<DateTime>().toList();
     if (candidates.isEmpty) return null;
     candidates.sort((a, b) => b.compareTo(a));
     return candidates.first;
@@ -175,18 +192,18 @@ class Station with ClusterItem {
         source.contains('tppd.com.tr/tr/stationmaplist');
   }
 
-  String getLastPriceChangeText() {
-    final datedHistory = priceHistory
-        .where((item) => item.changedAt != null)
-        .toList()
-      ..sort((a, b) => b.changedAt!.compareTo(a.changedAt!));
-    if (datedHistory.isEmpty) {
-      final latestUpdate = latestPriceUpdatedAt;
-      if (latestUpdate == null) return 'Yeni';
-      return _relativeTime(latestUpdate);
-    }
+  /// Seçili yakıtın son fiyat değişimini anlatır (S2-3).
+  ///
+  /// Eskiden `priceHistory` yakıt tipine BAKILMADAN taranıyordu; motorin
+  /// değişimi LPG kartında "3s önce" olarak gösterilebiliyordu. Artık geçmiş
+  /// de, geri düşüş de seçili yakıtın kendi satırından okunur.
+  String getLastPriceChangeText(String selectedFuel) {
+    final latestChange = latestHistoryFor(selectedFuel)?.changedAt;
+    if (latestChange != null) return _relativeTime(latestChange);
 
-    return _relativeTime(datedHistory.first.changedAt!);
+    final latestUpdate = priceFor(selectedFuel)?.updatedAt;
+    if (latestUpdate == null) return 'Yeni';
+    return _relativeTime(latestUpdate);
   }
 
   String _relativeTime(DateTime dateTime) {

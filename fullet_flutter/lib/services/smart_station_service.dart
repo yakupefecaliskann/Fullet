@@ -2,6 +2,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/station.dart';
 import '../utils/distance_calculator.dart';
+import '../utils/price_formatter.dart';
 
 class SmartStationResult {
   final String? cheapestStationId;
@@ -41,15 +42,22 @@ class SmartStationService {
   }) {
     String? cheapestStationId;
     double cheapestPrice = double.infinity;
+    int cheapestRank = priceStatusRank(null);
     String? mostLogicalStationId;
     double bestTotalCost = double.infinity;
 
     for (final station in stations) {
-      final price = station.trustedPriceValueFor(selectedFuel);
+      // S2-2: haritada gösterilen havuzun aynısı (fresh + stale).
+      final price = station.priceValueFor(selectedFuel);
       if (price == null || !price.isFinite || price <= 0) continue;
 
-      if (price < cheapestPrice) {
+      final rank = priceStatusRank(station.priceStatusFor(selectedFuel));
+      // Fiyat eşitse taze olan kazansın; bayat yalnızca gerçekten daha ucuzsa
+      // tacı alır.
+      if (price < cheapestPrice ||
+          (price == cheapestPrice && rank < cheapestRank)) {
         cheapestPrice = price;
+        cheapestRank = rank;
         cheapestStationId = station.id;
       }
 
@@ -90,7 +98,8 @@ class SmartStationService {
     final lng = station.longitude;
     if (lat == null || lng == null) return null;
 
-    final price = station.trustedPriceValueFor(selectedFuel);
+    // S2-2: calculateBestStations ile aynı havuz.
+    final price = station.priceValueFor(selectedFuel);
     if (price == null) return null;
 
     final distanceKm =
