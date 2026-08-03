@@ -296,4 +296,50 @@ void main() {
     expect(withoutLpg.isVisibleInApp, isTrue,
         reason: 'gorunur ama LPG satmiyor — filtre yine de elemeli');
   });
+
+  test('Madde 21: low_priority istasyon tac alamaz', () {
+    // `low_priority` = "7 gundur hicbir bot bu kaydi dogrulamadi"
+    // (pg_cron JOB 3). Konumu veya varligi supheli; kullaniciyi oraya
+    // yonlendirmek en ucuzu bulmak degil, yanlis yere gondermektir.
+    // Bu mekanizma kuruluydu ama HICBIR YERE BAGLI DEGILDI: uygulama
+    // low_priority'yi normal `visible` gibi gosteriyordu (yol haritasi
+    // madde 21 / S3-3). Canlida 989 istasyon bu durumdaydi.
+    Station build(String id, String visibility, String price) =>
+        Station.fromJson({
+          'id': id,
+          'marka': 'Opet',
+          'isim': 'Opet $id',
+          'il': 'ISTANBUL',
+          'ilce': 'KADIKOY',
+          'enlem': '41.00',
+          'boylam': '29.00',
+          'visibility_status': visibility,
+          'fiyatlar': [
+            {
+              'yakit_tipi': 'Kursunsuz 95',
+              'fiyat': price,
+              'price_status': 'fresh',
+            },
+          ],
+        });
+
+    final ucuzAmaSupheli = build('supheli', 'low_priority', '60,00');
+    final pahaliAmaSaglam = build('saglam', 'visible', '65,00');
+
+    final result = SmartStationService.calculateBestStations(
+      location: const LatLng(41, 29),
+      stations: [ucuzAmaSupheli, pahaliAmaSaglam],
+      selectedFuel: 'Kursunsuz 95',
+      tankCapacity: 50,
+      fuelConsumption: 7,
+    );
+
+    expect(result.cheapestStationId, 'saglam',
+        reason: 'daha ucuz olsa bile low_priority tac alamaz');
+    expect(result.mostLogicalStationId, 'saglam');
+    // Haritadan SILINMEZ — fiyati hala dogru olabilir, sadece soluk gosterilir
+    // ve tavsiye edilmez.
+    expect(ucuzAmaSupheli.isVisibleInApp, isTrue);
+    expect(ucuzAmaSupheli.isLowPriority, isTrue);
+  });
 }
