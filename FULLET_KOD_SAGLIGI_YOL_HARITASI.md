@@ -757,7 +757,97 @@ düzeltme yazılmamalı.
 
 ---
 
-### FAZ 3 — ÖLÜ MEKANİZMALARI KAPAT (yarım gün)
+### FAZ 0–2 DENETİMİ — KAPATILAN İKİ BULGU (3 Ağustos 2026, ikinci tur)
+
+#### B1 — `degraded`, kritik "arka arkaya BAŞARISIZ" alarmına dönüşüyordu ❗
+`telemetry.record_bot_run` `success/ok` olmayan **her** durumu hata sayıyor,
+`_check_consecutive_failures` de geçmiş `degraded` satırlarını hata olarak
+sayıp seriyi uzatıyordu. Üretimde fiilen patladı:
+
+```
+2026-08-02T23:11:19  warning   shell_bot.py hedeflerin çoğunu okuyamadı
+2026-08-02T23:11:20  critical  shell_bot.py arka arkaya başarısız
+```
+
+23:00 ve 23:26'daki iki `degraded` koşu bu alarmı açtırdı — oysa bot her iki
+koşuda da yüzlerce fiyat yazmıştı. `degraded` tasarım gereği "veri yazıldı ama
+eksik" demek. `NON_FAILURE_STATUSES` eklendi; `degraded` artık seriyi kırar ve
+eski hata alarmını kapatır (kapsama uyarısı farklı `title` ile açık kalır).
+4 regresyon testi, biri gerçek hataların HÂLÂ eskale ettiğini korur.
+
+#### B2 — Kapsama sayıları hiçbir yerde kalıcı değildi
+`_compact_log` stdout'un **ilk** 4000 karakterini saklar; `[RECORDS] …
+targets_ok=A targets_total=B` satırı ~150 hedeflik koşunun **sonunda** basılır.
+Canlı kontrol: 20 `shell_bot` kaydının **hiçbirinde** kapsama satırı yok.
+Kapsama yalnızca `system_alerts.metadata`'da ve yalnızca `degraded` koşular
+için kalıyordu — başarılı koşuda %71 mi %100 mü olduğu, yani eşiğe doğru
+**trend**, görülemiyordu. (İroni: D1 teşhisi tam da `stdout_excerpt` okunarak
+yapılmıştı; düzeltmeden sonra o yöntem çalışmıyor.)
+`bot_runs.targets_ok` / `targets_total` kolonları eklendi
+(`database/add_bot_runs_target_coverage.sql`); kapsama artık `status`'ten
+bağımsız olarak **her** koşuda yazılıyor.
+
+---
+
+### FAZ 3 (YENİDEN TANIMLANDI) — İSTASYON VERİSİ: TABAN ÖLÇÜMÜ
+
+Kullanıcı Faz 3'ü "tüm Türkiye'deki istasyonların konumları, eksik ilçeler ve
+kopya kayıtlar" olarak yeniden tanımladı. Aşağıdaki 21–25. maddeler
+(ölü mekanizmalar) **ertelendi**.
+
+**Taban ölçümü, canlı veri, 3 Ağustos 2026 — salt-okunur.**
+
+Toplam **3.433** istasyon. (Hedef olarak anılan 12.000+ ile arada büyük fark
+var; Türkiye'de ~13.000 istasyon olduğu düşünülürse kapsama ~%26. Bu bir
+*temizlik* değil *toplama* işi — ayrı karar.)
+
+**Kritik metodoloji notu:** ham sayılar felaket görünüyor ama neredeyse
+tamamı **pasif** satırlardan geliyor. Uygulama yalnızca `aktif` istasyonları
+gösterir:
+
+| kusur | ham sayı | AKTİF içinde |
+|---|---|---|
+| `il` 81 il listesinde değil | 292 | **0** |
+| koordinat yok | 182 | **0** |
+| `veri_kaynagi` boş | 353 | **0** |
+| `ilce` boş | 591 | 29 (%1,1 — ve %100 taze) |
+| fiyat satırı yok | 584 | 142 |
+
+**Aktif 2.636 istasyonun %98,9'u kusursuz.** 797 pasif satır 1.065 `unknown`
+fiyat satırı taşıyor ve **sıfır** tazesi var — eski moloz, doğru şekilde
+gizli. `aktif` bayrağı görevini yapıyor.
+
+`normalize_province` bir **doğrulayıcı değil**, normalleştiricidir: tanımadığı
+değeri aynen geri verir (`'BILINMIYOR' -> 'BILINMIYOR'`). Geçerlilik ölçümü
+`PROVINCES` kümesine karşı yapılmalı.
+
+#### Aktiflerde kalan gerçek kusurlar (Faz 3'ün asıl kapsamı)
+
+**F3-1 — 100 aktif kopya çifti (<150m, aynı marka).**
+98'inde **ikisinde de** fiyat var (bölünmüş veri); **6'sı aynı yakıtta farklı
+fiyat gösteriyor** — kullanıcı aynı istasyonu haritada iki pinde iki fiyatla
+görüyor (ör. DİYARBAKIR ÇEVRE YOLU: LPG 33,94 `fresh` / 38,51 `unknown`).
+51 çift "jenerik marka adı" vs "gerçek isim". Kaynak dağılımı suçluyu
+gösteriyor: **66x Shell'in fiyat botu kendisiyle**, 29x TotalEnergies API'si
+kendisiyle. Yani sorun iki bot arasında değil, **dedupe anahtarında**:
+`unique_isim_ilce` kısıtında `isim` bu markalarda marka adı olduğu için aynı
+ilçedeki iki istasyon temsil edilemiyor — D4'te "ayrı karar" diye bırakılan
+kısıt sorunu tam olarak budur.
+
+**F3-2 — 142 aktif istasyonun hiç fiyat satırı yok.**
+TotalEnergies 134, Türkiye Petrolleri 8. Hepsi *istasyon* botlarından geliyor
+(`exapi/stations`, `tppd.com.tr/tr/stationmaplist`); fiyat botları bunları hiç
+eşleştirmiyor. Uygulamada görünür ama kalıcı olarak fiyatsız.
+
+**F3-3 — Shell tazeliği (kapasite).** 94 öncelikli + koşu başına 56 slot →
+tam tur **8 koşu = 48 saat**, `fresh` penceresi 12 saat. Öncelikli olmayan bir
+ilçe tasarım gereği zamanın ~%25'inde taze olabilir. Canlı doğrulama birebir:
+öncelikli %62,6 taze / diğer **%20,3** taze, %57,7 bilinmiyor. Shell tüm
+istasyonların %41'i. Son 24 saatteki 7 Shell koşusunun **3'ü `degraded`**.
+
+---
+
+### FAZ 3 (ESKİ) — ÖLÜ MEKANİZMALARI KAPAT (yarım gün) — *ertelendi*
 
 Bunlar bugün zarar vermiyor ama gelecekte yanlış güven üretir.
 
