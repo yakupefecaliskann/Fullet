@@ -8,7 +8,14 @@ import requests
 
 from config import supabase, SUPABASE_URL, SUPABASE_KEY, CANONICAL_FUELS, ISTANBUL_REGION_DISTRICTS, is_write_allowed, is_dry_run
 from freshness import needs_verification_write, now_utc
-from matching import _station_inventory_coord_key, _station_inventory_key, _existing_station_inventory_indexes, _station_targets, _regional_targets_from_loaded
+from matching import (
+    StationProximityIndex,
+    _existing_station_inventory_indexes,
+    _regional_targets_from_loaded,
+    _station_inventory_key,
+    _station_targets,
+    station_coordinates,
+)
 from normalization import (
     clean_text,
     normalize_city,
@@ -170,13 +177,23 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
     if not items:
         return 0
 
+    # Girdideki BİREBİR aynı kayıtları teke indirir. Yakın-ama-aynı-değil
+    # koordinatlar burada KASTEN elenmez; onları aşağıdaki yakınlık
+    # eşleştirmesi (mevcut kayıtlara karşı) ve `batch_proximity` (parti içi)
+    # çözer. Burada yuvarlanmış kova kullanmak, 11 m'lik kova sınırına düşen
+    # gerçek istasyonları sessizce yutardı.
     deduped: dict[tuple[Any, ...], dict[str, Any]] = {}
     for item in items:
-        dedupe_key = _station_inventory_coord_key(item) or _station_inventory_key(item)
+        coordinates = station_coordinates(item)
+        dedupe_key = (
+            (clean_text(item["marka"]), *coordinates)
+            if coordinates is not None
+            else _station_inventory_key(item)
+        )
         deduped[dedupe_key] = item
 
     now = datetime.now(timezone.utc).isoformat()
-    existing_by_key, existing_by_coord = _existing_station_inventory_indexes(
+    existing_by_key, existing_proximity = _existing_station_inventory_indexes(
         item["marka"] for item in deduped.values()
     )
     updates: list[dict[str, Any]] = []
@@ -194,7 +211,7 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
             "veri_kaynagi": item["veri_kaynagi"],
             "guncellenme_tarihi": now,
         }
-        coord_key = _station_inventory_coord_key(item)
+        coordinates = station_coordinates(item)
         station_id = existing_by_key.get(key)
         if station_id is None:
             for match_name in item.get("eslesme_isimleri", []):
@@ -207,8 +224,13 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
                 station_id = existing_by_key.get(match_key)
                 if station_id is not None:
                     break
-        if station_id is None and coord_key is not None:
-            station_id = existing_by_coord.get(coord_key)
+        if station_id is None and coordinates is not None:
+            # Yakınlık eşleştirmesi: aynı marka + <=75 m => aynı istasyon.
+            # İdari alanlar (il/ilce) kimliğe DAHİL DEĞİL — güvenilmezler ve
+            # ilce='' vs ilce='ÇEKMEKÖY' farkı tek başına kopya üretiyordu.
+            station_id = existing_proximity.find(
+                item["marka"], coordinates[0], coordinates[1]
+            )
         if station_id:
             updates.append({"id": station_id, **payload, "visibility_status": "low_priority", "aktif": True})
         else:
@@ -220,17 +242,26 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
             })
 
     updates_by_id = {row["id"]: row for row in updates}
-    inserts_by_coord: dict[tuple[float, float], dict[str, Any]] = {}
+
+    # Partinin KENDİ içindeki kopyalar. Burada da eskiden yuvarlanmış koordinat
+    # anahtarı kullanılıyordu; aynı kova hatası aynı koşuda iki satır olarak
+    # geri geliyordu. Artık aynı yakınlık kuralı uygulanıyor.
+    batch_proximity = StationProximityIndex()
+    deduped_inserts: list[dict[str, Any]] = []
     inserts_without_coord: list[dict[str, Any]] = []
     for row in inserts:
-        coord_key = _station_inventory_coord_key(row)
-        if coord_key is None:
+        coordinates = station_coordinates(row)
+        if coordinates is None:
             inserts_without_coord.append(row)
-        else:
-            inserts_by_coord[(coord_key[-2], coord_key[-1])] = row
+            continue
+        if batch_proximity.find(row["marka"], coordinates[0], coordinates[1]):
+            continue
+        index_position = str(len(deduped_inserts))
+        batch_proximity.add(row["marka"], coordinates[0], coordinates[1], index_position)
+        deduped_inserts.append(row)
 
     unique_updates = list(updates_by_id.values())
-    unique_inserts = list(inserts_by_coord.values()) + inserts_without_coord
+    unique_inserts = deduped_inserts + inserts_without_coord
 
     for batch in _chunks(unique_updates, 500):
         supabase.table("istasyonlar").upsert(batch, on_conflict="id").execute()

@@ -220,6 +220,73 @@ def _station_inventory_key(item: dict[str, Any]) -> tuple[str, str, str, str]:
         normalize_city(item["ilce"]),
     )
 
+# --- İstasyon kimliği: yakınlık eşleştirmesi ---------------------------------
+#
+# Eski `_station_inventory_coord_key` bir KOVA idi: (marka, il, ilce,
+# round(lat,4), round(lon,4)). `round(...,4)` ≈ 11 m, dolayısıyla aynı fiziksel
+# istasyonun 12 m farkla kaydedilmiş iki sürümü FARKLI kovalara düşüp "ayrı
+# istasyon" sayılıyordu. Canlı ölçüm (3 Ağu 2026): 100 aktif kopya çifti,
+# aralarındaki mesafeler 0–12 m; 98'inde ikisinde de fiyat vardı (bölünmüş
+# veri), 6'sı aynı yakıtta FARKLI fiyat gösteriyordu. Kaynak dağılımı suçu
+# gösterdi: 66 çift Shell'in fiyat botunun KENDİSİYLE çakışmasıydı.
+#
+# İkinci kusur: anahtarda `il`/`ilce` vardı. Aynı istasyon bir koşuda
+# ilce='' , diğerinde ilce='ÇEKMEKÖY' ile gelince yine kopya üretiliyordu.
+# İdari alanlar bu veri setinde güvenilir değil (bkz. Faz 3 taban ölçümü);
+# kimlik yalnızca MARKA + KONUM olmalı.
+STATION_MATCH_RADIUS_METERS = 75.0
+
+# Hücre kenarı yarıçaptan büyük seçilir ve 3x3 komşuluk taranır; böylece kova
+# SINIRINDA duran çiftler de bulunur (kova-eşitliğinin asıl kırıldığı yer).
+_PROXIMITY_CELL_DEGREES = 0.01  # ~1,1 km
+
+
+class StationProximityIndex:
+    """Marka + konuma göre "bu istasyonu zaten tanıyor muyuz?" indeksi."""
+
+    def __init__(self, radius_meters: float = STATION_MATCH_RADIUS_METERS) -> None:
+        self._radius_km = radius_meters / 1000.0
+        self._cells: dict[tuple[str, int, int], list[tuple[float, float, str]]] = {}
+
+    @staticmethod
+    def _cell(latitude: float, longitude: float) -> tuple[int, int]:
+        return (
+            int(math.floor(latitude / _PROXIMITY_CELL_DEGREES)),
+            int(math.floor(longitude / _PROXIMITY_CELL_DEGREES)),
+        )
+
+    def add(self, brand: Any, latitude: float, longitude: float, station_id: str) -> None:
+        row, col = self._cell(latitude, longitude)
+        self._cells.setdefault((clean_text(brand), row, col), []).append(
+            (latitude, longitude, station_id)
+        )
+
+    def find(self, brand: Any, latitude: float, longitude: float) -> str | None:
+        """Yarıçap içindeki EN YAKIN istasyonun id'si (yoksa None)."""
+        brand_key = clean_text(brand)
+        row, col = self._cell(latitude, longitude)
+        best_id: str | None = None
+        best_distance = self._radius_km
+        for drow in (-1, 0, 1):
+            for dcol in (-1, 0, 1):
+                for other_lat, other_lon, station_id in self._cells.get(
+                    (brand_key, row + drow, col + dcol), ()
+                ):
+                    distance = _haversine(latitude, longitude, other_lat, other_lon)
+                    if distance <= best_distance:
+                        best_distance = distance
+                        best_id = station_id
+        return best_id
+
+
+def station_coordinates(item: dict[str, Any]) -> tuple[float, float] | None:
+    latitude = parse_coordinate(item.get("enlem"), latitude=True)
+    longitude = parse_coordinate(item.get("boylam"), latitude=False)
+    if latitude is None or longitude is None:
+        return None
+    return latitude, longitude
+
+
 def _station_inventory_coord_key(item: dict[str, Any]) -> tuple[str, str, str, float, float] | None:
     latitude = parse_coordinate(item.get("enlem"), latitude=True)
     longitude = parse_coordinate(item.get("boylam"), latitude=False)
@@ -235,13 +302,16 @@ def _station_inventory_coord_key(item: dict[str, Any]) -> tuple[str, str, str, f
 
 def _existing_station_inventory_indexes(
     brands: Iterable[str],
-) -> tuple[
-    dict[tuple[str, str, str, str], str],
-    dict[tuple[str, str, str, float, float], str],
-]:
+) -> tuple[dict[tuple[str, str, str, str], str], StationProximityIndex]:
+    """(isim tabanlı indeks, konum tabanlı yakınlık indeksi).
+
+    İkincisi eskiden `round(coord, 4)` kovalı bir dict'ti; 11 m'lik kova aynı
+    istasyonun 12 m farklı iki kaydını ayrı sanıyordu ve canlıda 100 kopya
+    çifti üretmişti (bkz. StationProximityIndex).
+    """
     assert supabase is not None
     existing_by_key: dict[tuple[str, str, str, str], str] = {}
-    existing_by_coord: dict[tuple[str, str, str, float, float], str] = {}
+    proximity = StationProximityIndex()
     for brand in sorted(set(brands)):
         start = 0
         while True:
@@ -262,13 +332,13 @@ def _existing_station_inventory_indexes(
                     normalize_city(row.get("ilce")),
                 )
                 existing_by_key.setdefault(key, row["id"])
-                coord_key = _station_inventory_coord_key(row)
-                if coord_key is not None:
-                    existing_by_coord.setdefault(coord_key, row["id"])
+                coordinates = station_coordinates(row)
+                if coordinates is not None:
+                    proximity.add(row.get("marka"), coordinates[0], coordinates[1], row["id"])
             if len(rows) < 1000:
                 break
             start += 1000
-    return existing_by_key, existing_by_coord
+    return existing_by_key, proximity
 
 def _regional_targets_from_loaded(
     item: dict[str, Any],

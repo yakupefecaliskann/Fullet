@@ -352,5 +352,88 @@ class ProvinceSplitTest(unittest.TestCase):
         self.assertEqual(item["ilce"], "SELCUKLU")
 
 
+class StationProximityIndexTest(unittest.TestCase):
+    """Faz 3 / F3-1: istasyon kimligi KOVA degil YAKINLIK olmali.
+
+    Eski anahtar (marka, il, ilce, round(lat,4), round(lon,4)) 11 m'lik bir
+    kovaydi. Canli olcum: 100 aktif kopya cifti, mesafeler 0-12 m, 98'inde
+    ikisinde de fiyat vardi, 6'si ayni yakitta FARKLI fiyat gosteriyordu.
+    """
+
+    # Canli kopya ciftlerinden olculen gercek mesafeler (metre)
+    ISTANBUL_CEKMEKOY = (41.0396, 29.1795)
+
+    def _offset(self, point, meters_north):
+        # 1 derece enlem ~ 111.320 m
+        return (point[0] + meters_north / 111320.0, point[1])
+
+    def test_near_duplicate_matches_same_station(self):
+        from matching import StationProximityIndex
+
+        index = StationProximityIndex()
+        index.add("Shell", *self.ISTANBUL_CEKMEKOY, "station-1")
+        # Canlida 8 m arayla iki kayit vardi ('Shell' + 'CEKMEKOY AKCESME.')
+        near = self._offset(self.ISTANBUL_CEKMEKOY, 8)
+        self.assertEqual(index.find("Shell", *near), "station-1")
+
+    def test_twelve_meters_still_matches(self):
+        # Eski round(...,4) kovasinin KIRILDIGI mesafe: 12 m ayri iki nokta
+        # farkli kovalara dusup 'ayri istasyon' sayilabiliyordu.
+        from matching import StationProximityIndex
+
+        index = StationProximityIndex()
+        index.add("Shell", *self.ISTANBUL_CEKMEKOY, "station-1")
+        self.assertEqual(
+            index.find("Shell", *self._offset(self.ISTANBUL_CEKMEKOY, 12)),
+            "station-1",
+        )
+
+    def test_cell_boundary_does_not_hide_neighbour(self):
+        # Kova-esitliginin asil kirildigi yer: sinirin iki yaninda duran cift.
+        from matching import StationProximityIndex
+
+        index = StationProximityIndex()
+        on_boundary = (41.00999, 29.1795)  # 0.01'lik hucre sinirinin hemen altinda
+        index.add("Shell", *on_boundary, "station-1")
+        just_over = (41.01001, 29.1795)    # ~2 m kuzeyi, DIGER hucre
+        self.assertEqual(index.find("Shell", *just_over), "station-1")
+
+    def test_genuinely_separate_stations_stay_separate(self):
+        # Regresyon korumasi: yaricap disi ayri istasyonlar birlestirilmemeli.
+        # D4 notu: 2,4 km ve 3,5 km uzaktaki kayitlar KOPYA DEGIL.
+        from matching import StationProximityIndex
+
+        index = StationProximityIndex()
+        index.add("Petrol Ofisi", *self.ISTANBUL_CEKMEKOY, "station-1")
+        far = self._offset(self.ISTANBUL_CEKMEKOY, 2400)
+        self.assertIsNone(index.find("Petrol Ofisi", *far))
+
+    def test_different_brands_never_match(self):
+        from matching import StationProximityIndex
+
+        index = StationProximityIndex()
+        index.add("Shell", *self.ISTANBUL_CEKMEKOY, "shell-1")
+        near = self._offset(self.ISTANBUL_CEKMEKOY, 5)
+        self.assertIsNone(index.find("Opet", *near))
+
+    def test_identity_ignores_administrative_fields(self):
+        # ilce='' vs ilce='CEKMEKOY' tek basina kopya uretiyordu; kimlik artik
+        # yalnizca marka + konum.
+        from matching import StationProximityIndex, station_coordinates
+
+        index = StationProximityIndex()
+        row = {"marka": "Shell", "enlem": self.ISTANBUL_CEKMEKOY[0],
+               "boylam": self.ISTANBUL_CEKMEKOY[1], "il": "ISTANBUL", "ilce": ""}
+        coordinates = station_coordinates(row)
+        self.assertIsNotNone(coordinates)
+        index.add(row["marka"], *coordinates, "station-1")
+
+        same_place_with_district = {"marka": "Shell", "enlem": self.ISTANBUL_CEKMEKOY[0],
+                                    "boylam": self.ISTANBUL_CEKMEKOY[1],
+                                    "il": "ISTANBUL", "ilce": "CEKMEKOY"}
+        other = station_coordinates(same_place_with_district)
+        self.assertEqual(index.find("Shell", *other), "station-1")
+
+
 if __name__ == "__main__":
     unittest.main()
