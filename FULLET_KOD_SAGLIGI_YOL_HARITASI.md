@@ -847,6 +847,79 @@ istasyonların %41'i. Son 24 saatteki 7 Shell koşusunun **3'ü `degraded`**.
 
 ---
 
+### FAZ 3 — YAPILAN İŞ (3 Ağustos 2026)
+
+#### F3-1 ✅ Kopya istasyonlar — üretim durduruldu, mevcutlar birleştirildi
+
+*Kök neden:* `_station_inventory_coord_key` bir **kova** idi —
+`(marka, il, ilce, round(lat,4), round(lon,4))`. `round(...,4)` ≈ 11 m, yani
+aynı istasyonun 12 m farkla kaydedilmiş iki sürümü farklı kovalara düşüp
+"ayrı istasyon" sayılıyordu. Anahtarda `il`/`ilce` de vardı; `ilce=''` vs
+`ilce='ÇEKMEKÖY'` farkı tek başına kopya üretiyordu.
+
+*Üretim tarafı:* `matching.StationProximityIndex` — 3×3 hücre komşuluğu
+taranır (kova **sınırında** duran çiftler eski yöntemin asıl kırıldığı
+yerdi), yarıçap 75 m, kimlik yalnızca marka + konum. Üç yazma yolu da
+bağlandı.
+
+*Yarıçap 75 m ölçümle seçildi* (101 canlı çift üzerinde): 0-75 m'de 78 çift
+birleşir; 75-150 m'deki 18 çiftin **16'sı gerçekten ayrı istasyon**
+(`YAĞLI BATI`/`YAĞLI DOĞU`, `POLATLI BATI`/`POLATLI DOĞU`,
+`DAVUTPAŞA ALTYOL`/`DAVUTPAŞA ÜSTYOL`) — yol ayrımının iki yanı. Yarıçapı
+topyekûn büyütmek bunları yanlışlıkla birleştirirdi.
+
+*Mevcutlar:* `scraper/merge_duplicate_stations.py` (varsayılan dry-run).
+İki kademe: ≤75 m isimden bağımsız, 75-150 m yalnızca biri jenerik isimliyse
+(`'Shell'`, `'Total'` — fiyat botu artefaktı). **79 kopya silindi, 208 fiyat
+hayatta kalanlara taşındı**, 5 kümede LPG çakışması vardı (hepsinde takılı
+kalmış `38.51` `unknown` değeri), taze olan kazandı. Favoriler ve fiyat
+alarmları silmeden **önce** taşınır — `ON DELETE CASCADE` yüzünden aksi hâlde
+sessizce kaybolurlardı (bu koşuda 0 favori/0 alarm etkilendi).
+**Doğrulandı:** 75 m içinde kalan kopya çifti 101 → **0**.
+
+*Bilinen kalıntı:* `BAĞCILAR-2 (12T951)` ↔ `Total Bağcılar-2` (146 m) aynı
+istasyon ama ikisi de tam jenerik değil; tek satır için bulanık isim
+eşleştirmesi kırılgan olurdu, elle bırakıldı.
+
+#### F3-2 ✅ 142 aktif ama kalıcı fiyatsız istasyon
+
+*Kök neden:* markalar iki farklı granülerlikte fiyat yayınlıyor ve sistem
+bunları eşitlemiyordu. Opet/PO/BP/Aytemiz **il** düzeyinde yazıyor (`ilce`
+boş → ilçe filtresi hiç devreye girmiyor → o ildeki tüm istasyonlar fiyat
+alıyor). TotalEnergies/TP ise **ilçe** düzeyinde yazıyor, dolayısıyla
+`ilike("ilce", "%X%")` yalnızca beslemede adı geçen ilçeleri seçiyordu.
+140 istasyonun 137'sinin **ili tutuyordu** — onları kesen ilçe filtresiydi.
+
+*Çözüm:* tüm öğeler işlendikten **sonra** tek seferlik son geçiş; ilçesi
+beslemede olmayan istasyona ilin medyan fiyatı yazılır. (Öğe başına
+yapılsaydı her ilçe sırayla tüm eşleşmemiş istasyonları sahiplenip
+birbirini ezerdi.)
+
+*Neden güvenli — ölçüldü:* TotalEnergies canlı beslemesinde (944 satır) aynı
+il içinde ilçeler arası Motorin farkı **medyan 0,02 TL**, 7 ilde tam sıfır;
+tek anlamlı sapma K.MARAŞ (1,50 TL). Bu bir tahmin üretmek değil,
+granülerlik farkını eşitlemek. En kritik garanti testle kilitli: **gerçek
+ilçe fiyatı alan istasyona il medyanı yazılmaz.**
+
+**Doğrulandı:** aktif ama fiyatsız istasyon 142 → **0**.
+
+#### F3-3 ✅ Shell kapasitesi — hedef tavanı 150 → 250
+
+Tam tur 48 saat → ~19 saat (fresh penceresi 12 saat). Destekleyici sabitler
+birlikte taşındı, yoksa tavanı tek başına yükseltmek **her koşuyu
+`degraded`** yapardı (payda büyür, pay bütçeyle kesilir): bütçe 1500→1700,
+subprocess timeout 1800→2100, workflow 45→55 dk. 3 test aritmetiği kilitler.
+
+#### Faz 3'te AÇIK kalanlar
+* İstasyon **sayısı** 3.433 — hedef olarak anılan 12.000+ ile arada büyük
+  fark var. Bu bir temizlik değil **toplama** işi (yeni istasyon kaynakları
+  gerekir) ve ayrı bir karardır.
+* 797 pasif satır + 1.065 `unknown` fiyat satırı: eski moloz, uygulamada
+  görünmüyor. Temizliği düşük öncelikli.
+* Eski Faz 3 maddeleri (21–25, ölü mekanizmalar) hâlâ ertelendi.
+
+---
+
 ### FAZ 3 (ESKİ) — ÖLÜ MEKANİZMALARI KAPAT (yarım gün) — *ertelendi*
 
 Bunlar bugün zarar vermiyor ama gelecekte yanlış güven üretir.
