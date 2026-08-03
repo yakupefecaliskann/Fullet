@@ -198,156 +198,203 @@ class ShellTargetCoverageTest(unittest.TestCase):
         self.assertEqual(stats["ok"] / stats["planned"], 0.0)
 
 
-class ComboSelectionTest(unittest.TestCase):
-    """Açılır liste seçiminin iki ayrı semantiği karıştırılmamalı.
+class _FakeCombo:
+    """DevExpress combobox'ının Playwright'sız taklidi.
 
-    Bu oturumun en pahalı hatası buydu: `.count() > 0` (VARLIK) kontrolü
-    `wait_for(state="visible")` (GÖRÜNÜRLÜK) ile değiştirildi. DevExpress
-    listesi kaydırılabilir ve kapalıyken de DOM'da durur; sonuç:
-      * gerçek ilçeler "listede yok" sayıldı  -> yerel ölçümde kapsama %0
-      * her hedef 15 sn bekledi               -> üretimde 1800 sn timeout
-    Doğru ayrım: KONTEYNER görünür olmalı (liste açıldı mı?), ÖĞE ise
-    yalnızca DOM'da bulunmalı (kaydırma dışında olabilir).
+    `selects_after` tıklamanın KAÇINCI denemede tuttuğunu belirler: canlı
+    davranışın çekirdeği budur — tıklama hiçbir istisna fırlatmadan sessizce
+    boşa gidebilir.
     """
 
-    def _combo(self, *, listbox_visible=True, items=("ÇANKAYA", "KEÇİÖREN")):
-        events = []
+    def __init__(self, items, selects_after=0, popup_opens=True):
+        self.items = list(items)
+        self.selects_after = selects_after
+        self.popup_opens = popup_opens
+        self.text = "Seçiniz"
+        self.clicks = 0
+        self.opened = 0
 
-        class FakeLocator:
-            def __init__(self, kind, index=None):
-                self.kind = kind
-                self.index = index
-                self.first = self
 
-            def wait_for(self, state=None, timeout=None):
-                events.append((self.kind, "wait_for", state))
-                if self.kind == "listbox" and not listbox_visible:
-                    raise RuntimeError("listbox açılmadı")
+class _FakeComboPage:
+    def __init__(self, combos):
+        self.combos = combos
+        self.events = []
 
-            def click(self, force=False):
-                events.append((self.kind, "click", self.index))
+    # --- Playwright yüzeyi
+    def locator(self, selector):
+        return _FakeComboLocator(self, selector)
 
-            def all_inner_texts(self):
-                events.append((self.kind, "all_inner_texts", None))
-                return list(items)
+    def wait_for_timeout(self, ms):
+        self.events.append(("sleep", ms))
 
-            def nth(self, index):
-                return FakeLocator("option", index)
+    def evaluate(self, script, arg=None):
+        if "GetText" in script:
+            return self.combos[arg].text
+        if "GetItemCount" in script:
+            return list(self.combos[arg].items)
+        if "HideDropDown" in script:
+            self.events.append(("hide", arg))
+            return None
+        return None
 
-            def scroll_into_view_if_needed(self, timeout=None):
-                events.append((self.kind, "scroll", None))
 
-            def evaluate(self, script):
-                events.append((self.kind, "evaluate", None))
+class _FakeComboLocator:
+    def __init__(self, page, selector, index=None):
+        self.page = page
+        self.selector = selector
+        self.index = index
 
-        class FakeKeyboard:
-            def press(self, key):
-                events.append(("keyboard", "press", key))
+    @property
+    def _combo(self):
+        return self.page.combos["cb_province" if "province" in self.selector else "cb_county"]
 
-        class FakePage:
-            keyboard = FakeKeyboard()
+    def wait_for(self, state=None, timeout=None):
+        if state == "visible" and self.selector.endswith("_LBT"):
+            if not self._combo.popup_opens:
+                raise RuntimeError("liste açılmadı")
 
-            def locator(self, selector):
-                if "B-1Img" in selector:
-                    return FakeLocator("button")
-                if selector.endswith(" td"):
-                    return FakeLocator("cells")
-                return FakeLocator("listbox")
+    def click(self, force=False, timeout=None):
+        combo = self._combo
+        if "B-1Img" in self.selector:      # düğme: listeyi açar
+            combo.opened += 1
+            return
+        combo.clicks += 1
+        # Seçim ancak yeterince deneme yapıldıktan sonra "tutar".
+        if combo.clicks > combo.selects_after:
+            combo.text = combo.items[self.index]
 
-            def wait_for_timeout(self, ms):
-                events.append(("page", "sleep", ms))
+    def all_inner_texts(self):
+        return list(self._combo.items)
 
-            def wait_for_selector(self, selector, state=None, timeout=None):
-                events.append(("page", "wait_selector", state))
+    def nth(self, index):
+        return _FakeComboLocator(self.page, self.selector, index)
 
-        return FakePage(), events
+    def scroll_into_view_if_needed(self, timeout=None):
+        pass
+
+    def bounding_box(self):
+        return {"x": 0, "y": 0, "width": 200, "height": 300}
+
+
+class VerifiedSelectionTest(unittest.TestCase):
+    """Seçim DOĞRULANMADAN devam edilmemeli.
+
+    Bu botun en pahalı hatası "tıkladım, olmuştur" varsayımıydı. Canlı ölçüm
+    (3 Ağu 2026): ANKARA'dan sonraki il seçimleri sessizce boşa gidiyordu —
+    istisna yok, ağ isteği yok, `cb_province.GetText()` hâlâ önceki il.
+    `click(force=True)` Playwright'ın "stable" kontrolünü atladığı için
+    tıklama, DevExpress popup'ının bir an sonra terk ettiği koordinata
+    gidiyordu. Görünen belirti "ilçe listesi bir il geriden geliyor"du; oysa
+    liste DOĞRUYDU, seçilen il yanlıştı.
+    """
+
+    def _page(self, **kwargs):
+        return _FakeComboPage({
+            "cb_province": _FakeCombo(["ANKARA", "İSTANBUL", "İZMİR"], **kwargs),
+            "cb_county": _FakeCombo(["ÇANKAYA", "KEÇİÖREN"]),
+        })
+
+    def test_silently_failed_click_is_retried_until_verified(self):
+        """Asıl regresyon kilidi: ilk tıklama boşa giderse tekrar denenmeli."""
+        import shell_bot
+
+        page = self._page(selects_after=1)
+        shell_bot._select_verified(
+            page, "cb_province", "#cb_all_cb_province_B-1Img",
+            "#cb_all_cb_province_DDD_L_LBT", "ISTANBUL",
+        )
+        self.assertEqual(page.combos["cb_province"].text, "İSTANBUL")
+        self.assertEqual(page.combos["cb_province"].clicks, 2)
+
+    def test_never_returns_while_combobox_still_holds_the_old_value(self):
+        # Tıklama hiç tutmuyorsa sessizce başarılı dönmek YASAK: bu, bir ilin
+        # bütün hedeflerinin yanlış listede aranmasına yol açıyordu.
+        import shell_bot
+
+        page = self._page(selects_after=99)
+        with self.assertRaises(RuntimeError):
+            shell_bot._select_verified(
+                page, "cb_province", "#cb_all_cb_province_B-1Img",
+                "#cb_all_cb_province_DDD_L_LBT", "ISTANBUL",
+            )
+        self.assertEqual(page.combos["cb_province"].text, "Seçiniz")
+
+    def test_already_selected_value_is_not_reclicked(self):
+        import shell_bot
+
+        page = self._page()
+        page.combos["cb_province"].text = "İSTANBUL"
+        shell_bot._select_verified(
+            page, "cb_province", "#cb_all_cb_province_B-1Img",
+            "#cb_all_cb_province_DDD_L_LBT", "ISTANBUL",
+        )
+        self.assertEqual(page.combos["cb_province"].clicks, 0)
 
     def test_option_is_matched_on_normalized_text_not_raw(self):
         """Shell listesi Türkçe yazıyor, hedeflerimiz ASCII.
 
         `td:has-text('CANKAYA')` büyük/küçük harfe duyarsız ama AKSANA
-        duyarlıdır; 'ÇANKAYA' ile eşleşmez. İki tarafı da normalize etmek
-        şart — aksi halde Shell'in gerçekten istasyonu olan ilçeler
-        "listede yok" sayılır.
+        duyarlıdır; 'ÇANKAYA' ile eşleşmez. İki tarafı da normalize etmek şart.
         """
         import shell_bot
 
-        page, events = self._combo()
-        shell_bot._select_from_combo(
-            page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "KECIOREN"
+        page = self._page()
+        shell_bot._select_verified(
+            page, "cb_county", "#cb_all_cb_county_B-1Img",
+            "#cb_all_cb_county_DDD_L_LBT", "KECIOREN",
         )
-        # 'KEÇİÖREN' listenin 1. sırasında; doğru indekse tıklanmalı.
-        self.assertIn(("option", "click", 1), events)
-        # Öğe için GÖRÜNÜRLÜK beklenmemeli — kaydırma dışındaki gerçek
-        # ilçeleri "yok" sayan hata tam olarak buydu.
-        self.assertNotIn("option", [e[0] for e in events if e[1] == "wait_for"])
-
-    def test_listbox_visibility_is_required(self):
-        """Konteyner görünür olmalı: liste kapalıyken de DOM'da durduğu için
-        tek ayırt edici sinyal budur."""
-        import shell_bot
-
-        page, events = self._combo()
-        shell_bot._select_from_combo(
-            page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "CANKAYA"
-        )
-        self.assertIn(("listbox", "wait_for", "visible"), events)
-
-    def test_unopenable_dropdown_is_an_error_not_a_missing_option(self):
-        # Liste hiç açılamadıysa "ilçe yok" demek yanlış teşhistir; bu
-        # geçici bir etkileşim hatasıdır ve retry hakkı olmalıdır.
-        import shell_bot
-
-        page, _ = self._combo(listbox_visible=False)
-        with self.assertRaises(RuntimeError):
-            shell_bot._select_from_combo(
-                page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "X"
-            )
+        self.assertEqual(page.combos["cb_county"].text, "KEÇİÖREN")
 
     def test_absent_option_raises_option_missing(self):
         import shell_bot
 
-        page, _ = self._combo(items=("ÇANKAYA",))
+        page = self._page()
         with self.assertRaises(shell_bot._OptionMissing):
-            shell_bot._select_from_combo(
-                page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT",
-                "HOROZLUHAN MAH Y",
+            shell_bot._select_verified(
+                page, "cb_county", "#cb_all_cb_county_B-1Img",
+                "#cb_all_cb_county_DDD_L_LBT", "HOROZLUHAN MAH Y",
             )
 
     def test_exact_match_prevents_substring_false_targets(self):
-        # Alt dize eşleşmesi 'YENI' hedefini 'YENIMAHALLE'ye bağlardı;
-        # normalize edilmiş TAM eşleşme bunu engeller.
+        # Alt dize eşleşmesi 'YENI' hedefini 'YENIMAHALLE'ye bağlardı.
         import shell_bot
 
-        page, _ = self._combo(items=("YENİMAHALLE", "YENİKENT"))
+        page = _FakeComboPage({"cb_county": _FakeCombo(["YENİMAHALLE", "YENİKENT"])})
         with self.assertRaises(shell_bot._OptionMissing):
-            shell_bot._select_from_combo(
-                page, "#cb_all_cb_county_B-1Img", "#cb_all_cb_county_DDD_L_LBT", "YENI"
+            shell_bot._select_verified(
+                page, "cb_county", "#cb_all_cb_county_B-1Img",
+                "#cb_all_cb_county_DDD_L_LBT", "YENI",
+            )
+
+    def test_unopenable_dropdown_is_an_error_not_a_missing_option(self):
+        # Liste hiç açılamadıysa "ilçe yok" demek yanlış teşhistir; bu geçici
+        # bir etkileşim hatasıdır ve retry hakkı olmalıdır.
+        import shell_bot
+
+        page = self._page(popup_opens=False)
+        with self.assertRaises(RuntimeError):
+            shell_bot._select_verified(
+                page, "cb_province", "#cb_all_cb_province_B-1Img",
+                "#cb_all_cb_province_DDD_L_LBT", "ISTANBUL",
             )
 
 
 class CountyCascadeTest(unittest.TestCase):
     """İl değişince ilçe listesinin YENİLENMESİ beklenmeli.
 
-    İl seçmek sunucu tarafı cascade callback'i tetikliyor; beklemezsek ilçe
-    listesi ÖNCEKİ İLİN ilçelerini gösteriyor. Canlı kanıt: ANKARA seçiliyken
-    liste İSTANBUL'unkini ('BOGAZKOY','ISTANBUL_ANA','ADALAR',...) döndürdü ve
-    ANKARA'nın 16 gerçek ilçesinin tamamı "listede yok" sayıldı. Üretimde
-    150 hedefin 83'ünün kaybolma sebebi buydu.
+    Cascade, History.aspx'e giden bir POST callback'i; canlı ölçümde
+    0,11–0,35 sn sürüyor. Beklemezsek liste bir an ÖNCEKİ ilin ilçelerini
+    gösterir ve o aralıkta okursak yanlış listede ararız.
     """
 
-    def _page(self, signatures):
+    def _page(self, snapshots):
         state = {"i": 0}
 
-        class FakeLocator:
-            def all_inner_texts(self):
-                index = min(state["i"], len(signatures) - 1)
-                state["i"] += 1
-                return list(signatures[index])
-
         class FakePage:
-            def locator(self, selector):
-                return FakeLocator()
+            def evaluate(self, script, arg=None):
+                index = min(state["i"], len(snapshots) - 1)
+                state["i"] += 1
+                return list(snapshots[index])
 
             def wait_for_timeout(self, ms):
                 pass
@@ -357,19 +404,152 @@ class CountyCascadeTest(unittest.TestCase):
     def test_waits_until_the_county_list_changes(self):
         import shell_bot
 
-        page = self._page([("ADALAR", "SILE"), ("ADALAR", "SILE"), ("CANKAYA", "MAMAK")])
-        self.assertTrue(
-            shell_bot._wait_for_county_refresh(page, ("ADALAR", "SILE"))
-        )
+        page = self._page([["ADALAR", "SILE"], ["ADALAR", "SILE"], ["CANKAYA", "MAMAK"]])
+        self.assertTrue(shell_bot._wait_county_cascade(page, ["ADALAR", "SILE"]))
 
     def test_gives_up_without_blocking_forever(self):
         import shell_bot
 
-        page = self._page([("ADALAR", "SILE")])
-        with unittest.mock.patch.object(shell_bot, "COUNTY_REFRESH_TIMEOUT_MS", 200):
-            self.assertFalse(
-                shell_bot._wait_for_county_refresh(page, ("ADALAR", "SILE"))
-            )
+        page = self._page([["ADALAR", "SILE"]])
+        with unittest.mock.patch.object(shell_bot, "COUNTY_CASCADE_TIMEOUT_MS", 200):
+            self.assertFalse(shell_bot._wait_county_cascade(page, ["ADALAR", "SILE"]))
+
+
+class GridRefreshTest(unittest.TestCase):
+    """Arama sonrası grid'in DOĞRU İLE ait olması beklenmeli.
+
+    Canlı ölçüm (3 Ağu, 150 hedeflik yerel koşu): kalan 19 hatanın 18'i
+    "grid X yerine başka ilin satırlarını döndürdü"ydü ve her biri bir ilin
+    İLK hedefiydi. Yükleme göstergesinin kaybolması grid'in yenilendiği
+    anlamına gelmiyor; tek belirleyici sinyal grid'in kendi İl kolonu.
+    """
+
+    def _page(self, cities):
+        state = {"i": 0}
+
+        class FakePage:
+            def evaluate(self, script, arg=None):
+                index = min(state["i"], len(cities) - 1)
+                state["i"] += 1
+                return cities[index]
+
+            def wait_for_timeout(self, ms):
+                pass
+
+        return FakePage()
+
+    def test_waits_until_the_grid_shows_the_selected_province(self):
+        import shell_bot
+
+        page = self._page(["ANKARA", "ANKARA", "İSTANBUL"])
+        self.assertTrue(shell_bot._wait_for_grid(page, "ISTANBUL"))
+
+    def test_empty_grid_does_not_end_the_wait_early(self):
+        """Satırlar bir an silinip yeniden doluyor olabilir; boş grid'de
+        erken dönmek sessiz bir eksik sayımdır."""
+        import shell_bot
+
+        page = self._page([None, None, "İSTANBUL"])
+        self.assertTrue(shell_bot._wait_for_grid(page, "ISTANBUL"))
+
+    def test_gives_up_when_the_grid_never_matches(self):
+        import shell_bot
+
+        page = self._page(["ANKARA"])
+        with unittest.mock.patch.object(shell_bot, "GRID_MATCH_TIMEOUT_MS", 200):
+            self.assertFalse(shell_bot._wait_for_grid(page, "ISTANBUL"))
+
+
+class ProvinceStatePoisoningTest(unittest.TestCase):
+    """Tek bir başarısız il seçimi, o ilin TAMAMINI kaybettirmemeli.
+
+    Üretim kanıtı (3 Ağu gece koşusu, kapsama %23): ISTANBUL'un ilk hedefinde
+    bir seçim kaçtı; `state["city"]` yine de "ISTANBUL" yazıldığı için sonraki
+    39 hedefte il BİR DAHA HİÇ seçilmedi ve hepsi ANKARA'nın ilçe listesinde
+    arandı. 40 hedefin 40'ı "listede yok" sayıldı. Cascade hatası yaşayan 6
+    ilde toplam 63 hedef böyle kayboldu.
+    """
+
+    def test_failed_selection_does_not_mark_the_province_as_selected(self):
+        import shell_bot
+
+        state = {"city": "ANKARA"}
+        page = unittest.mock.Mock()
+        with unittest.mock.patch.object(shell_bot, "_settle", lambda *a, **k: None), \
+                unittest.mock.patch.object(shell_bot, "_combo_items", lambda *a: []), \
+                unittest.mock.patch.object(
+                    shell_bot, "_select_verified",
+                    unittest.mock.Mock(side_effect=RuntimeError("seçim doğrulanamadı"))):
+            with self.assertRaises(RuntimeError):
+                shell_bot._scrape_target(page, "ISTANBUL", "KADIKOY", {"Motorin": [5]}, state)
+
+        # En kritik satır: il "seçili" işaretlenmiş OLMAMALI.
+        self.assertIsNone(state["city"])
+
+    def test_stalled_cascade_does_not_mark_the_province_as_selected(self):
+        import shell_bot
+
+        state = {"city": "ANKARA"}
+        page = unittest.mock.Mock()
+        with unittest.mock.patch.object(shell_bot, "_settle", lambda *a, **k: None), \
+                unittest.mock.patch.object(shell_bot, "_combo_items", lambda *a: []), \
+                unittest.mock.patch.object(shell_bot, "_select_verified", lambda *a: None), \
+                unittest.mock.patch.object(shell_bot, "_wait_county_cascade", lambda *a: False):
+            with self.assertRaises(RuntimeError):
+                shell_bot._scrape_target(page, "ISTANBUL", "KADIKOY", {"Motorin": [5]}, state)
+
+        self.assertIsNone(state["city"])
+
+    def test_already_selected_province_does_not_wait_for_a_cascade(self):
+        """İl zaten seçiliyse yeni bir cascade BEKLENMEMELİ.
+
+        Regresyon: hedef, il seçiminden SONRAKİ bir aşamada hata alabilir —
+        ilk hedefte grid henüz boş olduğu için "kolon başlıkları okunamadı"
+        ile bir kez yeniden denenir. İkinci denemede combobox zaten o ili
+        gösterdiği için hiçbir cascade tetiklenmez. Liste değişimini şart
+        koşmak, ilk düzeltmede ANKARA'nın 16 hedefinin tamamını kaybettirdi.
+        """
+        import shell_bot
+
+        state = {"city": None}          # önceki hata state'i temizlemiş
+        page = unittest.mock.Mock()
+        page.locator.return_value.all.return_value = []
+        cascade = unittest.mock.Mock(return_value=False)
+
+        with unittest.mock.patch.object(shell_bot, "_settle", lambda *a, **k: None), \
+                unittest.mock.patch.object(shell_bot, "_combo_text", lambda *a: "ANKARA"), \
+                unittest.mock.patch.object(shell_bot, "_combo_items", lambda *a: ["ÇANKAYA"]), \
+                unittest.mock.patch.object(shell_bot, "_select_verified", lambda *a: None), \
+                unittest.mock.patch.object(shell_bot, "_wait_for_grid", lambda *a: True), \
+                unittest.mock.patch.object(shell_bot, "_wait_county_cascade", cascade):
+            rows, _ = shell_bot._scrape_target(
+                page, "ANKARA", "CANKAYA", {"Motorin": [5]}, state)
+
+        self.assertEqual(rows, [])
+        cascade.assert_not_called()
+        self.assertEqual(state["city"], "ANKARA")
+
+    def test_retry_loop_clears_the_province_after_a_failure(self):
+        """`scrape_shell_data` hata sonrası ili unutmalı ki baştan seçilsin."""
+        import shell_bot
+
+        seen = []
+
+        def fake_scrape_target(page, city, district, column_map, state):
+            seen.append((city, district, state.get("city")))
+            raise RuntimeError("boom")
+
+        targets = [{"il": "ISTANBUL", "ilce": "KADIKOY"},
+                   {"il": "ISTANBUL", "ilce": "BESIKTAS"}]
+        with unittest.mock.patch.object(shell_bot, "_scrape_target", fake_scrape_target), \
+                unittest.mock.patch.object(shell_bot, "sync_playwright", _FakePlaywright), \
+                unittest.mock.patch.object(shell_bot, "_limited_targets", lambda t: t), \
+                unittest.mock.patch.object(shell_bot, "_settle", lambda *a, **k: None):
+            shell_bot.scrape_shell_data(targets)
+
+        # Her denemeye girerken state temiz olmalı; "ISTANBUL" olarak
+        # kalsaydı ikinci hedef ili hiç seçmeden bayat listede arardı.
+        self.assertTrue(all(previous is None for _, _, previous in seen), seen)
 
 
 class _FakePage:
@@ -378,7 +558,7 @@ class _FakePage:
 
 
 class _FakeBrowser:
-    def new_page(self):
+    def new_page(self, **kwargs):
         return _FakePage()
 
     def close(self):

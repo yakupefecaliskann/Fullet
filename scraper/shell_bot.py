@@ -120,7 +120,20 @@ SHELL_HEADER_SELECTOR = "#cb_all_grdPrices td.dxgvHeader, #cb_all_grdPrices th.d
 
 def _read_column_map(page):
     """Grid başlıklarından yakıt->kolon eşlemesi okur. Başlıklar sorgular
-    arasında değişmediği için ilk başarılı okumadan sonra tekrar okunmaz."""
+    arasında değişmediği için ilk başarılı okumadan sonra tekrar okunmaz.
+
+    Başlıkların DOM'a girmesi BEKLENİR: koşunun ilk aramasında grid henüz
+    boştur ve beklemeden okuyan kod ilk hedefi iki denemede de kaybediyordu
+    (canlı log: "[WARN] ANKARA/ALTINDAG: kolon başlıkları okunamadı").
+    """
+    try:
+        page.wait_for_selector(
+            SHELL_HEADER_SELECTOR, state="attached", timeout=GRID_TIMEOUT_MS
+        )
+    except Exception:
+        # Beklemenin başarısızlığı tek başına hata değil; asıl karar
+        # aşağıdaki boş başlık kontrolünde veriliyor.
+        pass
     headers = page.locator(SHELL_HEADER_SELECTOR).all_inner_texts()
     if not headers:
         return None
@@ -155,12 +168,27 @@ ELEMENT_TIMEOUT_MS = 15000
 # combobox DÜĞMESİNİN görünürlüğü uzun timeout'u hak eder.
 OPTION_TIMEOUT_MS = 3000
 
-# Açılır listenin açılmasını bekleme ve açamazsak tekrar deneme sayısı.
+# Açılır listenin açılmasını bekleme süresi.
 COMBO_OPEN_TIMEOUT_MS = 4000
-COMBO_OPEN_ATTEMPTS = 3
 
-# İl seçimi sonrası ilçe listesinin sunucu callback'iyle yenilenme süresi.
-COUNTY_REFRESH_TIMEOUT_MS = 15000
+# Açılır liste görünür olduktan sonra DevExpress popup'ı hâlâ konumlanıyor
+# olabilir. `click(force=True)` tam da bu "stable" kontrolünü atladığı için
+# tıklama, popup'ın bir an sonra terk ettiği koordinata gidiyor ve SESSİZCE
+# hiçbir şey seçmiyordu (bkz. _select_verified). Konumun oturmasını ölçerek
+# bekliyoruz; ölçüm 2 sn'yi hiç aşmadı.
+POPUP_SETTLE_TIMEOUT_MS = 2000
+POPUP_SETTLE_POLL_MS = 80
+
+# Seçim sonrası combobox'ın GERÇEKTEN hedefe geçtiğini doğrulama süresi.
+SELECT_VERIFY_TIMEOUT_MS = 4000
+SELECT_ATTEMPTS = 3
+DROPDOWN_CLOSE_TIMEOUT_MS = 3000
+
+# İl seçimi sonrası ilçe listesinin cascade callback'iyle yenilenme süresi.
+# CANLI ÖLÇÜM (6 il, 3 Ağu 2026): cascade 0,11–0,35 sn sürüyor. Buradaki 10 sn
+# cömert bir üst sınırdır; aşılıyorsa gerçekten bir şey bozulmuştur.
+COUNTY_CASCADE_TIMEOUT_MS = 10000
+COUNTY_CASCADE_POLL_MS = 100
 
 # Hedefe BAŞLAMADAN önceki "yatışma" kritik değil; önceki callback zaten
 # bitmiş olabilir, uzun timeout burada boşa harcanır.
@@ -170,6 +198,14 @@ SETTLE_TIMEOUT_MS = 5000
 # satırlarını okur ya da boş grid görürüz. Orijinal kodun 20 sn'lik değeri
 # korunur — bu bekleme kısaltılamaz.
 GRID_TIMEOUT_MS = 20000
+
+# Yükleme göstergesinin kaybolması, grid'in YENİ ilin satırlarıyla dolduğu
+# anlamına GELMİYOR. Canlı ölçüm (3 Ağu, 150 hedef): kalan 19 hatanın 18'i
+# tam olarak buydu ve hepsi bir ilin İLK hedefiydi — arama sonrası grid hâlâ
+# önceki ilin satırlarını gösteriyordu. Doğru sinyal göstergenin durumu değil,
+# grid'in kendi İl kolonudur.
+GRID_MATCH_TIMEOUT_MS = 10000
+GRID_POLL_MS = 150
 
 TARGET_MAX_ATTEMPTS = 2
 
@@ -195,213 +231,242 @@ class _OptionMissing(Exception):
     """Aranan il/ilçe açılır listede yok — tekrar denemek işe yaramaz."""
 
 
-def _open_combo(page, button_selector, list_selector):
-    """Açılır listeyi açar ve GERÇEKTEN açıldığını doğrular.
-
-    DevExpress liste konteynerini bir kez render edip gizler; yani liste
-    KAPALIYKEN de DOM'da durur. Bu yüzden "öğe var mı?" kontrolü, listenin
-    hiç açılmadığı durumu yakalayamaz — sonra görünmez öğeye tıklanır ve
-    `force=True` görünürlüğü atlamadığı için "Element is not visible" gelir.
-    Yerel ölçümde kalan 7 hatanın tamamı buydu. Konteynerin görünür olmasını
-    beklemek, "açıldı" ile "DOM'da duruyor"u ayıran tek sinyaldir.
-    """
-    button = page.locator(button_selector)
-    listbox = page.locator(list_selector)
-    last_error = None
-    for _ in range(COMBO_OPEN_ATTEMPTS):
-        try:
-            # DÜĞME: görünürlük beklenir. Asıl kırılganlık burasıydı — grid
-            # callback'i sürerken düğme DOM'da kalıp görünmez oluyor ve
-            # `force` bunu ATLAMIYOR.
-            button.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
-            button.click(force=True)
-            listbox.wait_for(state="visible", timeout=COMBO_OPEN_TIMEOUT_MS)
-            return
-        except Exception as exc:
-            last_error = exc
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(250)
-    raise RuntimeError(f"açılır liste açılamadı ({button_selector}): {last_error}")
-
-
-def _select_from_combo(page, button_selector, list_selector, value):
-    _open_combo(page, button_selector, list_selector)
-
-    # LİSTE ÖĞESİ: metinleri okuyup İKİ TARAFI DA normalize ederek eşleştir.
-    #
-    # `td:has-text('ARNAVUTKOY')` büyük/küçük harfe duyarsızdır ama AKSANA
-    # DUYARLIDIR. Hedef listemiz ASCII'ye indirgenmiş (`normalize_city`),
-    # Shell'in açılır listesi ise Türkçe yazıyor: ARNAVUTKÖY, ATAŞEHİR,
-    # BAĞCILAR, BEŞİKTAŞ, KÂĞITHANE... Bu yüzden Shell'in gerçekten istasyonu
-    # olan onlarca ilçe "listede yok" sayılıyordu. Üretim ölçümü: 150 hedefin
-    # 83'ü bu sebeple kayboldu (etkileşim hatası SIFIRDI).
-    #
-    # Ek fayda: normalize edilmiş TAM eşleşme, alt dize eşleşmesinin
-    # "YENI" -> "YENIMAHALLE" gibi yanlış hedeflerini de ortadan kaldırır.
-    cells = page.locator(f"{list_selector} td")
-    deadline = time.monotonic() + OPTION_TIMEOUT_MS / 1000
-    index = None
-    while index is None:
-        texts = cells.all_inner_texts()
-        for position, text in enumerate(texts):
-            if normalize_city(text) == value:
-                index = position
-                break
-        if index is not None:
-            break
-        if time.monotonic() >= deadline:
-            page.keyboard.press("Escape")
-            raise _OptionMissing(value)
-        page.wait_for_timeout(100)
-
-    option = cells.nth(index)
-
-    # Kaydırma olmadan tıklama "Element is outside of the viewport" verir.
-    try:
-        option.scroll_into_view_if_needed(timeout=OPTION_TIMEOUT_MS)
-    except Exception:
-        pass
-    try:
-        option.click(force=True)
-    except Exception:
-        # Uzun listelerde kaydırma bazen yetmiyor; DevExpress liste öğeleri
-        # onclick'e bağlı olduğu için DOM tıklaması eşdeğer çalışır.
-        option.evaluate("el => el.click()")
-    _settle(page)
-
-
+# Sayfa, DevExpress combobox'larını global olarak yayınlıyor
+# (`window['cb_province']`, `window['cb_county']`). Bu nesneler seçimin
+# GERÇEKTEN olup olmadığını söyleyen tek güvenilir kaynaktır: DOM'a bakarak
+# "tıkladım, olmuştur" varsaymak zorunda kalmayız.
+PROVINCE_COMBO = "cb_province"
+COUNTY_COMBO = "cb_county"
+PROVINCE_BUTTON = "#cb_all_cb_province_B-1Img"
+PROVINCE_LIST_SELECTOR = "#cb_all_cb_province_DDD_L_LBT"
+COUNTY_BUTTON = "#cb_all_cb_county_B-1Img"
 COUNTY_LIST_SELECTOR = "#cb_all_cb_county_DDD_L_LBT"
 
+_JS_COMBO_TEXT = "(name) => window[name] ? window[name].GetText() : null"
+_JS_COMBO_ITEMS = """(name) => {
+    const combo = window[name];
+    if (!combo) return [];
+    const out = [];
+    for (let i = 0; i < combo.GetItemCount(); i++) {
+        const item = combo.GetItem(i);
+        out.push(item ? item.text : "");
+    }
+    return out;
+}"""
+_JS_HIDE_DROPDOWN = """(name) => {
+    try { if (window[name]) window[name].HideDropDown(); } catch (e) {}
+}"""
 
-def _county_signature(page):
-    """İlçe listesinin o anki içeriğinin imzası (açmaya gerek yok, DOM'da)."""
+
+def _combo_text(page, combo):
+    """Combobox'ta O AN seçili olan metin (seçimin tek doğrulanabilir kanıtı)."""
     try:
-        return tuple(page.locator(f"{COUNTY_LIST_SELECTOR} td").all_inner_texts())
+        return page.evaluate(_JS_COMBO_TEXT, combo)
     except Exception:
-        return ()
+        return None
 
 
-def _wait_for_callback(page, timeout=COUNTY_REFRESH_TIMEOUT_MS):
-    """ASPx cascade callback'inin (XHR) bitmesini bekler.
+def _combo_items(page, combo):
+    try:
+        return page.evaluate(_JS_COMBO_ITEMS, combo) or []
+    except Exception:
+        return []
 
-    "İlçe listesi değişti mi?" diffi güvenilmez bir sinyal çıktı: liste
-    değişiyor ama BİR ÖNCEKİ seçime ait içerikle. Canlı kanıt — illerin
-    ilçe sayıları bire bir bir önceki ilinkiyle eşleşiyordu:
 
-        GIRESUN=16 -> GUMUSHANE=16 | KASTAMONU=20 -> KAYSERI=20
-        ERZURUM=22 -> ESKISEHIR=22 | HATAY=14     -> IGDIR=14
+def _close_dropdown(page, combo, list_selector):
+    """Açılır listeyi KAPALI duruma getirir.
 
-    Bu yüzden KOCASINAN, MELIKGAZI, ODUNPAZARI gibi GERÇEK ilçeler
-    "listede yok" sayılıyordu. Callback'in kendisini beklemek, içerik
-    diffinden çok daha belirleyici.
+    Düğmeye tıklamak bir TOGGLE'dır: liste zaten açıkken tıklamak onu kapatır.
+    Eski kod her seferinde körlemesine tıkladığı için açık/kapalı durum
+    kayıyordu ve seçimler "bir il geriden" geliyordu. Bilinen bir durumdan
+    başlamak bu sınıf hatayı tamamen ortadan kaldırır.
     """
     try:
-        page.wait_for_load_state("networkidle", timeout=timeout)
+        page.evaluate(_JS_HIDE_DROPDOWN, combo)
     except Exception:
-        # networkidle bazı sayfalarda hiç gerçekleşmez; yatışma yine de dener.
         pass
-    _settle(page)
+    try:
+        page.locator(list_selector).wait_for(
+            state="hidden", timeout=DROPDOWN_CLOSE_TIMEOUT_MS
+        )
+    except Exception:
+        pass
 
 
-def _wait_for_county_refresh(page, previous_signature):
-    """İl seçiminden sonra ilçe listesinin YENİLENMESİNİ bekler.
+def _wait_popup_settled(page, list_selector, timeout=POPUP_SETTLE_TIMEOUT_MS):
+    """Popup'ın konumu iki ardışık ölçümde aynı olana kadar bekler.
 
-    İl seçmek sunucu tarafı bir cascade callback'i tetikliyor; ilçe listesi
-    o callback bitene kadar ÖNCEKİ İLİN ilçelerini göstermeye devam ediyor.
-    Bu beklemesiz kod, ANKARA seçiliyken İSTANBUL'un listesini okuyordu —
-    canlı kanıt (Shell'in kendi listesi dökülerek):
-
-        ### ANKARA: Shell'de 43 ilce -> ['BOGAZKOY','ISTANBUL_ANA','ADALAR',
-                                         'CATALCA','SILE','SILIVRI', ...]
-        BIZDE VAR SHELL'DE YOK (16): ALTINDAG, CANKAYA, KECIOREN, MAMAK, ...
-
-    Yani ANKARA'nın gerçek ilçelerinin tamamı "listede yok" sayılıyordu.
-    Üretimde 150 hedefin 83'ünün kaybolmasının sebebi buydu (etkileşim
-    hatası sıfırdı — sorun teşhisin kendisindeydi).
+    `click(force=True)`in atladığı "stable" kontrolünün elle yapılmış hâli.
+    Bu bekleme olmadan tıklama, popup'ın bir an sonra terk ettiği koordinata
+    gidiyor ve hiçbir istisna fırlatmadan HİÇBİR ŞEY seçmiyor.
     """
-    deadline = time.monotonic() + COUNTY_REFRESH_TIMEOUT_MS / 1000
+    locator = page.locator(list_selector)
+    deadline = time.monotonic() + timeout / 1000
+    previous = None
     while time.monotonic() < deadline:
-        current = _county_signature(page)
-        if current and current != previous_signature:
+        try:
+            box = locator.bounding_box()
+        except Exception:
+            return
+        if box is not None and box == previous:
+            return
+        previous = box
+        page.wait_for_timeout(POPUP_SETTLE_POLL_MS)
+
+
+def _select_verified(page, combo, button_selector, list_selector, value):
+    """Açılır listeden seçer ve seçimin TUTTUĞUNU doğrular; tutmadıysa tekrarlar.
+
+    Bu botun en pahalı hatası "tıkladım, olmuştur" varsayımıydı. Canlı ölçüm
+    (3 Ağu 2026): ANKARA'dan sonraki il seçimleri sessizce boşa gidiyordu —
+    istisna yok, ağ isteği yok, `cb_province.GetText()` hâlâ önceki il. Sonuç,
+    ilçe listesinin "bir il geriden gelmesi"ydi; oysa liste DOĞRUYDU, seçilen
+    il yanlıştı. Teşhisi 3 kez ıskalamamızın sebebi buydu.
+
+    İki kural: (1) tıklamadan önce popup'ın konumu otursun, (2) combobox'ın
+    kendi değeri hedefe eşit olmadan ASLA devam etme.
+    """
+    for _ in range(SELECT_ATTEMPTS):
+        if normalize_city(_combo_text(page, combo) or "") == value:
+            return
+        _close_dropdown(page, combo, list_selector)
+        button = page.locator(button_selector)
+        button.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+        button.click(force=True)
+        try:
+            page.locator(list_selector).wait_for(
+                state="visible", timeout=COMBO_OPEN_TIMEOUT_MS
+            )
+        except Exception:
+            continue
+        _wait_popup_settled(page, list_selector)
+
+        # Metinleri okuyup İKİ TARAFI DA normalize ederek eşleştir.
+        # `td:has-text('ARNAVUTKOY')` büyük/küçük harfe duyarsızdır ama AKSANA
+        # DUYARLIDIR: hedeflerimiz ASCII (`normalize_city`), Shell'in listesi
+        # Türkçe yazıyor (ARNAVUTKÖY, ATAŞEHİR, KÂĞITHANE...). Normalize
+        # edilmiş TAM eşleşme ayrıca "YENI" -> "YENIMAHALLE" gibi alt dize
+        # yanlış hedeflerini de engeller.
+        cells = page.locator(f"{list_selector} td")
+        options = [normalize_city(text) for text in cells.all_inner_texts()]
+        if value not in options:
+            _close_dropdown(page, combo, list_selector)
+            raise _OptionMissing(value)
+
+        option = cells.nth(options.index(value))
+        try:
+            # Kaydırma olmadan tıklama "Element is outside of the viewport" verir.
+            option.scroll_into_view_if_needed(timeout=OPTION_TIMEOUT_MS)
+            # force YOK: Playwright'ın stabilite ve hit-test kontrolleri tam da
+            # burada gerekiyor. Hata olursa aşağıdaki doğrulama yakalar.
+            option.click(timeout=OPTION_TIMEOUT_MS)
+        except Exception:
+            pass
+
+        deadline = time.monotonic() + SELECT_VERIFY_TIMEOUT_MS / 1000
+        while time.monotonic() < deadline:
+            if normalize_city(_combo_text(page, combo) or "") == value:
+                return
+            page.wait_for_timeout(100)
+
+    raise RuntimeError(
+        f"seçim doğrulanamadı: {value} (combobox='{_combo_text(page, combo)}')"
+    )
+
+
+GRID_ROW_SELECTOR = "#cb_all_grdPrices_DXMainTable tr.dxgvDataRow"
+
+_JS_GRID_FIRST_CITY = """(selector) => {
+    const row = document.querySelector(selector);
+    if (!row) return null;
+    const cells = row.querySelectorAll("td");
+    return cells.length > 1 ? cells[1].innerText : null;
+}"""
+
+
+def _wait_for_grid(page, city, timeout=GRID_MATCH_TIMEOUT_MS):
+    """Grid'in SEÇİLEN İLE ait satırları göstermesini bekler.
+
+    `_settle` yalnızca yükleme göstergesinin kaybolmasını bekliyor; gösterge
+    daha belirmeden okursak grid hâlâ ÖNCEKİ ilin satırlarını içeriyor.
+    Boş grid'de erken dönmek yok: satırlar bir an silinip yeniden doluyor
+    olabilir, o aralıkta "kayıt yok" demek sessiz bir eksik sayımdır.
+    """
+    deadline = time.monotonic() + timeout / 1000
+    while time.monotonic() < deadline:
+        try:
+            grid_city = page.evaluate(_JS_GRID_FIRST_CITY, GRID_ROW_SELECTOR)
+        except Exception:
+            return False
+        if grid_city and normalize_city(grid_city) == city:
             return True
-        page.wait_for_timeout(150)
-    # Yenilenmediyse: aynı ile ait ardışık hedef olabilir (imza zaten doğru)
-    # ya da callback gecikmiştir. Çağıran yine de deneyecek; yanlış listeden
-    # okuma riskini _OptionMissing yakalar.
+        page.wait_for_timeout(GRID_POLL_MS)
     return False
 
 
-def _select_county(page, district, must_change_from):
-    """İlçeyi seçer; "yok" kararını ancak liste YENİLENDİĞİNİ görünce verir.
+def _wait_county_cascade(page, previous_items, timeout=COUNTY_CASCADE_TIMEOUT_MS):
+    """İl DOĞRULANARAK seçildikten sonra ilçe listesinin yenilenmesini bekler.
 
-    Kritik ayrım: ilçe listesi il seçiminden sonra sunucu callback'iyle
-    dolduruluyor. Callback gecikirse liste ÖNCEKİ İLİN ilçelerini gösterir.
-    O anda "ilçe listede yok" demek YANLIŞ TEŞHİSTİR — liste yanlış ildir.
+    Cascade, History.aspx'e giden bir POST callback'i; canlı ölçümde
+    0,11–0,35 sn sürüyor (6 il). Yani "cascade yavaş" teşhisi baştan beri
+    yanlıştı — liste geç gelmiyordu, il hiç seçilmemişti.
 
-    Önceki sürüm tam bu hatayı yapıyordu: yenilenmeyi 8 sn bekleyip vazgeçiyor,
-    sonra bayat listede arıyor ve _OptionMissing atıyordu. Üstelik ili "seçili"
-    işaretlediği için o ildeki SONRAKİ tüm hedefler de bayat listeyi okuyordu —
-    tek bir yavaş callback bütün ili zehirliyordu. Üretim kanıtı: kayıp hedef
-    83 -> 93'e çıktı, kapsama %45 -> %38'e düştü.
-
-    Artık: liste değiştiyse (ya da değişmesi beklenmiyorsa) karar verilir;
-    değişmediyse RuntimeError atılır ve hedef yeniden denenir.
+    Yine de beklemek şart: seçimden hemen sonra liste bir an ÖNCEKİ ilin
+    ilçelerini gösterir ve o aralıkta okursak yanlış ilçe listesinde ararız.
     """
-    deadline = time.monotonic() + COUNTY_REFRESH_TIMEOUT_MS / 1000
-    while True:
-        _open_combo(page, "#cb_all_cb_county_B-1Img", COUNTY_LIST_SELECTOR)
-        cells = page.locator(f"{COUNTY_LIST_SELECTOR} td")
-        texts = cells.all_inner_texts()
-        normalized = [normalize_city(text) for text in texts]
-        refreshed = must_change_from is None or tuple(texts) != must_change_from
-
-        if refreshed and district in normalized:
-            option = cells.nth(normalized.index(district))
-            try:
-                option.scroll_into_view_if_needed(timeout=OPTION_TIMEOUT_MS)
-            except Exception:
-                pass
-            try:
-                option.click(force=True)
-            except Exception:
-                # Uzun listelerde kaydırma bazen yetmiyor; DevExpress liste
-                # öğeleri onclick'e bağlı olduğu için DOM tıklaması eşdeğer.
-                option.evaluate("el => el.click()")
-            _settle(page)
-            return
-
-        page.keyboard.press("Escape")
-        if refreshed:
-            # Liste bu ile ait ve ilçe içinde yok -> gerçekten yok.
-            raise _OptionMissing(district)
-        if time.monotonic() >= deadline:
-            raise RuntimeError(
-                f"ilçe listesi yenilenmedi (cascade callback gecikti): {district}"
-            )
-        page.wait_for_timeout(250)
+    deadline = time.monotonic() + timeout / 1000
+    while time.monotonic() < deadline:
+        items = _combo_items(page, COUNTY_COMBO)
+        if items and items != previous_items:
+            return True
+        page.wait_for_timeout(COUNTY_CASCADE_POLL_MS)
+    return False
 
 
 def _scrape_target(page, city, district, column_map, state):
     """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map).
 
     `state` çağıran tarafından tutulan mutable sözlüktür: {"city": <seçili il>}.
-    İl seçimi başarılı olur olmaz güncellenir — hedef sonradan hata verse bile
-    ili gereksiz yere tekrar seçmeyelim diye.
+    YALNIZCA il seçimi doğrulanıp cascade tamamlandıktan sonra güncellenir.
+
+    Bu sıralama kritik: eski kod `state["city"]`i seçim denemesinden HEMEN
+    sonra yazıyordu. İl seçimi tutmazsa hedef yeniden deneniyor, ikinci
+    denemede `city == state["city"]` olduğu için il BİR DAHA HİÇ SEÇİLMİYOR
+    ve o ildeki bütün hedefler önceki ilin ilçe listesinde aranıyordu.
+    Üretim kanıtı (3 Ağu gece koşusu): ISTANBUL'un ilk hedefinde bir seçim
+    kaçtı, ardından 40 İstanbul hedefinin TAMAMI "listede yok" sayıldı.
+    Cascade hatası yaşayan 6 ilde 63 hedef bu şekilde kaybedildi.
     """
     _settle(page)
-    # İl zaten seçiliyse tekrar seçme: hem cascade callback'ini hem de
-    # ~2 sn'lik etkileşimi boşuna tetiklemeyelim (hedefler il il sıralı).
-    must_change_from = None
+    # İl zaten seçiliyse tekrar seçme: hem cascade'i hem de ~2 sn'lik
+    # etkileşimi boşuna tetiklemeyelim (hedefler il il sıralı).
     if city != state.get("city"):
-        must_change_from = _county_signature(page)
-        _select_from_combo(
-            page, "#cb_all_cb_province_B-1Img", "#cb_all_cb_province_DDD_L_LBT", city
+        # Doğrulanana kadar "seçili il yok" say; yarıda kalırsa sonraki
+        # hedefler ESKİ ilin ilçe listesini okumasın.
+        state["city"] = None
+        # Combobox ZATEN bu ili gösteriyor olabilir: hedef, il seçiminden
+        # SONRAKİ bir aşamada hata almış olabilir (ör. ilk hedefte kolon
+        # başlıkları henüz yoktur ve bir kez yeniden denenir). O durumda
+        # yeni bir cascade tetiklenmez; listenin değişmesini beklemek
+        # bütün ili boş yere kaybettirir.
+        already_selected = (
+            normalize_city(_combo_text(page, PROVINCE_COMBO) or "") == city
         )
-        # Cascade callback'ini BEKLE: ilçe listesi bu ile ait olmalı.
-        _wait_for_callback(page)
+        previous_counties = _combo_items(page, COUNTY_COMBO)
+        _select_verified(
+            page, PROVINCE_COMBO, PROVINCE_BUTTON, PROVINCE_LIST_SELECTOR, city
+        )
+        if already_selected:
+            # Cascade daha önce tamamlanmış; tek gereken listenin dolu olması.
+            if not _combo_items(page, COUNTY_COMBO):
+                raise RuntimeError(f"ilçe listesi {city} için boş")
+        elif not _wait_county_cascade(page, previous_counties):
+            raise RuntimeError(f"ilçe listesi {city} için yenilenmedi")
         state["city"] = city
 
-    _select_county(page, district, must_change_from)
+    # İlçe listesi artık DOĞRU ile ait olduğu için "listede yok" kararı
+    # nihayet güvenilir: gerçekten Shell'in envanterinde olmayan kayıttır.
+    _select_verified(page, COUNTY_COMBO, COUNTY_BUTTON, COUNTY_LIST_SELECTOR, district)
 
     search = page.locator("#cb_all_ASPxButton1_CD")
     search.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
@@ -409,13 +474,17 @@ def _scrape_target(page, city, district, column_map, state):
     # Grid yüklemesi kritik: erken dönmek bir önceki ilçenin satırlarını
     # okumaya yol açar (sessiz veri bozulması).
     _settle(page, timeout=GRID_TIMEOUT_MS)
+    # Göstergenin kaybolması yetmez; grid'in bu İLE ait olduğunu gör.
+    # Görmezsek yine de devam edilir: aşağıdaki İl kolonu kontrolü ya
+    # satırları reddeder (hedef yeniden denenir) ya da grid gerçekten boştur.
+    _wait_for_grid(page, city)
 
     if column_map is None:
         column_map = _read_column_map(page)
     if not column_map:
         raise RuntimeError("kolon başlıkları okunamadı")
 
-    rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
+    rows = page.locator(GRID_ROW_SELECTOR).all()
     print(f"[INFO] {len(rows)} Shell rows found.")
     scraped = []
     mismatched = 0
@@ -478,7 +547,10 @@ def scrape_shell_data(target_locations=None):
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        # Uzun görünüm: il listesi 81 öğeli. Dar pencerede seçenekler görünüm
+        # alanının dışında kalıyor ve her tıklama bir kaydırmaya bağımlı hâle
+        # geliyor — kırılganlığı bedavaya azaltmanın en ucuz yolu.
+        page = browser.new_page(viewport={"width": 1280, "height": 1600})
         try:
             page.goto("https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000)
             for loc in target_locations:
@@ -514,6 +586,10 @@ def scrape_shell_data(target_locations=None):
                         break
                     except Exception as exc:
                         last_error = exc
+                        # Sayfa tutarsız bir durumda kalmış olabilir: seçili
+                        # ili unut ki sonraki deneme ili BAŞTAN seçsin. Bunu
+                        # yapmamak tek bir hatayı bütün ile yayan hataydı.
+                        state["city"] = None
                         if attempt + 1 < TARGET_MAX_ATTEMPTS:
                             print(f"[RETRY] {city}/{district}: {exc}")
                             _settle(page)
