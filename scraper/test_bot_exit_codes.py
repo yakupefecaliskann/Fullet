@@ -1,6 +1,9 @@
 import contextlib
 import io
 import unittest
+import unittest.mock
+from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from db_utils import MIN_TARGET_COVERAGE, finish_bot_run
 from models import SaveSummary
@@ -115,6 +118,85 @@ class TargetCoverageTest(unittest.TestCase):
     def test_threshold_matches_live_failure(self):
         # 2 Ağustos canlı ölçümü: 150 hedeften ~55'i okunabiliyordu.
         self.assertLess(55 / 150, MIN_TARGET_COVERAGE)
+
+
+class DegradedIsNotFailureTest(unittest.TestCase):
+    """'degraded' ardışık-hata eskalasyonuna GİRMEMELİ.
+
+    Canlı kanıt (Faz 0-2 denetimi): 2 Ağustos 23:00 ve 23:26'daki iki degraded
+    Shell koşusu 23:11'de "shell_bot.py arka arkaya başarısız" başlıklı CRITICAL
+    alarm açtı — oysa bot her iki koşuda da yüzlerce fiyat yazmıştı. degraded,
+    tasarım gereği "veri yazıldı ama eksik" demek; başarısızlık değil.
+    """
+
+    def _record(self, status, previous_statuses):
+        import telemetry
+
+        calls = {"alert": [], "resolve": []}
+
+        class FakeQuery:
+            def select(self, *a, **k):
+                return self
+
+            def eq(self, *a, **k):
+                return self
+
+            def order(self, *a, **k):
+                return self
+
+            def limit(self, *a, **k):
+                return self
+
+            def insert(self, *a, **k):
+                return self
+
+            def execute(self):
+                return SimpleNamespace(
+                    data=[{"status": s, "started_at": "2026-08-02T23:00:00Z"}
+                          for s in previous_statuses]
+                )
+
+        class FakeSupabase:
+            def table(self, _name):
+                return FakeQuery()
+
+        now = datetime.now(timezone.utc)
+        with unittest.mock.patch.object(telemetry, "supabase", FakeSupabase()), \
+                unittest.mock.patch.object(
+                    telemetry, "create_system_alert",
+                    lambda **kw: calls["alert"].append(kw)), \
+                unittest.mock.patch.object(
+                    telemetry, "resolve_system_alerts",
+                    lambda **kw: calls["resolve"].append(kw)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            telemetry.record_bot_run(
+                bot_name="shell_bot.py",
+                mode="prices",
+                status=status,
+                started_at=now,
+                finished_at=now,
+            )
+        return calls
+
+    def test_consecutive_degraded_does_not_raise_critical(self):
+        calls = self._record("degraded", ["degraded", "degraded"])
+        self.assertEqual(calls["alert"], [], "degraded critical alarm açmamalı")
+
+    def test_degraded_resolves_stale_failure_alarm(self):
+        # Bot yaşıyor ve yazıyor: eski ardışık-hata alarmı kapanmalı.
+        calls = self._record("degraded", ["failed", "failed"])
+        self.assertEqual(len(calls["resolve"]), 1)
+
+    def test_degraded_breaks_a_failure_streak(self):
+        # failed -> degraded -> failed ardışık DEĞİLDİR; seri degraded'da kırılır.
+        calls = self._record("failed", ["degraded", "failed"])
+        self.assertEqual(calls["alert"], [])
+
+    def test_real_failures_still_escalate(self):
+        # Regresyon koruması: düzeltme alarmı tamamen sağır etmemeli.
+        calls = self._record("failed", ["failed", "success"])
+        self.assertEqual(len(calls["alert"]), 1)
+        self.assertEqual(calls["alert"][0]["severity"], "critical")
 
 
 if __name__ == "__main__":

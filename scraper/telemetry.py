@@ -23,6 +23,19 @@ def _observability_table_missing(exc: Exception) -> bool:
         or "PGRST205" in text
     )
 
+# Bot'un ÖLÜ olmadığını gösteren durumlar. 'degraded' = "veri yazıldı ama
+# hedeflerin bir kısmı okunamadı" (bkz. db_utils.MIN_TARGET_COVERAGE,
+# database/add_bot_runs_degraded_status.sql) — tasarım gereği başarısızlık
+# DEĞİLDİR ve ardışık-hata eskalasyonuna girmemelidir.
+#
+# Eskiden girerdi: 2 Ağustos 23:00 ve 23:26'daki iki degraded Shell koşusu
+# üretimde 23:11'de "shell_bot.py arka arkaya başarısız" başlıklı CRITICAL
+# alarm açtı — bot aslında her iki koşuda da yüzlerce fiyat yazmıştı.
+# Kapsama düşüklüğünün kendi `warning` alarmı zaten var; onu bu değişiklik
+# etkilemez (farklı title ile açılır ve açık kalır).
+NON_FAILURE_STATUSES = ("success", "ok", "degraded")
+
+
 def record_bot_run(
     *,
     bot_name: str,
@@ -45,10 +58,13 @@ def record_bot_run(
     # eklenir. Eskiden insert SONRASI çağrılıyordu ve mevcut koşu hem
     # sorgudan hem elle ekten gelip iki kez sayılıyordu — tek hata
     # "2 ardışık hata" görünüp ilk denemede critical alarm patlatıyordu.
-    if status not in ("success", "ok"):
+    if status not in NON_FAILURE_STATUSES:
         _check_consecutive_failures(bot_name, current_status=status)
     else:
-        # Başarılıysa o bot'a ait açık hata alarmlarını kapat
+        # Bot çalıştı ve veri yazdı — ardışık hata alarmını kapat.
+        # 'degraded' de buraya girer: kapsama düşük olsa bile bot ÖLÜ DEĞİL.
+        # Kapsama sorunu run_all_bots'un ayrı `warning` alarmıyla (farklı
+        # title) açık kalmaya devam eder; buradaki resolve onu kapatmaz.
         resolve_system_alerts(source=f"bot:{bot_name}", title=f"{bot_name} arka arkaya başarısız")
 
     payload = {
@@ -101,7 +117,8 @@ def _check_consecutive_failures(bot_name: str, current_status: str) -> None:
         statuses = [current_status] + [r.get("status", "") for r in recent]
         consecutive_failures = 0
         for s in statuses:
-            if s not in ("success", "ok"):
+            # 'degraded' seriyi KIRAR: eksik de olsa veri yazılmış demektir.
+            if s not in NON_FAILURE_STATUSES:
                 consecutive_failures += 1
             else:
                 break
