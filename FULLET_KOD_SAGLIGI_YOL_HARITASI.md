@@ -1044,3 +1044,120 @@ botun yazdığı istasyon toplamıyla birebir eşleşiyor.
 | Faz 3 — Ölü mekanizmalar | 0,5 gün | Gelecekteki yanlış güveni önler |
 | Faz 4 — Regresyon kilidi | 0,5 gün | Kalıcılık |
 | **Toplam** | **5–7 gün** | |
+
+---
+
+# BÜYÜK KAPANIŞ VE TEMİZLİK OPERASYONU (3 Ağustos 2026)
+
+Kullanıcı Faz 0–3'ün kapanış onayını istedi. Onaydan **önce** yapılan ölçüm,
+Faz 3'ün kapalı OLMADIĞINI gösterdi. Aşağıdaki operasyon o boşlukları kapattı
+ve ertelenen 21–25. maddeleri bitirdi. Uygulama planı: `implementation_plan.md`.
+
+## Kapanışı engelleyen bulgular (ölçüldü)
+
+### A1 — F3-1'in "101 kopya → 0" iddiası tutmuyordu ❗
+Canlıda **26 aktif kopya çifti** vardı (`ÇİNÇİN.` ↔ `ÇİNÇİN.` **0,0 m**,
+`MENEMEN ÇIKIŞI.` ↔ kendisi **0,0 m**). Hepsinin `olusturulma_tarihi` Nisan–Mayıs,
+yani yeni üretilmiş değil — **birleştirmenin atladığı** kayıtlar.
+
+*Kök neden (kanıtlandı):* `merge_duplicate_stations.py` yalnızca **aktif**
+istasyonları kümeliyordu. Çiftin bir üyesi o an pasifse çift hiç görülmüyordu;
+sonra fiyat yazma yolu (`istasyonlar.aktif = True`) o kaydı diriltince kopya
+**aktif** olarak geri geliyordu. Kanıt: birleştirmeden sonra aktif istasyon
+2.636 → 2.728, üstelik arada **79 kayıt silinmişken**. Değişmemiş scriptin
+bugünkü dry-run'ı aynı kopyaları buluyor — tek değişen girdi aktif kümesiydi.
+
+*Ders (dördüncü kez aynı ders):* düzeltme yazmadan önce ölç. Bu kez ölçüm
+düzeltmeden önce yapıldı ve hipotez B0 adımında doğrulandı.
+
+### A2 — 178 aktif ve görünür Shell istasyonunun hiç gösterilebilir fiyatı yoktu
+Kullanıcı o pinlere basınca **"Yok"** görüyordu. Diğer altı markada bu sayı
+sıfırdı. F3-3 (tavan 150→250) kapsamayı %85,6'ya çıkardı ama Shell'in ilçe
+listesi 250'den uzun; kuyruktaki ilçeler sıraya gelmiyor.
+
+### A3 — `aktif` ve `visibility_status` çelişiyordu
+232 satır "aktif ama hidden", 354 satır "pasif ama visible". İki bayrak
+bağımsız yazılıyordu, tutarlılık hiçbir yerde zorlanmıyordu.
+
+### A4 — Envanter botu her koşuda istasyonları `low_priority`'ye düşürüyordu
+`database_writes.py` koşulsuz `visibility_status: "low_priority"` yazıyordu;
+fiyatı taze bir `visible` istasyon bile her envanter koşusunda düşüyordu.
+Canlıda 1.052 satır bu durumdaydı.
+
+### A5 — 9 sayfalamada `ORDER BY` yoktu
+`ORDER BY`'sız sayfalama Postgres'te garantisizdir. **Hasar kanıtlanmadı**
+(tek snapshot'ta kayıp yok), risk olarak kapatıldı.
+
+### Bonus — canlı ile dosya arasında DRIFT (en tehlikeli bulgu) ❗
+`database/auto_price_staleness.sql` canlıyla uyuşmuyordu: Faz 1'de pg_cron
+JOB 1/2 canlıda `COALESCE(son_dogrulama, son_guncelleme)`ye çevrilmişti ama
+dosya hâlâ `son_guncelleme` diyordu. Dosyayı iyi niyetle yeniden çalıştıran
+biri **Faz 1'in en değerli düzeltmesini geri alır** ve fiyat salınımını geri
+getirirdi. Bu, 24. maddenin (SQL doğruluk kaynağı) neden gerçek bir borç
+olduğunun kanıtıdır.
+
+## Yapılan iş
+
+| Adım | İş | Sonuç |
+|---|---|---|
+| B0 | A1 kök nedenini ölç | Hipotez kanıtlandı |
+| B1 | Üretimi durdur | Kopya üretimi, bayrak çelişkisi, sayfalama, drift |
+| B2 | 105 kümeyi birleştir | **107 kopya silindi**, 314 fiyat taşındı, Bağcılar-2 elle |
+| B3 | Görünürlüğü fiyattan türet | pg_cron JOB 5; 530 gizlendi, **200 geri geldi** |
+| B4 | Moloz temizliği | 544 pasif istasyon, 729 fiyat, 9.627 geçmiş satırı |
+| B5 | Madde 21–25 | Push kaldırıldı, low_priority gerçek oldu, sessiz catch'ler izli |
+| B6 | Kod temizliği | 2 ölü dosya, 1 ölü fonksiyon, 12 ölü import, 4 bayat doküman bandı |
+| B7 | Regresyon kilidi | +10 test (9 Python, 1 Dart) |
+
+### Kullanıcı kararları
+1. **Push altyapısı: kaldırıldı.** `push_tokens` (0 satır), `fiyat-push` Edge
+   Function, `send_summary_push`, `price_alerts.push_token`. **Yerel
+   bildirimler kaldı** — onlar çalışıyor.
+2. **Shell'in 178 istasyonu: gizlendi** (kapasite zorlanmadı). Geri
+   döndürülebilir: fiyat gelince JOB 5 bir saat içinde `visible` yapar.
+3. **Moloz kapsamı daraltıldı.** Aktifteki 1.092 `unknown` satıra dokunulmadı
+   (698'i meşru "bu istasyon LPG satmıyor" bilgisi).
+
+### Plandan sapılan iki yer — ikisi de ölçüm sonucu
+* **Fiyat geçmişi budaması.** Plan "90 günden eski her satırı sil" diyordu.
+  Ölçüm: bu kural 1.289 istasyon-yakıt serisini tamamen silecekti ve 566'sı
+  **görünür** istasyonlardaydı — 566 sparkline boşalacaktı. Kural daraltıldı:
+  seri başına en yeni 20 satır daima korunur (uygulama zaten 20 gösteriyor).
+* **Tamamı pasif kopya kümeleri.** 9 küme birleştirilmedi; pasif satırların
+  966 fiyatının tamamı aylar önce donmuş `unknown` değerlerdi ve birleştirme
+  bunlardan birini "kazanan" yapardı. Moloz temizliğine bırakıldılar.
+
+## Kapanış doğrulaması — canlı veri
+
+| Ölçüt | Önce | Sonra |
+|---|---|---|
+| Aktif kopya çifti (≤75 m) | 26 | **0** |
+| Görünür ama fiyatsız istasyon | 178 | **0** |
+| `aktif` + `hidden` çelişkisi | 232 | **0** (191 hidden'ın hepsi gerçekten fiyatsız) |
+| `pasif` + `visible` çelişkisi | 354 | **0** |
+| Pasif istasyon | 544 | **0** |
+| Öksüz fiyat / geçmiş satırı | 0 | **0** |
+| Açık `system_alerts` | 0 | **0** |
+| `push_tokens` tablosu | var | **yok** |
+| Görünür istasyon | 2.496 | **2.511** |
+
+Marka bazında taze fiyat oranı: Petrol Ofisi %100, BP %100, Opet %99,8,
+TotalEnergies %97,4, Aytemiz %97,2, Türkiye Petrolleri %89,6, Shell %79,7.
+Shell dışında **bayat satır sıfır**.
+
+Testler: **129 Python** (CI koşumu) + **27 Flutter**, hepsi yeşil.
+
+## HÜKÜM: Faz 0, 1, 2, 3 — ✅ KAPALI
+
+## Bilerek açık bırakılanlar (yarım iş değil, ayrı iş)
+
+1. **A2'nin kök nedeni.** Gizleme belirtiyi çözdü, sebebi değil: Shell'in
+   hedef kapsaması hâlâ eksik ve 191 istasyon fiyatsız. Gerçek çözüm hedef
+   kapasitesini artırmaktır ve GitHub Actions 55 dk sınırına dayanıyor.
+2. **İstasyon sayısı 2.702.** Türkiye'de ~13.000 istasyon var; kapsama ~%21.
+   Bu bir *temizlik* değil *toplama* işidir (Faz 4).
+3. **75–150 m bandındaki 17 çift.** Hepsi ayrı isimli gerçek istasyon
+   (`YAĞLI BATI`/`YAĞLI DOĞU`, `KÜTAHYA-1`/`KÜTAHYA-2`). F3-1'in ölçülmüş
+   kararına uyuldu, dokunulmadı.
+4. **`_yedek_20260803_*` tabloları.** Silinen her şey geri alınabilir olsun
+   diye duruyor. Bir süre sonra düşürülebilir.
