@@ -208,6 +208,11 @@ def _station_inventory_target(item: dict[str, Any]) -> str:
         "isim": item["isim"],
         **payload,
         "aktif": False,
+        # `aktif=False` ise `visibility_status` DAİMA 'hidden' olmalı. Bu satır
+        # eskiden yoktu ve kolon varsayılanı 'visible' olduğu için canlıda 354
+        # "pasif ama visible" kayıt oluşmuştu — iki bayrak birbiriyle çelişiyordu.
+        # Tek kural: durum bayrağı ile görünürlük bayrağı ASLA çelişmez.
+        "visibility_status": "hidden",
         "olusturulma_tarihi": now,
     }).execute()
     return inserted.data[0]["id"]
@@ -319,6 +324,7 @@ def _existing_station_inventory_indexes(
                 supabase.table("istasyonlar")
                 .select("id,marka,isim,il,ilce,enlem,boylam")
                 .eq("marka", brand)
+                .order("id")
                 .range(start, start + 999)
                 .execute()
                 .data

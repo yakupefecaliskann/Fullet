@@ -90,7 +90,9 @@ def _select_all(client, table: str, select: str, page_size: int = 1000):
     start = 0
     while True:
         end = start + page_size - 1
-        page = client.table(table).select(select).range(start, end).execute().data or []
+        page = (
+            client.table(table).select(select).order("id").range(start, end).execute().data or []
+        )
         rows.extend(page)
         if len(page) < page_size:
             break

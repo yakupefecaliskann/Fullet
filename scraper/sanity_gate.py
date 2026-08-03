@@ -57,6 +57,7 @@ def _reference_medians(exclude_brand: str) -> dict[str, float]:
                 supabase.table("fiyatlar")
                 .select("yakit_tipi, fiyat, price_status, istasyonlar!inner(marka)")
                 .neq("price_status", "unknown")
+                .order("id")
                 .range(start, start + _PAGE_SIZE - 1)
                 .execute()
                 .data

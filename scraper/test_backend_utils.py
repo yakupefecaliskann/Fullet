@@ -268,7 +268,13 @@ class BackendUtilsTest(unittest.TestCase):
 
     @unittest.mock.patch('matching.supabase')
     @unittest.mock.patch('database_writes.supabase')
-    def test_official_station_without_price_is_low_priority(self, mock_dbw, mock_match):
+    def test_official_station_without_price_starts_hidden(self, mock_dbw, mock_match):
+        """Fiyatı olmayan yeni istasyon GİZLİ başlar.
+
+        Eskiden `low_priority` yazılıyordu ve uygulama onu normal gösterdiği
+        için kullanıcı "Yok" yazan bir pin görüyordu. İlk fiyat geldiğinde
+        pg_cron JOB 5 istasyonu `visible`'a çıkarır — gizleme kalıcı değildir.
+        """
         from database_writes import _bulk_write_station_inventory
         
         # Mock empty existing db
@@ -286,11 +292,39 @@ class BackendUtilsTest(unittest.TestCase):
             "veri_kaynagi": "test"
         }])
         
-        # It should insert a new row with visibility_status = low_priority and aktif = True
         mock_table.insert.assert_called_once()
         inserted_row = mock_table.insert.call_args[0][0][0]
-        self.assertEqual(inserted_row["visibility_status"], "low_priority")
+        self.assertEqual(inserted_row["visibility_status"], "hidden")
         self.assertTrue(inserted_row["aktif"])
+
+    @unittest.mock.patch('matching.supabase')
+    @unittest.mock.patch('database_writes.supabase')
+    def test_inventory_update_does_not_touch_visibility(self, mock_dbw, mock_match):
+        """Envanter botu MEVCUT istasyonun görünürlüğünü değiştirmez.
+
+        Regresyon kilidi (A4): burada koşulsuz `low_priority` yazılıyordu ve
+        envanter botu her koştuğunda dokunduğu her istasyonu — fiyatı taze
+        olsa bile — düşürüyordu. Canlıda 1.052 satır bu yüzden low_priority'ydi.
+        """
+        from database_writes import _bulk_write_station_inventory
+
+        mock_table = unittest.mock.MagicMock()
+        mock_dbw.table.return_value = mock_table
+        mock_match.table.return_value.select.return_value.eq.return_value \
+            .order.return_value.range.return_value.execute.return_value.data = [{
+                "id": "mevcut-id", "marka": "Opet", "isim": "Test",
+                "il": "ISTANBUL", "ilce": "KADIKOY", "enlem": 41.0, "boylam": 29.0,
+            }]
+
+        _bulk_write_station_inventory([{
+            "marka": "Opet", "isim": "Test", "il": "ISTANBUL", "ilce": "KADIKOY",
+            "enlem": 41.0, "boylam": 29.0, "veri_kaynagi": "test",
+        }])
+
+        mock_table.upsert.assert_called_once()
+        updated_row = mock_table.upsert.call_args[0][0][0]
+        self.assertNotIn("visibility_status", updated_row)
+        self.assertTrue(updated_row["aktif"])
 
 
 class ProvinceSplitTest(unittest.TestCase):

@@ -431,6 +431,7 @@ class TargetPaginationTest(unittest.TestCase):
             {"il": "ANKARA", "ilce": f"ILCE{i:04d}"} for i in range(total)
         ]
         calls = []
+        ordered_by = []
 
         class FakeQuery:
             def select(self, *a, **k):
@@ -446,7 +447,20 @@ class TargetPaginationTest(unittest.TestCase):
             def is_(self, *a, **k):
                 return self
 
+            def order(self, column, **k):
+                ordered_by.append(column)
+                return self
+
             def range(self, start, end):
+                # Sayfalama ORDER BY olmadan yapılırsa Postgres satır sırasını
+                # garanti etmez; eşzamanlı yazma altında satır atlanır ya da
+                # iki kez gelir. Sahte istemci bunu ZORLAR ki gerçek sorgudan
+                # `.order()` düşerse test kırmızıya dönsün.
+                if not ordered_by:
+                    raise AssertionError(
+                        "range() çağrılmadan önce order() çağrılmalı — "
+                        "ORDER BY'sız sayfalama satır kaybettirir."
+                    )
                 calls.append((start, end))
                 self._slice = istasyonlar[start:end + 1]
                 return self

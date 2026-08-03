@@ -77,6 +77,7 @@ def _targets_from_supabase():
             .select("il,ilce")
             .eq("marka", "Shell")
             .not_.is_("il", "null")
+            .order("id")
             .range(start, start + 999)
             .execute()
             .data

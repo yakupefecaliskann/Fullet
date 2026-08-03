@@ -71,6 +71,7 @@ def _select_brand_stations(brand):
             supabase.table("istasyonlar")
             .select("id,marka,il,aktif,veri_kaynagi,guncellenme_tarihi")
             .eq("marka", brand)
+            .order("id")
             .range(start, start + 999)
             .execute()
             .data

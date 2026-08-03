@@ -232,12 +232,20 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
                 item["marka"], coordinates[0], coordinates[1]
             )
         if station_id:
-            updates.append({"id": station_id, **payload, "visibility_status": "low_priority", "aktif": True})
+            # `visibility_status` KASTEN yazılmıyor. Eskiden burada koşulsuz
+            # "low_priority" vardı ve envanter botu her koştuğunda dokunduğu
+            # her istasyonu — fiyatı taze olsa bile — `visible`'dan düşürüyordu
+            # (canlıda 1.052 satır). Görünürlüğün tek sahibi artık fiyat
+            # durumundan türeten pg_cron kuralı (JOB 5).
+            updates.append({"id": station_id, **payload, "aktif": True})
         else:
             inserts.append({
                 **payload,
                 "aktif": True,
-                "visibility_status": "low_priority",
+                # Yeni keşfedilen istasyonun HENÜZ fiyatı yok; "Yok" yazan bir
+                # pin göstermektense gizli başlar. İlk fiyat geldiğinde JOB 5
+                # onu bir saat içinde `visible`'a çıkarır.
+                "visibility_status": "hidden",
                 "olusturulma_tarihi": now,
             })
 
@@ -345,6 +353,7 @@ def _load_brand_stations(brands: Iterable[str]) -> dict[tuple[str, str], list[di
                 .select("id,marka,isim,il,ilce,enlem,boylam")
                 .eq("marka", brand)
                 .not_.ilike("isim", "%Fullet Verisi%")
+                .order("id")
                 .range(start, start + 999)
                 .execute()
                 .data

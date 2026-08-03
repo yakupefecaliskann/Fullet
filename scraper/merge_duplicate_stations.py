@@ -77,11 +77,21 @@ GENERIC_NAME_MATCH_RADIUS_METERS = 150.0
 
 
 def _page_all(table: str, select: str) -> list[dict[str, Any]]:
+    """Tabloyu sayfalayarak okur.
+
+    `.order("id")` ŞART: `ORDER BY` olmadan sayfalama Postgres'te garantisizdir.
+    Botlar bu tablolara sürekli yazdığı için satırlar heap'te yer değiştirir ve
+    aynı satır iki sayfada birden gelebilir ya da hiç gelmeyebilir. Sessiz
+    veri kaybının klasik kaynağıdır; maliyeti sıfır olduğu için her yerde var.
+    """
     assert supabase is not None
     rows: list[dict[str, Any]] = []
     start = 0
     while True:
-        page = supabase.table(table).select(select).range(start, start + 999).execute().data or []
+        page = (
+            supabase.table(table).select(select).order("id").range(start, start + 999)
+            .execute().data or []
+        )
         rows.extend(page)
         if len(page) < 1000:
             break
@@ -176,6 +186,7 @@ def _pick_survivor(
         )
         created = parse_timestamp(station.get("olusturulma_tarihi"))
         return (
+            0 if station.get("aktif") else 1,             # AKTİF olan önce
             0 if not _is_generic_name(station) else 1,   # jenerik olmayan önce
             -fresh_count,                                 # çok taze fiyat önce
             created.timestamp() if created else float("inf"),  # eski kayıt önce
@@ -183,6 +194,22 @@ def _pick_survivor(
         )
 
     return sorted(cluster, key=sort_key)[0]
+
+
+def _better_name(cluster: list[dict[str, Any]], survivor: dict[str, Any]) -> str | None:
+    """Hayatta kalanın adı jenerikse ('Shell'), kümedeki gerçek adı ona taşır.
+
+    Aktiflik isim kalitesinden ÖNCE geldiği için hayatta kalan bazen jenerik
+    adlı aktif kayıt oluyor; o zaman 'ÇEKMEKÖY AKÇEŞME.' gibi gerçek ad
+    silinen kayıtla birlikte kaybolurdu. Ad taşımak veriyi zenginleştirir,
+    kimliği değiştirmez (kimlik marka + konum).
+    """
+    if not _is_generic_name(survivor):
+        return None
+    for station in cluster:
+        if station["id"] != survivor["id"] and not _is_generic_name(station):
+            return station.get("isim")
+    return None
 
 
 def _best_price_per_fuel(
@@ -223,8 +250,18 @@ def main() -> int:
     )
     for station in stations:
         station["_coord"] = station_coordinates(station)
-    located = [s for s in stations if s["_coord"] and s.get("aktif")]
-    print(f"Aktif + koordinatlı istasyon: {len(located)} / {len(stations)}")
+    # PASİF kayıtlar da kümelenir. Bu filtre eskiden `and s.get("aktif")`
+    # içeriyordu ve F3-1'in 26 kopyayı kaçırmasının sebebi tam olarak buydu:
+    # bir çiftin bir üyesi birleştirme anında pasifse çift hiç görülmüyordu,
+    # sonra fiyat yazma yolu (`db_utils`, `istasyonlar.aktif = True`) o kaydı
+    # diriltince kopya AKTİF olarak geri geliyordu. Ölçüldü (3 Ağu 2026):
+    # birleştirmeden sonra aktif istasyon 2.636 -> 2.728, üstelik arada 79
+    # kayıt silinmişken. Kimlik marka + konumdur; `aktif` bir kimlik alanı
+    # değil, bir durum bayrağıdır ve kopya tespitine karışmamalıdır.
+    located = [s for s in stations if s["_coord"]]
+    active_count = sum(1 for s in located if s.get("aktif"))
+    print(f"Koordinatlı istasyon: {len(located)} / {len(stations)} "
+          f"(aktif {active_count}, pasif {len(located) - active_count})")
 
     prices = _page_all(
         "fiyatlar", "id,istasyon_id,yakit_tipi,fiyat,price_status,son_dogrulama,son_guncelleme"
@@ -256,6 +293,7 @@ def main() -> int:
     conflicts = 0
     planned_deletes: list[str] = []
     price_writes: list[dict[str, Any]] = []
+    name_writes: list[dict[str, Any]] = []
 
     for index, cluster in enumerate(sorted(clusters, key=lambda c: str(c[0]["marka"])), 1):
         survivor = _pick_survivor(cluster, prices_by_station)
@@ -280,7 +318,12 @@ def main() -> int:
         print(f"[{index:>3}] {survivor.get('marka')} "
               f"{survivor.get('il')}/{survivor.get('ilce')}  ({distance:.0f} m)")
         print(f"      YAŞAR : {str(survivor.get('isim'))[:34]!r} "
-              f"({len(prices_by_station.get(survivor['id'], []))} fiyat)")
+              f"({len(prices_by_station.get(survivor['id'], []))} fiyat"
+              f"{'' if survivor.get('aktif') else ', PASİF'})")
+        rescued_name = _better_name(cluster, survivor)
+        if rescued_name:
+            name_writes.append({"id": survivor["id"], "isim": rescued_name})
+            print(f"      AD    : {str(survivor.get('isim'))[:20]!r} -> {rescued_name[:30]!r}")
         for loser in losers:
             print(f"      SİL   : {str(loser.get('isim'))[:34]!r} "
                   f"({len(prices_by_station.get(loser['id'], []))} fiyat)")
@@ -319,6 +362,13 @@ def main() -> int:
             on_conflict="istasyon_id,yakit_tipi",
         ).execute()
     print(f"[OK] {len(price_writes)} fiyat satırı hayatta kalanlara taşındı.")
+
+    # 1b) Jenerik adlı hayatta kalanlara kümedeki gerçek adı taşı.
+    for name_row in name_writes:
+        supabase.table("istasyonlar").update(
+            {"isim": name_row["isim"]}
+        ).eq("id", name_row["id"]).execute()
+    print(f"[OK] {len(name_writes)} istasyon adı jenerikten gerçek ada taşındı.")
 
     # 2) Favorileri taşı (CASCADE silmeden önce). PK (firebase_uid, station_id)
     #    olduğu için hedefte aynı satır varsa insert çakışır — yok say.
