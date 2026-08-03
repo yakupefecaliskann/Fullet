@@ -271,6 +271,19 @@ def main() -> int:
         prices_by_station[price["istasyon_id"]].append(price)
 
     clusters = _find_clusters(located)
+
+    # Tamamı pasif kümeler ATLANIR. Pasif kayıtların hepsi ayrı bir adımda
+    # (moloz temizliği) toptan siliniyor; onları önce birleştirmek anlamsız
+    # yazma trafiği üretir. Daha önemlisi risklidir: pasif satırların fiyatları
+    # aylar önce donmuş `unknown` değerlerdir (ölçüldü: 966 satırın TAMAMI
+    # unknown, taze olan sıfır) ve iki pasif kayıt birleşirken bu eski
+    # değerlerden biri "kazanan" olarak yazılırdı. En az bir aktif üye varsa
+    # küme işlenir — orada birleştirme gerçek bir kullanıcı sorununu çözer.
+    all_passive = [c for c in clusters if not any(s.get("aktif") for s in c)]
+    clusters = [c for c in clusters if any(s.get("aktif") for s in c)]
+    if all_passive:
+        print(f"[ATLA] {len(all_passive)} küme tamamen pasif — moloz temizliğine bırakıldı.\n")
+
     if not clusters:
         print("[OK] Birleştirilecek kopya bulunamadı.")
         return 0
@@ -326,7 +339,8 @@ def main() -> int:
             print(f"      AD    : {str(survivor.get('isim'))[:20]!r} -> {rescued_name[:30]!r}")
         for loser in losers:
             print(f"      SİL   : {str(loser.get('isim'))[:34]!r} "
-                  f"({len(prices_by_station.get(loser['id'], []))} fiyat)")
+                  f"({len(prices_by_station.get(loser['id'], []))} fiyat"
+                  f"{'' if loser.get('aktif') else ', PASİF'})")
             planned_deletes.append(loser["id"])
         if fuel_conflicts:
             print(f"      ÇAKIŞMA: {', '.join(fuel_conflicts)} -> taze/yeni olan kazanır")
