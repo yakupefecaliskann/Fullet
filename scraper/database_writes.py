@@ -374,28 +374,3 @@ def _load_brand_stations(brands: Iterable[str]) -> dict[tuple[str, str], list[di
                 break
             start += 1000
     return stations_by_brand_city
-
-def send_summary_push(message: str, is_zam: bool = False) -> None:
-    if not (SUPABASE_URL and SUPABASE_KEY):
-        print("[WARN] Push skipped: Supabase env values are missing.")
-        return
-    try:
-        response = requests.post(
-            f"{SUPABASE_URL}/functions/v1/fiyat-push",
-            headers={
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "action": "SUMMARY_PUSH",
-                "isZam": bool(is_zam),
-                "message": message[:240],
-            },
-            timeout=10,
-        )
-        if response.ok:
-            print("[OK] Summary push accepted.")
-        else:
-            print(f"[WARN] Push service returned {response.status_code}: {response.text[:200]}")
-    except Exception as exc:
-        print(f"[WARN] Push failed: {exc}")

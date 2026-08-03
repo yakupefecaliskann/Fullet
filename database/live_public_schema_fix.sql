@@ -1,3 +1,7 @@
+-- !! BAYAT BOLUM UYARISI — 3 Agustos 2026 !!
+-- Bu dosyanin `push_tokens` bolumleri artik gecersiz: tablo kaldirildi
+-- (bkz. supabase/migrations/20260803150000_drop_push_infrastructure.sql).
+
 -- ==============================================================================
 -- ⚠️ LEGACY SCRIPT WARNING ⚠️
 -- This is an old schema fix script and is kept only for historical reference.

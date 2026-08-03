@@ -6,7 +6,7 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
-from db_utils import clean_text, is_write_allowed, send_summary_push, supabase
+from db_utils import clean_text, is_write_allowed, supabase
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -118,9 +118,6 @@ def save_news(news_items):
     if write_errors == len(news_items):
         print("[FAIL] All news writes failed.")
         return -1
-
-    if inserted and os.environ.get("FULLET_NEWS_PUSH", "0") == "1":
-        send_summary_push("Akaryakit haberleri guncellendi.", is_zam=True)
 
     return inserted
 

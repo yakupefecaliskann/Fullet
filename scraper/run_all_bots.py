@@ -330,7 +330,7 @@ def main():
     print(f"Fullet scraper orchestrator starting. Mode: {args.mode}")
     failures = []
 
-    bot_env = {"FULLET_PUSH_SUMMARY": "0"}
+    bot_env: dict[str, str] = {}
 
     if args.mode in ("stations", "all"):
         _run_bot_group(STATION_BOTS, failures=failures, bot_env=bot_env, mode=args.mode)
@@ -349,10 +349,10 @@ def main():
         print("\n=====================================")
         print("Running: quarantine_old_prices.py")
         print("=====================================")
-        # env=bot_env ortamı GENİŞLETMEZ, EZER: alt sürece yalnızca
-        # FULLET_PUSH_SUMMARY geçiyordu; SUPABASE_URL, servis anahtarı,
-        # FULLET_ALLOW_DB_WRITE ve hatta PATH yoktu. Script bunu görüp
-        # exit 1 ile çıkıyor, dönüş kodu da kontrol edilmiyordu.
+        # env=bot_env ortamı GENİŞLETMEZ, EZER: alt sürece yalnızca `bot_env`
+        # geçiyordu; SUPABASE_URL, servis anahtarı, FULLET_ALLOW_DB_WRITE ve
+        # hatta PATH yoktu. Script bunu görüp exit 1 ile çıkıyor, dönüş kodu
+        # da kontrol edilmiyordu.
         quarantine_env = os.environ.copy()
         quarantine_env.update(bot_env)
         result = subprocess.run(

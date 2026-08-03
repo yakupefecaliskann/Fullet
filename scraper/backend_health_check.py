@@ -171,7 +171,6 @@ def main() -> int:
     schema_checks = {
         "istasyonlar": "id,aktif,veri_kaynagi,guncellenme_tarihi,visibility_status",
         "fiyatlar": "id,veri_kaynagi,price_status",
-        "push_tokens": "id,provider,son_guncelleme",
     }
     for table, select in schema_checks.items():
         try:

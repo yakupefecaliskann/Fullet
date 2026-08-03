@@ -1,3 +1,7 @@
+-- !! BAYAT BOLUM UYARISI — 3 Agustos 2026 !!
+-- Bu dosyadaki push_tokens temizlik job'u artik gecersiz: tablo kaldirildi
+-- (bkz. supabase/migrations/20260803150000_drop_push_infrastructure.sql).
+
 -- =============================================================================
 -- Fullet: fiyatlar.son_dogrulama + tek tazelik tanımı
 -- =============================================================================

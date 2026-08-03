@@ -1,3 +1,12 @@
+-- !! SUPERSEDED — 20260708130000_nearby_stations_brand_filter.sql !!
+-- Bu migration `get_nearby_stations`i 4 ARGUMANLI olarak tanimlar. Hemen
+-- ardindan gelen 20260708130000 ayni fonksiyonu 5 argumanli (brand_filter
+-- dahil) haliyle yeniden tanimlar ve bunu tamamen ezer. Sirayla uygulaninca
+-- son durum DOGRUDUR; dosya yalnizca tarihsel kayit olarak duruyor.
+-- TEK BASINA CALISTIRMA — iki overload birlikte kalirsa PostgREST cagriyi
+-- cozemez ve uygulama sessizce tum-ulke fallback'ine duser.
+-- Canli dogrulama (3 Agustos 2026): tek bir get_nearby_stations var (5 arg).
+
 -- =============================================================================
 -- Fullet: Gelişmiş RPC — istasyon + fiyat tek sorguda
 -- =============================================================================

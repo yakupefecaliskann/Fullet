@@ -32,7 +32,6 @@ from database_writes import (
     _mark_unreported_prices_unknown,
     _reset_split_region_targets,
     _load_brand_stations,
-    send_summary_push,
     _regional_targets_from_loaded,
     _chunks,
 )
@@ -341,7 +340,6 @@ def save_regional_prices_to_supabase(
     data: Iterable[dict[str, Any]],
     *,
     default_brand: str | None = None,
-    trigger_push: bool | None = None,
     dry_run: bool | None = None,
 ) -> SaveSummary:
     normalized, skipped = normalize_scraped_data(data, default_brand=default_brand)
@@ -357,7 +355,6 @@ def save_regional_prices_to_supabase(
         return save_to_supabase(
             data,
             default_brand=default_brand,
-            trigger_push=trigger_push,
             dry_run=dry_run,
         )
 
@@ -463,13 +460,6 @@ def save_regional_prices_to_supabase(
     stations_touched = len(station_fuels)
     print(f"[OK] {stations_touched} stations and {prices_touched} prices processed. Skipped: {skipped}.")
 
-    if trigger_push is None:
-        trigger_push = os.environ.get("FULLET_PUSH_SUMMARY", "0") == "1"
-
-    if trigger_push and stations_touched > 0:
-        brand_text = ", ".join(sorted(brands_touched))
-        message = f"Akaryakit fiyatlari guncellendi. {stations_touched} istasyon, {prices_touched} fiyat. {brand_text}."
-        send_summary_push(message, is_zam=os.environ.get("FULLET_PUSH_IS_ZAM", "0") == "1")
 
     return SaveSummary(
         stations_touched=stations_touched,
@@ -483,7 +473,6 @@ def save_to_supabase(
     data: Iterable[dict[str, Any]],
     *,
     default_brand: str | None = None,
-    trigger_push: bool | None = None,
     dry_run: bool | None = None,
 ) -> SaveSummary:
     normalized, skipped = normalize_scraped_data(data, default_brand=default_brand)
@@ -575,13 +564,6 @@ def save_to_supabase(
 
     print(f"[OK] {stations_touched} stations and {prices_touched} prices processed. Skipped: {skipped}.")
 
-    if trigger_push is None:
-        trigger_push = os.environ.get("FULLET_PUSH_SUMMARY", "0") == "1"
-
-    if trigger_push and stations_touched > 0:
-        brands = ", ".join(sorted(brands_touched))
-        message = f"Akaryakit fiyatlari guncellendi. {stations_touched} istasyon, {prices_touched} fiyat. {brands}."
-        send_summary_push(message, is_zam=os.environ.get("FULLET_PUSH_IS_ZAM", "0") == "1")
 
     return SaveSummary(
         stations_touched=stations_touched,

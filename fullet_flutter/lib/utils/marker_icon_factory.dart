@@ -15,19 +15,28 @@ class MarkerIconFactory {
     required bool isMostLogical,
     required bool compact,
     bool isSelected = false,
+    bool isLowPriority = false,
   }) async {
     final key =
-        'price|$brand|$priceText|$hasPrice|$priceStatus|$isCheapest|$isMostLogical|$compact|$isSelected';
+        'price|$brand|$priceText|$hasPrice|$priceStatus|$isCheapest|$isMostLogical|$compact|$isSelected|$isLowPriority';
     final cached = _cache[key];
     if (cached != null) return cached;
 
-    final palette = _paletteFor(
+    var palette = _paletteFor(
       brand: brand,
       hasPrice: hasPrice,
       priceStatus: priceStatus,
       isCheapest: isCheapest,
       isMostLogical: isMostLogical,
     );
+    // Madde 21: `low_priority` = 7 gündür doğrulanmamış kayıt. Silinmez ve
+    // gizlenmez (fiyatı hâlâ doğru olabilir) ama görsel olarak geri çekilir;
+    // "en ucuz"/"en mantıklı" yarışından da çıkarılmıştır
+    // (SmartStationService). Mekanizma bugüne kadar kuruluydu ama hiçbir
+    // yere bağlı değildi — uygulama `low_priority`'yi normal gösteriyordu.
+    if (isLowPriority) {
+      palette = palette.dimmed();
+    }
 
     final bytes = await _drawPriceMarker(
       text: hasPrice ? priceText : '-',
@@ -401,4 +410,14 @@ class _MarkerPalette {
     required this.foreground,
     required this.border,
   });
+
+  /// Marker'ı geri çeker: marka rengi tanınmaya devam eder ama dikkat çekmez.
+  /// Renkleri gri tonuna doğru harmanlar; opaklık düşürmek yerine harmanlamak
+  /// gerekiyor çünkü marker haritanın üstüne PNG olarak basılıyor ve şeffaf
+  /// piksel zeminle karışıp okunaksız hale geliyordu.
+  _MarkerPalette dimmed() => _MarkerPalette(
+        background: Color.lerp(background, const Color(0xFF9CA3AF), 0.55)!,
+        foreground: Color.lerp(foreground, const Color(0xFF6B7280), 0.35)!,
+        border: Color.lerp(border, const Color(0xFF9CA3AF), 0.55)!,
+      );
 }

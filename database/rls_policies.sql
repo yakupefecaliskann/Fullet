@@ -1,3 +1,7 @@
+-- !! BAYAT BOLUM UYARISI — 3 Agustos 2026 !!
+-- Bu dosyanin `push_tokens` bolumleri artik gecersiz: tablo kaldirildi
+-- (bkz. supabase/migrations/20260803150000_drop_push_infrastructure.sql).
+
 -- Fullet Row Level Security policies.
 -- Public app users may read app data. Writes stay behind service role keys.
 

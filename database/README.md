@@ -1,20 +1,60 @@
 # database/ — Şema Değişiklik Disiplini
 
-Bu klasördeki `.sql` dosyaları Fullet'in Supabase (Postgres) şemasının **fiili kaynağı**dır — bugüne kadar `supabase/migrations/` neredeyse hiç güncellenmediği için (tek, eski bir dosya) gerçek şema geçmişi burada, elle Supabase SQL Editor'da çalıştırılan script'lerde yaşadı. Bu durum versiyon kontrolü ve tekrarlanabilirlik açısından kırılgan; aşağıdaki kural bunu düzeltmenin başlangıcı.
+> **Güncellendi: 3 Ağustos 2026 (yol haritası madde 24).** Tek doğruluk kaynağı
+> artık `supabase/migrations/`. Bu klasör onun *ikizi* değil, tamamlayıcısıdır.
 
-## Kural
+## Doğruluk kaynağı
 
-Yeni bir şema değişikliği (tablo, kolon, RLS, RPC, index) yapıldığında:
+**`supabase/migrations/` = şemanın tek doğruluk kaynağıdır.** Zaman sıralı,
+değiştirilemez geçmiş. Yeni her şema değişikliği (tablo, kolon, RLS, RPC,
+index, pg_cron job) buraya `YYYYMMDDHHMMSS_kisa_aciklama.sql` olarak yazılır.
 
-1. Önce burada (`database/`) idempotent bir `.sql` dosyası yazılır (`CREATE TABLE IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, `DROP POLICY IF EXISTS` + `CREATE POLICY` gibi — dosya defalarca güvenle çalıştırılabilmeli).
-2. Aynı içerik, zaman damgalı bir kopya olarak `supabase/migrations/YYYYMMDDHHMMSS_kisa_aciklama.sql` altına da eklenir.
-3. Dosya Supabase Dashboard → SQL Editor'da çalıştırılır (bu adım kullanıcı eylemidir, CI/otomatik değildir).
-4. Şema doğrulaması gerekiyorsa `verify_live_schema.sql`'e ilgili kontrol satırı eklenir.
+**`database/` = iki tür dosya barındırır**, ikisi de doğruluk kaynağı DEĞİLDİR:
 
-Bu iki dosyanın (`database/` ve `supabase/migrations/`) içeriği **birbirinin aynısı** olmalı — `database/` okunabilir/organize edilmiş kaynak, `supabase/migrations/` ise zaman sıralı, değiştirilemez geçmiş.
+1. **Tek seferlik onarım script'leri** — `repair_composite_province_values.sql`,
+   `reset_hidden_regional_stations.sql` gibi. Bir kez çalıştırılır, tarihsel
+   kayıt olarak kalır.
+2. **Doğrulama script'leri** — `verify_live_schema.sql`. Şema değiştirmez.
 
-## Bilinen istisnalar / uyarılar
+Tek istisna `auto_price_staleness.sql`: pg_cron job'ları migration'la değil
+elle kurulduğu için okunabilir kaynak burada tutuluyor. **Bu dosya canlıyla
+BİREBİR aynı olmak zorundadır** — birini değiştiren diğerini de değiştirmeli.
 
-- `production_hardening.sql` ve `live_public_schema_fix.sql` kendi başlıklarında "normal release sırasında production'da çalıştırma" uyarısı taşıyor — geçmişte bir kez yanlışlıkla çalıştırılıp `visibility_status` mimarisini bozmuş olabilir. Bu iki dosyayı çalıştırmadan önce içeriğini dikkatlice oku.
-- `verify_live_schema.sql` bir doğrulama script'idir, şema değiştirmez — `supabase/migrations/`'a kopyalanmaz.
-- Bu kural geriye dönük olarak klasördeki 20+ eski dosyayı migrations'a taşımayı zorunlu kılmıyor; yalnızca **yeni** değişiklikler için geçerli. Geçmiş dosyalar zamanla, dokunuldukça migrations'a eklenebilir.
+## Neden değişti — gerçek bir drift yaşandı
+
+Eski kural "`database/` ve `supabase/migrations/` içeriği birbirinin aynısı
+olmalı" diyordu. Bu kural pratikte tutmadı ve **3 Ağustos 2026'da canlı bir
+tuzağa dönüştü**: Faz 1'de `son_dogrulama` kolonu eklenip pg_cron JOB 1/2
+canlıda `COALESCE(son_dogrulama, son_guncelleme)`ye çevrilmişti, ama
+`auto_price_staleness.sql` hâlâ `son_guncelleme` diyordu. Dosyayı iyi niyetle
+yeniden çalıştıran biri Faz 1'in en değerli düzeltmesini geri alır ve
+fiyatların `fresh → stale → fresh` salınımını geri getirirdi.
+
+İki kaynağı senkron tutmak insan disiplinine bağlıydı; disiplin tutmadı.
+Artık tek kaynak var.
+
+## Bayat dosya uyarıları
+
+Aşağıdaki dosyalar hâlâ **kaldırılmış** yapıları oluşturuyor ve başlıklarına
+uyarı bandı eklendi. Çalıştırılırlarsa ölü yapıları geri getirirler:
+
+| Dosya | Sorun |
+|---|---|
+| `production_hardening.sql` | `push_tokens` tablosunu oluşturur (tablo düşürüldü) |
+| `live_public_schema_fix.sql` | aynı |
+| `rls_policies.sql` | aynı |
+| `add_price_verification.sql` | `push_tokens` temizlik job'u içerir |
+| `supabase/migrations/20260708120100_*` | `get_nearby_stations`i 4 argümanlı tanımlar; bir sonraki migration onu ezer. Tek başına çalıştırılırsa iki overload kalır, PostgREST çağrıyı çözemez |
+
+`production_hardening.sql` ve `live_public_schema_fix.sql` ayrıca kendi
+başlıklarında "normal release sırasında production'da çalıştırma" uyarısı
+taşıyor — geçmişte bir kez yanlışlıkla çalıştırılıp `visibility_status`
+mimarisini bozmuş olabilir.
+
+## Kaldırılmış yapılar (3 Ağustos 2026)
+
+* `push_tokens` tablosu, `price_alerts.push_token` kolonu, `fiyat-push` Edge
+  Function, `fullet-cleanup-push-tokens` pg_cron job'u — push altyapısı uçtan
+  uca kopuktu ve kaldırıldı (madde 22/23). Bkz.
+  `supabase/migrations/20260803150000_drop_push_infrastructure.sql`.
+  **Cihaz üstü yerel bildirimler kaldırılmadı**, onlar çalışıyor.

@@ -725,6 +725,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
       isMostLogical: isMostLogical,
       compact: compact,
       isSelected: isSelected,
+      isLowPriority: station.isLowPriority,
     );
 
     return Marker(

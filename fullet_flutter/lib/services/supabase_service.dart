@@ -1,3 +1,4 @@
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,6 +8,24 @@ import '../utils/brand_utils.dart';
 import '../utils/distance_calculator.dart';
 
 class SupabaseService {
+  /// Kullanıcı akışını kesmemesi gereken ama SESSİZ de kalmaması gereken
+  /// hatalar için (yol haritası madde 25 / S3-10).
+  ///
+  /// Bu metotlar bilinçli olarak fırlatmıyor: favori eklenemedi diye kullanıcıya
+  /// hata göstermek, yerel favori zaten çalışırken gereksiz gürültü olurdu.
+  /// Ama eskiden `catch (_) {}` ile TAMAMEN yutuluyordu; sunucu tarafı
+  /// başarısız olunca kullanıcı favoriyi yerelde görüyor, başka cihazda
+  /// göremiyor ve hiçbir yerde iz kalmıyordu. Artık en azından iz kalıyor.
+  static void _reportSilently(String operation, Object error, StackTrace stack) {
+    debugPrint('SupabaseService.$operation failed: $error');
+    FirebaseCrashlytics.instance.recordError(
+      error,
+      stack,
+      reason: 'SupabaseService.$operation',
+      fatal: false,
+    );
+  }
+
   static final SupabaseClient client = Supabase.instance.client;
   static List<Station>? _allStationsCache;
   static DateTime? _allStationsCacheTime;
@@ -441,7 +460,9 @@ class SupabaseService {
         if (email != null) 'email': email,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
       });
-    } catch (_) {}
+    } catch (e, s) {
+      _reportSilently('upsertUserProfile', e, s);
+    }
   }
 
   /// fullet_users satırını siler; fullet_favorites ve price_alerts FK
@@ -461,7 +482,8 @@ class SupabaseService {
       return List<dynamic>.from(response)
           .map((row) => row['station_id'] as String)
           .toSet();
-    } catch (_) {
+    } catch (e, s) {
+      _reportSilently('getUserFavorites', e, s);
       return {};
     }
   }
@@ -475,7 +497,9 @@ class SupabaseService {
         },
         onConflict: 'firebase_uid,station_id',
       );
-    } catch (_) {}
+    } catch (e, s) {
+      _reportSilently('addFavorite', e, s);
+    }
   }
 
   static Future<void> removeFavorite(String uid, String stationId) async {
@@ -485,7 +509,9 @@ class SupabaseService {
           .delete()
           .eq('firebase_uid', uid)
           .eq('station_id', stationId);
-    } catch (_) {}
+    } catch (e, s) {
+      _reportSilently('removeFavorite', e, s);
+    }
   }
 
   static Future<void> syncLocalFavorites(

@@ -51,6 +51,13 @@ class SmartStationService {
       final price = station.priceValueFor(selectedFuel);
       if (price == null || !price.isFinite || price <= 0) continue;
 
+      // Madde 21: `low_priority` istasyon TAÇ ALAMAZ. Bu durum "7 gündür
+      // hiçbir bot bu kaydı doğrulamadı" demek (pg_cron JOB 3) — konumu veya
+      // varlığı şüpheli. Kullanıcıyı böyle bir istasyona yönlendirmek, en
+      // ucuzu bulmanın değil yanlış yere göndermenin yoludur. Haritada
+      // görünmeye devam eder, sadece soluk ve tavsiye edilmez.
+      if (station.isLowPriority) continue;
+
       final rank = priceStatusRank(station.priceStatusFor(selectedFuel));
       // Fiyat eşitse taze olan kazansın; bayat yalnızca gerçekten daha ucuzsa
       // tacı alır.

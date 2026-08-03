@@ -1,3 +1,10 @@
+-- !! BAYAT BOLUM UYARISI — 3 Agustos 2026 !!
+-- Bu dosya `push_tokens` tablosunu OLUSTURUR ve politikalarini kurar.
+-- Push altyapisi kaldirildi (yol haritasi madde 22/23) ve tablo canlida
+-- DUSURULDU (supabase/migrations/20260803150000_drop_push_infrastructure.sql).
+-- Bu dosyayi calistirmak olu tabloyu geri getirir. Zaten dosya basindaki
+-- "normal release sirasinda production'da calistirma" uyarisi gecerli.
+
 -- ==============================================================================
 -- FULL MAINTENANCE SCRIPT WARNING
 -- ==============================================================================
