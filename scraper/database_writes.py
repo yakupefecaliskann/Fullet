@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-import requests
-
-from config import supabase, SUPABASE_URL, SUPABASE_KEY, CANONICAL_FUELS, ISTANBUL_REGION_DISTRICTS, is_write_allowed, is_dry_run
+from config import supabase, CANONICAL_FUELS, ISTANBUL_REGION_DISTRICTS
 from freshness import needs_verification_write, now_utc
 from matching import (
     StationProximityIndex,
     _existing_station_inventory_indexes,
-    _regional_targets_from_loaded,
+    _regional_targets_from_loaded,  # db_utils buradan alıyor — kullanılıyor
     _station_inventory_key,
-    _station_targets,
     station_coordinates,
 )
 from normalization import (
@@ -22,7 +18,6 @@ from normalization import (
     normalize_province,
     split_province_district,
 )
-from models import SaveSummary
 
 def _chunks(items: list[Any], size: int = 100) -> Iterable[list[Any]]:
     for index in range(0, len(items), size):

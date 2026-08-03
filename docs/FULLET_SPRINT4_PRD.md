@@ -1,3 +1,10 @@
+> ## ⚠️ BAYAT — 3 Ağustos 2026
+> Bu PRD'nin **S4-F1 "Ulusal Bildirim"** özelliği hayata geçmedi ve altyapısı
+> **kaldırıldı**. `fiyat-push` Edge Function, `push_tokens` tablosu ve
+> `send_summary_push()` artık yok (yol haritası madde 22/23). Belgede
+> "altyapının %70'i zaten var" diyen satırlar geçersizdir.
+> Cihaz üstü **yerel** bildirimler (`NotificationService`) çalışmaya devam ediyor.
+
 # FULLET — SPRINT 4 PRD
 ## "Alarm & Bildirim" Paketi
 

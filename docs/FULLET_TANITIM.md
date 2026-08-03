@@ -1,3 +1,7 @@
+> ## ⚠️ KISMEN BAYAT — 3 Ağustos 2026
+> Belgede geçen push/bildirim altyapısı (`supabase/functions/fiyat-push`,
+> `scraper/summary_push.py`) **kaldırıldı**. Yerel bildirimler geçerli.
+
 # Fullet — Teknik Tanıtım (Ekip Dokümanı)
 
 > Konum tabanlı akaryakıt fiyatı haritası. Yakındaki istasyonların fiyatını gösterir,

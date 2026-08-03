@@ -292,19 +292,6 @@ def station_coordinates(item: dict[str, Any]) -> tuple[float, float] | None:
     return latitude, longitude
 
 
-def _station_inventory_coord_key(item: dict[str, Any]) -> tuple[str, str, str, float, float] | None:
-    latitude = parse_coordinate(item.get("enlem"), latitude=True)
-    longitude = parse_coordinate(item.get("boylam"), latitude=False)
-    if latitude is None or longitude is None:
-        return None
-    return (
-        clean_text(item["marka"]),
-        normalize_city(item["il"]),
-        normalize_city(item["ilce"]),
-        round(latitude, 4),
-        round(longitude, 4),
-    )
-
 def _existing_station_inventory_indexes(
     brands: Iterable[str],
 ) -> tuple[dict[tuple[str, str, str, str], str], StationProximityIndex]:

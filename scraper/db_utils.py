@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import os
 import statistics
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-# Export telemetry & models
+# Export telemetry & models — bu modül botlar için bilinçli bir CEPHE
+# (facade). Aşağıdaki isimler db_utils içinde kullanılmasa bile başka
+# modüller `from db_utils import ...` ile alıyor; statik linter'lar bunları
+# "kullanılmıyor" sanır.
 from telemetry import record_bot_run, create_system_alert, resolve_system_alerts
 from models import SaveSummary
 
@@ -21,15 +23,13 @@ from normalization import (
     parse_price,
     parse_coordinate,
     istanbul_region_from_city,
-    _station_district_in_istanbul_region,
+    _station_district_in_istanbul_region,  # test `db_utils.` üzerinden çağırıyor
 )
 
-# Export matching and db writes
-from matching import _station_targets, _station_inventory_target
+from matching import _station_targets
 from database_writes import (
     _bulk_upsert_prices,
     _bulk_write_station_inventory,
-    _mark_unreported_prices_unknown,
     _reset_split_region_targets,
     _load_brand_stations,
     _regional_targets_from_loaded,

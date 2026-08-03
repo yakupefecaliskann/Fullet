@@ -1,3 +1,7 @@
+> ## ⚠️ BAYAT — 3 Ağustos 2026
+> Pazarlama/büyüme çalışması **iptal edildi**; öncelik yalnızca sistem
+> doğruluğu. Bu plandaki takvim ve hedefler uygulanmıyor. Arşiv olarak duruyor.
+
 # FULLET — YAYIN PLANI & 90 GÜN (Solo Geliştirici / Mevcut Vizyon)
 
 **Çerçeve:** VC yok, unicorn yok, pivot yok. Vizyon sabit: *"Yakıt fiyatlarını karşılaştıran ve kullanıcıya en mantıklı istasyonu bulduran uygulama."* Amaç: bitir, yayınla, stabilize et, gerçek kullanıcıya ver, sonra yeni projeye geç. Aşağısı buna göre.
