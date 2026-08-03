@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import statistics
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
@@ -252,6 +253,90 @@ def normalize_station_inventory_data(
     return valid, skipped
 
 
+def _apply_province_fallback_prices(
+    *,
+    normalized: list[dict[str, Any]],
+    stations_by_brand_city: dict[tuple[str, str], list[dict[str, Any]]],
+    station_updates_by_source: dict[str, set[str]],
+    station_fuels: dict[str, set[str]],
+    price_rows: list[dict[str, Any]],
+    refreshed_at: str,
+) -> None:
+    """İlçesi beslemede olmayan istasyonlara il medyanı fiyatını yazar.
+
+    --- Sorun (Faz 3 / F3-2) ---------------------------------------------
+    Markalar iki farklı granülerlikte fiyat yayınlıyor:
+
+      * Opet/PO/BP/Aytemiz -> İL düzeyinde (`ilce` boş). `_station_targets`'ın
+        ilçe filtresi hiç devreye girmiyor, dolayısıyla o ildeki TÜM
+        istasyonlar fiyat alıyor.
+      * TotalEnergies/TP   -> İLÇE düzeyinde (`county_name`). Bu durumda
+        `ilike("ilce", "%X%")` filtresi yalnızca beslemede ADI GEÇEN ilçeleri
+        seçiyor; beslemenin kapsamadığı ilçelerdeki istasyonlar HİÇ fiyat
+        almıyor.
+
+    Canlı ölçüm: 140 aktif istasyon (TotalEnergies 132, TP 8) uygulamada
+    görünür ama kalıcı olarak fiyatsızdı. 137'sinin `il` değeri markanın
+    fiyatlı illeri arasındaydı — yani ili tutuyordu, onları kesen ilçe
+    filtresiydi.
+
+    --- Neden il medyanı güvenli? ----------------------------------------
+    Ölçüldü (TotalEnergies canlı beslemesi, 944 satır): aynı il içinde
+    ilçeler arası Motorin farkı **medyan 0,02 TL**, illerin 7'sinde tam
+    sıfır. Tek anlamlı sapma K.MARAŞ (1,50 TL). Yani il düzeyinde tek fiyat
+    kullanmak bu markalarda gerçeği neredeyse birebir yansıtıyor — üstelik
+    diğer dört marka için sistem zaten TAM OLARAK bunu yapıyor.
+
+    Bu bir tahmin üretmek değil, granülerlik farkını eşitlemektir: aksi hâlde
+    aynı veri modelinde ilçe yayınlayan marka daha AZ istasyona ulaşıyor.
+    """
+    by_brand_city: dict[tuple[str, str], dict[str, list[float]]] = {}
+    source_by_brand: dict[str, str] = {}
+    for item in normalized:
+        key = (item["marka"], item["il"])
+        fuels = by_brand_city.setdefault(key, {})
+        for fuel, price in item["fiyatlar"].items():
+            fuels.setdefault(fuel, []).append(price)
+        source_by_brand[item["marka"]] = item["veri_kaynagi"]
+
+    filled_stations = 0
+    filled_rows = 0
+    for (brand, city), fuels in by_brand_city.items():
+        stations = stations_by_brand_city.get((brand, city), [])
+        if not stations:
+            continue
+        medians = {
+            fuel: statistics.median(values)
+            for fuel, values in fuels.items()
+            if values
+        }
+        source = source_by_brand.get(brand, "")
+        for station in stations:
+            station_id = station["id"]
+            already = station_fuels.get(station_id, set())
+            missing = {f: p for f, p in medians.items() if f not in already}
+            if not missing:
+                continue
+            filled_stations += 1
+            station_updates_by_source.setdefault(source, set()).add(station_id)
+            station_fuels.setdefault(station_id, set()).update(missing)
+            for fuel, price in missing.items():
+                filled_rows += 1
+                price_rows.append({
+                    "istasyon_id": station_id,
+                    "yakit_tipi": fuel,
+                    "fiyat": price,
+                    "son_guncelleme": refreshed_at,
+                    "veri_kaynagi": source,
+                })
+
+    if filled_stations:
+        print(
+            f"[IL-MEDYAN] {filled_stations} istasyona {filled_rows} fiyat il "
+            "medyanından yazıldı (ilçesi beslemede yok)."
+        )
+
+
 def save_regional_prices_to_supabase(
     data: Iterable[dict[str, Any]],
     *,
@@ -330,6 +415,15 @@ def save_regional_prices_to_supabase(
                     "son_guncelleme": refreshed_at,
                     "veri_kaynagi": source,
                 })
+
+    _apply_province_fallback_prices(
+        normalized=normalized,
+        stations_by_brand_city=stations_by_brand_city,
+        station_updates_by_source=station_updates_by_source,
+        station_fuels=station_fuels,
+        price_rows=price_rows,
+        refreshed_at=refreshed_at,
+    )
 
     for source, station_ids in station_updates_by_source.items():
         for batch in _chunks(sorted(station_ids), 500):

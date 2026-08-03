@@ -352,6 +352,81 @@ class ProvinceSplitTest(unittest.TestCase):
         self.assertEqual(item["ilce"], "SELCUKLU")
 
 
+class ProvinceFallbackPricesTest(unittest.TestCase):
+    """Faz 3 / F3-2: ilcesi beslemede olmayan istasyon fiyatsiz kalmamali.
+
+    Canli: 140 aktif istasyon (TotalEnergies 132, TP 8) kalici olarak
+    fiyatsizdi. 137'sinin ili tutuyordu; onlari kesen ilce filtresiydi.
+    Il ici ilceler arasi fark olculdu: medyan 0,02 TL.
+    """
+
+    def _run(self, normalized, stations_by_brand_city, station_fuels=None):
+        price_rows = []
+        updates = {}
+        db_utils._apply_province_fallback_prices(
+            normalized=normalized,
+            stations_by_brand_city=stations_by_brand_city,
+            station_updates_by_source=updates,
+            station_fuels=station_fuels if station_fuels is not None else {},
+            price_rows=price_rows,
+            refreshed_at="2026-08-03T12:00:00+00:00",
+        )
+        return price_rows, updates
+
+    def test_station_in_unreported_district_gets_province_median(self):
+        normalized = [
+            {"marka": "TotalEnergies", "il": "KOCAELI", "ilce": "GEBZE",
+             "fiyatlar": {"Motorin": 82.00}, "veri_kaynagi": "src"},
+            {"marka": "TotalEnergies", "il": "KOCAELI", "ilce": "DERINCE",
+             "fiyatlar": {"Motorin": 82.10}, "veri_kaynagi": "src"},
+        ]
+        stations = {("TotalEnergies", "KOCAELI"): [{"id": "izmit-1"}]}
+        rows, _ = self._run(normalized, stations)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["istasyon_id"], "izmit-1")
+        self.assertAlmostEqual(rows[0]["fiyat"], 82.05)  # medyan
+
+    def test_station_with_real_district_price_is_not_overwritten(self):
+        # EN KRITIK GARANTI: gercek ilce fiyati alan istasyona il medyani
+        # YAZILMAZ. Aksi halde dogru veriyi tahminle ezerdik.
+        normalized = [
+            {"marka": "TotalEnergies", "il": "KOCAELI", "ilce": "GEBZE",
+             "fiyatlar": {"Motorin": 82.00}, "veri_kaynagi": "src"},
+        ]
+        stations = {("TotalEnergies", "KOCAELI"): [{"id": "gebze-1"}]}
+        rows, _ = self._run(normalized, stations, station_fuels={"gebze-1": {"Motorin"}})
+        self.assertEqual(rows, [])
+
+    def test_only_missing_fuels_are_filled(self):
+        normalized = [
+            {"marka": "TotalEnergies", "il": "BURSA", "ilce": "NILUFER",
+             "fiyatlar": {"Motorin": 82.0, "LPG": 31.0}, "veri_kaynagi": "src"},
+        ]
+        stations = {("TotalEnergies", "BURSA"): [{"id": "s1"}]}
+        rows, _ = self._run(normalized, stations, station_fuels={"s1": {"Motorin"}})
+        self.assertEqual([r["yakit_tipi"] for r in rows], ["LPG"])
+
+    def test_other_brands_in_same_province_are_untouched(self):
+        normalized = [
+            {"marka": "TotalEnergies", "il": "ANKARA", "ilce": "CANKAYA",
+             "fiyatlar": {"Motorin": 82.0}, "veri_kaynagi": "src"},
+        ]
+        stations = {
+            ("TotalEnergies", "ANKARA"): [{"id": "total-1"}],
+            ("Shell", "ANKARA"): [{"id": "shell-1"}],
+        }
+        rows, _ = self._run(normalized, stations)
+        self.assertEqual([r["istasyon_id"] for r in rows], ["total-1"])
+
+    def test_province_without_stations_is_noop(self):
+        normalized = [
+            {"marka": "TotalEnergies", "il": "RIZE", "ilce": "MERKEZ",
+             "fiyatlar": {"Motorin": 82.0}, "veri_kaynagi": "src"},
+        ]
+        rows, _ = self._run(normalized, {})
+        self.assertEqual(rows, [])
+
+
 class StationProximityIndexTest(unittest.TestCase):
     """Faz 3 / F3-1: istasyon kimligi KOVA degil YAKINLIK olmali.
 
