@@ -120,6 +120,72 @@ class TargetCoverageTest(unittest.TestCase):
         self.assertLess(55 / 150, MIN_TARGET_COVERAGE)
 
 
+class CoveragePersistedTest(unittest.TestCase):
+    """Kapsama sayilari bot_runs KOLONUNA yazilmali (denetim bulgusu 2).
+
+    stdout_excerpt'e guvenilemez: _compact_log ilk 4000 karakteri tutar,
+    [RECORDS] satiri kosunun SONUNDA basilir. Canlida 20 shell_bot kaydinin
+    hicbirinde kapsama satiri yoktu.
+    """
+
+    def _payload_for(self, **kwargs):
+        import telemetry
+
+        captured = {}
+
+        class FakeQuery:
+            def select(self, *a, **k):
+                return self
+
+            def eq(self, *a, **k):
+                return self
+
+            def order(self, *a, **k):
+                return self
+
+            def limit(self, *a, **k):
+                return self
+
+            def insert(self, payload, *a, **k):
+                captured.update(payload)
+                return self
+
+            def execute(self):
+                return SimpleNamespace(data=[])
+
+        class FakeSupabase:
+            def table(self, _name):
+                return FakeQuery()
+
+        now = datetime.now(timezone.utc)
+        with unittest.mock.patch.object(telemetry, "supabase", FakeSupabase()), \
+                unittest.mock.patch.object(telemetry, "create_system_alert", lambda **kw: None), \
+                unittest.mock.patch.object(telemetry, "resolve_system_alerts", lambda **kw: None), \
+                contextlib.redirect_stdout(io.StringIO()):
+            telemetry.record_bot_run(
+                bot_name="shell_bot.py", mode="prices", status="success",
+                started_at=now, finished_at=now, **kwargs
+            )
+        return captured
+
+    def test_coverage_written_on_successful_run(self):
+        # Asil nokta: degraded OLMAYAN kosuda da kapsama saklanmali.
+        p = self._payload_for(targets_ok=142, targets_total=150)
+        self.assertEqual(p.get("targets_ok"), 142)
+        self.assertEqual(p.get("targets_total"), 150)
+
+    def test_non_target_bot_omits_columns(self):
+        # opet/total/tp tek istekle tum ulkeyi ceker; 0 ile karistirilmamali.
+        p = self._payload_for()
+        self.assertNotIn("targets_ok", p)
+        self.assertNotIn("targets_total", p)
+
+    def test_zero_ok_is_recorded_not_dropped(self):
+        p = self._payload_for(targets_ok=0, targets_total=150)
+        self.assertEqual(p.get("targets_ok"), 0)
+        self.assertEqual(p.get("targets_total"), 150)
+
+
 class DegradedIsNotFailureTest(unittest.TestCase):
     """'degraded' ardışık-hata eskalasyonuna GİRMEMELİ.
 

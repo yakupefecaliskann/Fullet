@@ -35,6 +35,10 @@ def _observability_table_missing(exc: Exception) -> bool:
 # etkilemez (farklı title ile açılır ve açık kalır).
 NON_FAILURE_STATUSES = ("success", "ok", "degraded")
 
+# Migration gerektiren opsiyonel bot_runs kolonları. Kolon yoksa insert
+# bunlar düşürülerek tekrarlanır (aşağıya bkz.).
+_OPTIONAL_RUN_COLUMNS = ("records_written", "targets_ok", "targets_total")
+
 
 def record_bot_run(
     *,
@@ -49,6 +53,8 @@ def record_bot_run(
     stdout: str | None = None,
     stderr: str | None = None,
     records_written: int | None = None,
+    targets_ok: int | None = None,
+    targets_total: int | None = None,
 ) -> None:
     if not supabase:
         return
@@ -81,15 +87,28 @@ def record_bot_run(
     }
     if records_written is not None:
         payload["records_written"] = records_written
+    # Kapsama sayıları KALICI kolona yazılır. stdout_excerpt'e güvenilemez:
+    # _compact_log ilk 4000 karakteri tutar, [RECORDS] satırı ise ~150
+    # hedeflik koşunun SONUNDA basılır — canlıda 20 shell_bot kaydının
+    # hiçbirinde kapsama satırı yoktu. Kolon olmadan başarılı koşuların
+    # kapsama trendi ölçülemiyor (bkz. add_bot_runs_target_coverage.sql).
+    if targets_total is not None:
+        payload["targets_ok"] = targets_ok
+        payload["targets_total"] = targets_total
     try:
         supabase.table("bot_runs").insert(payload).execute()
     except Exception as exc:
-        # records_written kolonu henüz migrate edilmemişse kolonsuz tekrar dene
-        # (bkz. database/add_bot_runs_records_written.sql)
-        if "records_written" in str(exc) and "records_written" in payload:
-            print("[WARN] bot_runs.records_written is missing; run database/add_bot_runs_records_written.sql.")
+        # Opsiyonel kolonlar henüz migrate edilmemişse onlarsız tekrar dene.
+        # Telemetriyi TAMAMEN kaybetmektense eksik kolonla yazmak yeğdir —
+        # sessiz bot arızalarını görünür kılan tek kayıt burası.
+        missing = [c for c in _OPTIONAL_RUN_COLUMNS if c in str(exc) and c in payload]
+        if missing:
+            print(
+                f"[WARN] bot_runs.{'/'.join(missing)} kolonu yok; "
+                f"database/ altındaki ilgili migration'ı çalıştırın."
+            )
             try:
-                fallback = {k: v for k, v in payload.items() if k != "records_written"}
+                fallback = {k: v for k, v in payload.items() if k not in missing}
                 supabase.table("bot_runs").insert(fallback).execute()
             except Exception as fallback_exc:
                 if not _observability_table_missing(fallback_exc):

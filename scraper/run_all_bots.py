@@ -212,6 +212,11 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
         stdout=result.stdout,
         stderr=result.stderr,
         records_written=records,
+        # Kapsama, status'ten BAĞIMSIZ olarak her koşuda yazılır: yalnızca
+        # 'degraded' koşularda saklamak trendi görünmez kılar (%100'den
+        # %71'e inen bir bot eşiği geçene kadar sessiz kalırdı).
+        targets_ok=coverage[0] if coverage else None,
+        targets_total=coverage[1] if coverage else None,
     )
     if status == "success":
         print(f"[OK] {script_name} finished in {elapsed:.1f}s.")
