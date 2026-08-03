@@ -47,15 +47,31 @@ _PRIORITY_CITIES = frozenset({"ISTANBUL", "ANKARA", "IZMIR"})
 def _targets_from_supabase():
     if supabase is None:
         return []
-    rows = (
-        supabase.table("istasyonlar")
-        .select("il,ilce")
-        .eq("marka", "Shell")
-        .not_.is_("il", "null")
-        .execute()
-        .data
-        or []
-    )
+    # SAYFALAMA ŞART: PostgREST tek istekte en fazla 1000 satır döndürür ve
+    # bunu SESSİZCE yapar. Shell'in 1414 istasyonu var; sayfalamasız sorgu
+    # 414'ünü hiç görmüyordu, dolayısıyla o il/ilçeler hedef listesine hiç
+    # girmiyor ve fiyatları HİÇ tazelenmiyordu (canlı kanıt: 152 istasyon
+    # 30+ gündür doğrulanmamış, en eskisi 18 Nis 2026). Üstelik kapsama
+    # oranının paydası da eksik kalıyordu — yani "%91 kapsama" gerçekte
+    # olduğundan iyi görünüyordu. Depodaki diğer sorgular (ops_report,
+    # database_writes) zaten bu range() kalıbını kullanıyor.
+    rows = []
+    start = 0
+    while True:
+        page = (
+            supabase.table("istasyonlar")
+            .select("il,ilce")
+            .eq("marka", "Shell")
+            .not_.is_("il", "null")
+            .range(start, start + 999)
+            .execute()
+            .data
+            or []
+        )
+        rows.extend(page)
+        if len(page) < 1000:
+            break
+        start += 1000
     targets = {}
     for row in rows:
         city, district = _split_city(row.get("il"), row.get("ilce"))

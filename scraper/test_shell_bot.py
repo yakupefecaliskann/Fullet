@@ -415,6 +415,82 @@ class CountyCascadeTest(unittest.TestCase):
             self.assertFalse(shell_bot._wait_county_cascade(page, ["ADALAR", "SILE"]))
 
 
+class TargetPaginationTest(unittest.TestCase):
+    """Hedef listesi 1000 satırda SESSİZCE kesilmemeli.
+
+    PostgREST tek istekte en fazla 1000 satır döndürür. Shell'in 1414
+    istasyonu var; sayfalamasız sorgu 414'ünü hiç görmüyordu. Sonuç iki
+    katmanlı: (1) o il/ilçeler hiç tazelenmiyordu — 152 istasyon 30+ gündür
+    doğrulanmamıştı, (2) kapsama oranının PAYDASI eksik olduğu için ölçüm
+    kendini olduğundan iyi gösteriyordu.
+    """
+
+    def _supabase(self, total):
+        istasyonlar = [
+            {"il": "ANKARA", "ilce": f"ILCE{i:04d}"} for i in range(total)
+        ]
+        calls = []
+
+        class FakeQuery:
+            def select(self, *a, **k):
+                return self
+
+            def eq(self, *a, **k):
+                return self
+
+            @property
+            def not_(self):
+                return self
+
+            def is_(self, *a, **k):
+                return self
+
+            def range(self, start, end):
+                calls.append((start, end))
+                self._slice = istasyonlar[start:end + 1]
+                return self
+
+            def execute(self):
+                return unittest.mock.Mock(data=list(self._slice))
+
+        class FakeSupabase:
+            def table(self, name):
+                return FakeQuery()
+
+        return FakeSupabase(), calls
+
+    def test_every_station_is_read_not_just_the_first_page(self):
+        import shell_bot
+
+        supabase, calls = self._supabase(1414)
+        with unittest.mock.patch.object(shell_bot, "supabase", supabase):
+            targets = shell_bot._targets_from_supabase()
+
+        self.assertEqual(len(calls), 2)                  # 1000 + 414
+        self.assertEqual(len(targets), 1414)
+
+    def test_single_page_does_not_make_a_second_request(self):
+        import shell_bot
+
+        supabase, calls = self._supabase(120)
+        with unittest.mock.patch.object(shell_bot, "supabase", supabase):
+            targets = shell_bot._targets_from_supabase()
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(targets), 120)
+
+    def test_exactly_one_full_page_still_checks_for_more(self):
+        # 1000 satır dönmesi "hepsi bu" demek DEĞİL; sınır tam da burada.
+        import shell_bot
+
+        supabase, calls = self._supabase(1000)
+        with unittest.mock.patch.object(shell_bot, "supabase", supabase):
+            targets = shell_bot._targets_from_supabase()
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(targets), 1000)
+
+
 class GridRefreshTest(unittest.TestCase):
     """Arama sonrası grid'in DOĞRU İLE ait olması beklenmeli.
 
