@@ -160,7 +160,7 @@ COMBO_OPEN_TIMEOUT_MS = 4000
 COMBO_OPEN_ATTEMPTS = 3
 
 # İl seçimi sonrası ilçe listesinin sunucu callback'iyle yenilenme süresi.
-COUNTY_REFRESH_TIMEOUT_MS = 8000
+COUNTY_REFRESH_TIMEOUT_MS = 15000
 
 # Hedefe BAŞLAMADAN önceki "yatışma" kritik değil; önceki callback zaten
 # bitmiş olabilir, uzun timeout burada boşa harcanır.
@@ -281,6 +281,28 @@ def _county_signature(page):
         return ()
 
 
+def _wait_for_callback(page, timeout=COUNTY_REFRESH_TIMEOUT_MS):
+    """ASPx cascade callback'inin (XHR) bitmesini bekler.
+
+    "İlçe listesi değişti mi?" diffi güvenilmez bir sinyal çıktı: liste
+    değişiyor ama BİR ÖNCEKİ seçime ait içerikle. Canlı kanıt — illerin
+    ilçe sayıları bire bir bir önceki ilinkiyle eşleşiyordu:
+
+        GIRESUN=16 -> GUMUSHANE=16 | KASTAMONU=20 -> KAYSERI=20
+        ERZURUM=22 -> ESKISEHIR=22 | HATAY=14     -> IGDIR=14
+
+    Bu yüzden KOCASINAN, MELIKGAZI, ODUNPAZARI gibi GERÇEK ilçeler
+    "listede yok" sayılıyordu. Callback'in kendisini beklemek, içerik
+    diffinden çok daha belirleyici.
+    """
+    try:
+        page.wait_for_load_state("networkidle", timeout=timeout)
+    except Exception:
+        # networkidle bazı sayfalarda hiç gerçekleşmez; yatışma yine de dener.
+        pass
+    _settle(page)
+
+
 def _wait_for_county_refresh(page, previous_signature):
     """İl seçiminden sonra ilçe listesinin YENİLENMESİNİ bekler.
 
@@ -309,22 +331,77 @@ def _wait_for_county_refresh(page, previous_signature):
     return False
 
 
-def _scrape_target(page, city, district, column_map, current_city=None):
-    """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map, il)."""
+def _select_county(page, district, must_change_from):
+    """İlçeyi seçer; "yok" kararını ancak liste YENİLENDİĞİNİ görünce verir.
+
+    Kritik ayrım: ilçe listesi il seçiminden sonra sunucu callback'iyle
+    dolduruluyor. Callback gecikirse liste ÖNCEKİ İLİN ilçelerini gösterir.
+    O anda "ilçe listede yok" demek YANLIŞ TEŞHİSTİR — liste yanlış ildir.
+
+    Önceki sürüm tam bu hatayı yapıyordu: yenilenmeyi 8 sn bekleyip vazgeçiyor,
+    sonra bayat listede arıyor ve _OptionMissing atıyordu. Üstelik ili "seçili"
+    işaretlediği için o ildeki SONRAKİ tüm hedefler de bayat listeyi okuyordu —
+    tek bir yavaş callback bütün ili zehirliyordu. Üretim kanıtı: kayıp hedef
+    83 -> 93'e çıktı, kapsama %45 -> %38'e düştü.
+
+    Artık: liste değiştiyse (ya da değişmesi beklenmiyorsa) karar verilir;
+    değişmediyse RuntimeError atılır ve hedef yeniden denenir.
+    """
+    deadline = time.monotonic() + COUNTY_REFRESH_TIMEOUT_MS / 1000
+    while True:
+        _open_combo(page, "#cb_all_cb_county_B-1Img", COUNTY_LIST_SELECTOR)
+        cells = page.locator(f"{COUNTY_LIST_SELECTOR} td")
+        texts = cells.all_inner_texts()
+        normalized = [normalize_city(text) for text in texts]
+        refreshed = must_change_from is None or tuple(texts) != must_change_from
+
+        if refreshed and district in normalized:
+            option = cells.nth(normalized.index(district))
+            try:
+                option.scroll_into_view_if_needed(timeout=OPTION_TIMEOUT_MS)
+            except Exception:
+                pass
+            try:
+                option.click(force=True)
+            except Exception:
+                # Uzun listelerde kaydırma bazen yetmiyor; DevExpress liste
+                # öğeleri onclick'e bağlı olduğu için DOM tıklaması eşdeğer.
+                option.evaluate("el => el.click()")
+            _settle(page)
+            return
+
+        page.keyboard.press("Escape")
+        if refreshed:
+            # Liste bu ile ait ve ilçe içinde yok -> gerçekten yok.
+            raise _OptionMissing(district)
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"ilçe listesi yenilenmedi (cascade callback gecikti): {district}"
+            )
+        page.wait_for_timeout(250)
+
+
+def _scrape_target(page, city, district, column_map, state):
+    """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map).
+
+    `state` çağıran tarafından tutulan mutable sözlüktür: {"city": <seçili il>}.
+    İl seçimi başarılı olur olmaz güncellenir — hedef sonradan hata verse bile
+    ili gereksiz yere tekrar seçmeyelim diye.
+    """
     _settle(page)
     # İl zaten seçiliyse tekrar seçme: hem cascade callback'ini hem de
     # ~2 sn'lik etkileşimi boşuna tetiklemeyelim (hedefler il il sıralı).
-    if city != current_city:
-        before = _county_signature(page)
+    must_change_from = None
+    if city != state.get("city"):
+        must_change_from = _county_signature(page)
         _select_from_combo(
             page, "#cb_all_cb_province_B-1Img", "#cb_all_cb_province_DDD_L_LBT", city
         )
-        _wait_for_county_refresh(page, before)
-        current_city = city
+        # Cascade callback'ini BEKLE: ilçe listesi bu ile ait olmalı.
+        _wait_for_callback(page)
+        state["city"] = city
 
-    _select_from_combo(
-        page, "#cb_all_cb_county_B-1Img", COUNTY_LIST_SELECTOR, district
-    )
+    _select_county(page, district, must_change_from)
 
     search = page.locator("#cb_all_ASPxButton1_CD")
     search.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
@@ -341,9 +418,18 @@ def _scrape_target(page, city, district, column_map, current_city=None):
     rows = page.locator("#cb_all_grdPrices_DXMainTable tr.dxgvDataRow").all()
     print(f"[INFO] {len(rows)} Shell rows found.")
     scraped = []
+    mismatched = 0
     for row in rows:
         cols = row.locator("td").all_inner_texts()
         if len(cols) < 13:
+            continue
+        # GÜVENLİK AĞI: grid'in kendi İl kolonunu (cols[1]) seçtiğimiz ille
+        # doğrula. Cascade gecikirse yanlış ilin satırları döner ve eskiden
+        # bunlar BİZİM etiketimizle ("il": city) yazılıyordu — sessiz veri
+        # bozulması. Artık uyuşmayan satır yazılmaz.
+        grid_city = normalize_city(cols[1])
+        if grid_city and grid_city != city:
+            mismatched += 1
             continue
         prices = _prices_from_row(cols, column_map)
         if not prices:
@@ -355,7 +441,15 @@ def _scrape_target(page, city, district, column_map, current_city=None):
             "fiyatlar": prices,
             "veri_kaynagi": "turkiyeshell.com/pompatest/History.aspx",
         })
-    return scraped, column_map, current_city
+
+    if mismatched:
+        # Tüm satırlar başka ile aitse seçim tutmamıştır: yeniden denenmeli.
+        if not scraped:
+            raise RuntimeError(
+                f"grid {city} yerine başka ilin {mismatched} satırını döndürdü"
+            )
+        print(f"[WARN] {city}: {mismatched} satır başka ile ait, atlandı.")
+    return scraped, column_map
 
 
 def scrape_shell_data(target_locations=None):
@@ -374,7 +468,7 @@ def scrape_shell_data(target_locations=None):
     # bütçe içinde sırası gelenler. Kapsama oranı planned'a göre hesaplanır —
     # aksi halde bütçe 40 hedefte kesilse ve 38'i okunsa "%95 kapsama" gibi
     # sahte bir rakam çıkar, oysa Shell'in yalnızca dörtte biri tazelenmiştir.
-    current_city = None
+    state = {"city": None}
     stats = {
         "planned": len(target_locations),
         "attempted": 0, "ok": 0, "missing": 0, "failed": 0,
@@ -403,8 +497,8 @@ def scrape_shell_data(target_locations=None):
                 last_error = None
                 for attempt in range(TARGET_MAX_ATTEMPTS):
                     try:
-                        rows, column_map, current_city = _scrape_target(
-                            page, city, district, column_map, current_city
+                        rows, column_map = _scrape_target(
+                            page, city, district, column_map, state
                         )
                         scraped_data.extend(rows)
                         stats["ok"] += 1

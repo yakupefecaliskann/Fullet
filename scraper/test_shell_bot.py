@@ -93,12 +93,12 @@ class ShellTargetCoverageTest(unittest.TestCase):
 
         calls = []
 
-        def fake_scrape_target(page, city, district, column_map, current_city=None):
+        def fake_scrape_target(page, city, district, column_map, state):
             calls.append((city, district))
             result = outcomes[(city, district)].pop(0)
             if isinstance(result, Exception):
                 raise result
-            return result, {"Motorin": [5]}, city
+            return result, {"Motorin": [5]}
 
         targets = [{"il": c, "ilce": d} for c, d in outcomes]
         with unittest.mock.patch.object(shell_bot, "_scrape_target", fake_scrape_target), \
