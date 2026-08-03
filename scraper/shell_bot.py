@@ -14,7 +14,21 @@ TARGET_LOCATIONS = [
     {"il": "IZMIR", "ilce": "KONAK"},
 ]
 
-DEFAULT_MAX_TARGETS_PER_RUN = 150
+# Rotasyon kapasitesi — Faz 3 / F3-3 kapasite kararı.
+#
+# 150 hedefte aritmetik şuydu: 493 hedefin 94'ü öncelikli (İST/ANK/İZM, HER
+# koşuda taranır) → diğer 399 ilçeye koşu başına yalnızca 56 slot → tam tur
+# 8 koşu = **48 saat**. `fresh` penceresi 12 saat olduğu için öncelikli
+# olmayan bir ilçe tasarım gereği zamanın ancak ~%25'inde taze olabiliyordu.
+# Canlı ölçüm bunu birebir doğruladı: öncelikli %62,6 taze, diğer %20,3.
+#
+# 250 hedefte: 94 öncelikli + 156 slot → tam tur ~3,6 koşu ≈ 19 saat.
+# Süre bütçesi (ölçülen 4,75 sn/hedef): 250 × 4,75 ≈ 1190 sn.
+#   RUN_BUDGET_SECONDS = 1700 (temiz çıkış payı ~510 sn)
+#   run_all_bots shell timeout = 2100 sn (bütçe sonrası kaydetme payı ~400 sn)
+# Bütçe dolarsa kapsama DÜŞER (targets_total=planned) ve koşu `degraded`
+# olur — bu kasıtlı: eksik veri görünür kalmalı.
+DEFAULT_MAX_TARGETS_PER_RUN = 250
 
 LOCATION_FIXES = {
     ("BUYUKKARISTIRAN", "LULEBURGAZ"): ("KIRKLARELI", "LULEBURGAZ"),
@@ -230,7 +244,11 @@ TARGET_MAX_ATTEMPTS = 2
 # kapsama verisi tam da en çok ihtiyaç duyulan anda kaybolur (status yalnızca
 # 'timeout' olur, "kaç hedef okundu" bilinmez). Bot kendi bütçesini yönetip
 # temiz çıkar ve dürüst sayıları raporlar.
-RUN_BUDGET_SECONDS = int(os.environ.get("SHELL_RUN_BUDGET_SECONDS", 1500))
+# 250 hedef × ölçülen 4,75 sn ≈ 1190 sn; 1700 sn hedef başına 6,8 sn'ye kadar
+# yavaşlamayı tolere eder. run_all_bots'un 2100 sn'lik timeout'undan belirgin
+# ölçüde küçük kalmalı: öldürülen süreç kapsama raporlayamaz (bkz. aşağıdaki
+# [BUDGET] dalı) ve kazınan veri de kaydedilemez.
+RUN_BUDGET_SECONDS = int(os.environ.get("SHELL_RUN_BUDGET_SECONDS", 1700))
 
 
 def _settle(page, timeout=SETTLE_TIMEOUT_MS):

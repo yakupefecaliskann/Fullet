@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 
+import shell_bot
 from column_mapping import resolve_fuel_columns
 from shell_bot import _prices_from_row
 
@@ -655,6 +656,56 @@ class _FakePlaywright:
 
     def launch(self, **kwargs):
         return _FakeBrowser()
+
+
+class CapacityArithmeticTest(unittest.TestCase):
+    """Faz 3 / F3-3: kapasite sabitleri birbirinden bagimsiz kaymamali.
+
+    Canli olcum: 4,75 sn/hedef (150 hedef -> 713 sn). Rotasyon aritmetigi:
+    493 hedefin 94'u oncelikli (her kosuda), kalan slot digerlerine gider.
+    150 hedefte tam tur 8 kosu = 48 saat idi; fresh penceresi 12 saat.
+    """
+
+    MEASURED_SECONDS_PER_TARGET = 4.75
+    PRIORITY_TARGETS = 94       # canli: ISTANBUL+ANKARA+IZMIR ilceleri
+    TOTAL_TARGETS = 493         # canli hedef listesi (7bdc127 sayfalama sonrasi)
+    RUN_CADENCE_HOURS = 6
+
+    def test_budget_fits_max_targets_at_measured_speed(self):
+        need = shell_bot.DEFAULT_MAX_TARGETS_PER_RUN * self.MEASURED_SECONDS_PER_TARGET
+        self.assertLess(
+            need, shell_bot.RUN_BUDGET_SECONDS,
+            f"{shell_bot.DEFAULT_MAX_TARGETS_PER_RUN} hedef {need:.0f} sn surer, "
+            f"butce {shell_bot.RUN_BUDGET_SECONDS} sn — butce dolar ve her kosu "
+            "degraded olur.",
+        )
+
+    def test_budget_leaves_room_below_subprocess_timeout(self):
+        # Oldurulen surec kapsama raporlayamaz VE kazidigi veriyi kaydedemez.
+        from run_all_bots import BOT_TIMEOUTS_SECONDS
+
+        timeout = BOT_TIMEOUTS_SECONDS["shell_bot.py"]
+        self.assertGreaterEqual(
+            timeout - shell_bot.RUN_BUDGET_SECONDS, 300,
+            "butce ile timeout arasinda temiz cikis + kaydetme icin en az "
+            "300 sn pay olmali.",
+        )
+
+    def test_rotation_completes_within_stale_window(self):
+        from freshness import STALE_MAX_HOURS
+
+        slots = shell_bot.DEFAULT_MAX_TARGETS_PER_RUN - self.PRIORITY_TARGETS
+        self.assertGreater(slots, 0, "oncelikli hedefler tum tavani yiyor")
+        others = self.TOTAL_TARGETS - self.PRIORITY_TARGETS
+        runs = -(-others // slots)
+        hours = runs * self.RUN_CADENCE_HOURS
+        # 48 saatlik tam tur, 48 saatlik unknown esigiyle CAKISIYORDU:
+        # oncelikli olmayan ilceler bilinmiyor'a dusme sinirinda geziyordu.
+        self.assertLess(
+            hours, STALE_MAX_HOURS,
+            f"tam tur {hours} saat, unknown esigi {STALE_MAX_HOURS} saat — "
+            "oncelikli olmayan ilceler bilinmiyor'a duser.",
+        )
 
 
 if __name__ == "__main__":

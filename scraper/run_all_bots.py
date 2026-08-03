@@ -40,7 +40,11 @@ PRICE_BOTS = [
 
 BOT_TIMEOUTS_SECONDS = {
     "shell_station_bot.py": 600,
-    "shell_bot.py": 1800,
+    # shell_bot kendi RUN_BUDGET_SECONDS'ında (1700) temiz çıkar; buradaki
+    # timeout ondan BELİRGİN ölçüde büyük olmalı, yoksa süreç kazıma bitmiş
+    # ama kaydetme sürerken öldürülür ve hem veri hem kapsama raporu kaybolur.
+    # 250 hedef kararı için bkz. shell_bot.DEFAULT_MAX_TARGETS_PER_RUN.
+    "shell_bot.py": 2100,
     "news_bot.py": 90,
 }
 

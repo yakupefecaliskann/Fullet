@@ -40,7 +40,11 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # shell_bot tek başına 2100 sn'ye (35 dk) kadar sürebilir (250 hedef,
+    # bkz. shell_bot.DEFAULT_MAX_TARGETS_PER_RUN). Diğer fiyat botları API
+    # tabanlı ve toplamda birkaç dakika. 45 dk bu senaryoda çok dardı —
+    # job timeout'u bota çarparsa telemetri hiç yazılamaz.
+    timeout-minutes: 55
     steps:
       - name: Checkout
         uses: actions/checkout@v4
