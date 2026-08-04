@@ -2,6 +2,13 @@
 
 Her yayın adayında bu liste bitmeden paket yüklenmez.
 
+> **1.0.3+6 koşusu (4 Ağustos 2026):** Backend ve Flutter blokları geçti
+> (`dart analyze` temiz, 45/45 test). Cihaz smoke test'i **Infinix X6528B /
+> Android 13** üzerinde release derlemesiyle koşuldu; crash yok. Edge-to-edge
+> bloğu **kısmen** doğrulandı — cihaz API 33 olduğu için Android 15/16'nın
+> zorunlu edge-to-edge davranışı tetiklenmedi. Bir sonraki koşuda API 35+ bir
+> cihaz kullanılmalı.
+
 ## Backend
 
 - `python scraper\backend_health_check.py`

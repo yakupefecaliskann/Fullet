@@ -6,6 +6,38 @@
 
 ---
 
+## 0. Durum Panosu — 4 Ağustos 2026
+
+**Kod tarafı %100 bitti. Yayın süreci bitmedi.** Ayrım önemli: teknik borç sıfır
+ve paket hazır, ama uygulamanın Play'de yayına çıkması için aşağıdaki adımlar
+duruyor.
+
+### ✅ Tamamlananlar
+
+| # | İş | Kanıt |
+|---|---|---|
+| Kod | Denetimdeki **tüm** bulgular (B1, B2, H1–H4, M1–M5, L1–L6) kapatıldı | `dart analyze` → *No issues found!* · `flutter test` → 45/45 |
+| Build | `targetSdk 36`, `minSdk 24`, AGP 8.11.1 / Gradle 8.14 / Kotlin 2.3.10 / NDK 27 | commit `ccd3bc7` |
+| Paket | İmzalı + obfuscated AAB (52,8 MB) ve APK üretildi | `verify_aab_signature.ps1` → `[OK]` |
+| Cihaz | Infinix X6528B (Android 13) üzerinde release derlemesi kuruldu ve test edildi | Crash yok; harita, fiyatlar, arama, alt panel, yakıt geçişi çalışıyor |
+| Konsol | Maps API anahtarı Android + upload SHA-1 ile kısıtlandı | §2.2 |
+| Konsol | Upload key reset talebi gönderildi | §2.1 — **onay bekleniyor** |
+
+### ⏳ Kalanlar (yayını açan sıra)
+
+| # | İş | Kim | Not |
+|---|---|---|---|
+| 1 | **Upload key reset onayı** | Google | Onay gelmeden AAB reddedilir. §2.1 |
+| 2 | AAB'yi Internal testing'e yükle | 👤 | Onaydan hemen sonra |
+| 3 | **App signing SHA-1'i Maps anahtarına ekle** | 👤 | 🔴 Atlanırsa Play'den kuran herkeste **harita boş açılır**. §2.2 |
+| 4 | Data Safety formu | 👤 | §3'teki tabloya göre |
+| 5 | Store listing (açıklama, görseller, kategori) | 👤 | §2.4 · metin `RELEASE_NOTES.md` |
+| 6 | Closed testing — 12 tester × 14 gün | 👤 | Hesap 13 Kas 2023 sonrasıysa **zorunlu**; takvimi bu belirler |
+| 7 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
+| 8 | `build/symbols/1.0.3+6` arşivle | 👤 | Yoksa bu sürümün crash raporları okunamaz |
+
+---
+
 ## 1. Mevcut Teknik Durum
 
 | Alan | Değer |
@@ -23,8 +55,12 @@
 
 **Edge-to-edge:** Android 16'da opt-out kaldırıldı. Uygulama `SystemUiMode.edgeToEdge`
 ile açıkça edge-to-edge çalışıyor; alt panel, yan menü ve harita FAB'ları
-`viewPadding.bottom` kadar yukarı itiliyor. **Gerçek cihazda görsel doğrulama şart**
-(bkz. `RELEASE_QA_CHECKLIST.md`).
+`viewPadding.bottom` kadar yukarı itiliyor. Android 13 cihazda doğrulandı;
+**API 35+ bir cihazda tekrar bakılmalı** (bkz. `RELEASE_QA_CHECKLIST.md`).
+
+**Kod sağlığı:** `dart analyze` → *No issues found!* · `flutter test` → 45/45 ·
+R8 küçültme + `--obfuscate` açık. Denetim raporu kapatıldı
+(`FULLET_PRE_RELEASE_DENETIMI.md`).
 
 ---
 
@@ -46,9 +82,14 @@ keystore üretildi.**
 | **SHA-256** | `60:EF:89:72:9C:88:DF:B9:2C:7C:65:2B:DE:F3:FE:AD:DB:37:CA:3C:C3:86:B3:DD:57:8C:4A:C2:75:96:B2:B7` |
 | Play'e verilecek sertifika | `fullet_flutter/android/upload_certificate.pem` |
 
-**Yapılacak:** Play Console → *Release* → *Setup* → *App integrity* → *App signing* →
-**Request upload key reset** → yukarıdaki `upload_certificate.pem` dosyası yüklenir.
-Google onaylayana kadar (genelde 1–2 iş günü) yeni anahtarla imzalanmış AAB **reddedilir**.
+**Durum — 4 Ağustos 2026:** ✅ Talep **gönderildi** (Play Console → *Release* →
+*Setup* → *App integrity* → *App signing* → *Request upload key reset*,
+`upload_certificate.pem` yüklendi). ⏳ **Google onayı bekleniyor.**
+
+> 🔴 **Onay gelmeden AAB yüklenemez.** Google talebi onaylayana kadar (genelde
+> 1–2 iş günü) Play, yeni anahtarla imzalanmış paketi *"Your Android App Bundle
+> is signed with the wrong key"* hatasıyla reddeder. Onay e-postası geldikten
+> sonra yükleme yapılmalıdır; paket hazır ve imzası doğrulanmış durumda.
 
 > ⚠️ Bu bir kerelik bir işlem değil, **geri alınamaz bir kayıp deneyimi.** Yeni keystore
 > ve parolası kaybolursa aynı süreç baştan gerekir. `key.properties` ve `.jks` git'e
@@ -64,12 +105,28 @@ Google onaylayana kadar (genelde 1–2 iş günü) yeni anahtarla imzalanmış A
 
 ### 2.2 Google Maps API key kısıtlaması
 
-- Android package: `com.fullet.app`
-- **Yeni** upload sertifikası SHA-1 (`49:7B:9C:...:67:E2`) eklenmeli.
-  Eski `40:9B:C1:...` değeri artık geçersizdir, kaldırılabilir.
-- Play App Signing açıldıktan sonra Google'ın verdiği **App signing SHA-1** de eklenmeli.
-- API restrictions → yalnızca **Maps SDK for Android**.
-- Kota + bütçe uyarısı açılmalı ("sıfır maliyet" hedefi için sürpriz fatura riski).
+**Durum — 4 Ağustos 2026:** ✅ Anahtar *Android apps* olarak kısıtlandı;
+paket adı `com.fullet.app` + **yeni upload sertifikası SHA-1**
+(`49:7B:9C:C2:DF:7F:94:93:65:F6:B8:0A:35:CB:7F:94:44:CD:67:E2`) eklendi.
+Eski `40:9B:C1:...` değeri geçersizdir, kaldırılabilir.
+
+> 🔴 **HENÜZ BİTMEDİ — App signing SHA-1 eksik.**
+> Play App Signing devrede olduğunda kullanıcıların telefonuna giden APK,
+> senin upload anahtarınla **değil**, Google'ın kendi *app signing* anahtarıyla
+> yeniden imzalanır. Maps anahtarında yalnızca upload SHA-1'i varsa,
+> **Play'den kuran her kullanıcıda harita boş/gri açılır** — senin cihazında
+> (yandan yükleme) sorunsuz göründüğü için bu hata kolayca gözden kaçar.
+>
+> **İlk başarılı AAB yüklemesinden sonra:** Play Console → *App integrity* →
+> *App signing key certificate* → SHA-1'i kopyala → Cloud Console'da Maps
+> anahtarına **ikinci bir Android kısıtlaması** olarak ekle. İki SHA-1 de listede
+> kalmalı (upload = yerel testler, app signing = Play'den kuran kullanıcılar).
+
+Kalan alt maddeler:
+
+- [ ] **App signing SHA-1** eklendi (yukarıdaki uyarı — ilk yüklemeden sonra)
+- [ ] API restrictions → yalnızca **Maps SDK for Android**
+- [ ] Kota + bütçe uyarısı ("sıfır maliyet" hedefi için sürpriz fatura riski)
 
 ### 2.3 Gizlilik politikası
 

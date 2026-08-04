@@ -66,6 +66,50 @@ alt-projelerine ulaşmıyor).
 
 ---
 
+## 🏁 Kapanış — 4 Ağustos 2026
+
+Bu denetim **kapatılmıştır**. Rapordaki 22 bulgunun tamamı (B1, B2, H1–H4,
+M1–M5, L1–L6) düzeltildi ve doğrulandı.
+
+### Doğrulama kanıtı
+
+| Kontrol | Denetim anı | Kapanışta |
+|---|---|---|
+| `dart analyze` | 74 info | **No issues found!** (`flutter_lints` ^6.0.0 altında) |
+| `flutter analyze` | çıkış 255 (çöküyordu) | çalışıyor, temiz |
+| `flutter test` | 33/33 | **45/45** (12 yeni regresyon testi) |
+| `flutter build appbundle` | AGP reddediyordu | ✅ 52,8 MB, imzalı + obfuscated |
+| Gerçek cihazda çalışma | **yapılamadı** (build üretilemiyordu) | ✅ Infinix X6528B / Android 13 |
+
+### Cihaz testi (release derlemesi, Infinix X6528B, Android 13 / API 33)
+
+Kurulan sürüm `1.0.3+6` · minSdk 24 · targetSdk 36. Süreç boyunca **crash
+buffer tamamen boş**. R8 + obfuscation'ın hiçbir şeyi bozmadığı doğrulandı:
+
+- Google Maps karoları, konum, Supabase istasyon/fiyat verisi
+- Runtime marker PNG üretimi (taç renkleri dahil) — `MarkerIconFactory` çalışıyor
+- Marka logosu asset'leri render oluyor → `shrinkResources` asset silmemiş
+- Yakıt geçişi: 67.17 (Benzin) → 80.97 (Motorin), marker'lar doğru yeniden inşa edildi
+- **M1 sahada doğrulandı:** "shell" araması 1.0 km → 3.0 km → 3.1 km sıralı
+- Edge-to-edge: üst çubuk, alt panel, FAB yığını ve lejant kesilmiyor
+- **M5 doğrulandı:** release logcat'te tek bir teşhis logu sızmıyor
+
+### Kapsam dışı kalan (dürüst not)
+
+- **Android 15/16 cihazda edge-to-edge doğrulaması yapılamadı.** Test cihazı
+  API 33; API 36'nın *zorunlu* edge-to-edge davranışı orada tetiklenmiyor.
+  Layout doğrulaması geçerlidir çünkü `SystemUiMode.edgeToEdge` açıkça talep
+  ediliyor, ama API 36'ya özgü bir sürpriz ancak o cihazda görülebilir.
+- **H1/H3'ün bellek ve FPS etkisi ölçülmedi.** Düzeltmeler kod okumasıyla
+  doğru; büyüklüğü DevTools profillemesi gerektirir.
+- **Tema uzun-basma (M4) görsel olarak teyit edilmedi** — SnackBar 2 sn sürüyor,
+  ekran görüntüsü 3. sn'de alındı. Harita sistem temasıyla uyumlu döndü.
+
+**Sonraki adımlar kodda değil, Play Console/Cloud Console tarafındadır:**
+`GOOGLE_PLAY_LAUNCH_CHECKLIST.md` §0 durum panosuna bakınız.
+
+---
+
 ## 0. Yönetici Özeti
 
 Kod kalitesi beklenenden **iyi**: 33/33 test geçiyor, statik analizde tek bir warning/error yok
