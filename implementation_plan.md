@@ -20,7 +20,10 @@
 | Görev | Sonuç |
 |---|---|
 | **F4-0** kopya kapısı | ✅ Kapı **doğru soruya çevrildi** ve geçildi (aşağıda) |
-| **F4-1** `opet_station_bot.py` | ✅ Opet **503 → 1.286** istasyon. Toplam aktif **2.702 → 3.485** |
+| **F4-1** `opet_station_bot.py` | ✅ Opet **503 → 1.286** istasyon |
+| **F4-2** karantina zenginleştirme | ✅ 25 kayda gerçek unvan + adres işlendi, 46 şüpheli kayda dokunulmadı |
+| **F4-3** `po_station_bot.py` | ✅ Petrol Ofisi **80 → 2.567** istasyon, **81 ilde** |
+| **Toplam** | **2.702 → 5.972 aktif istasyon** (+%121) |
 | Şeffaflık katmanı | ✅ DB kolonu + bot + Flutter modeli + arayüz bandı |
 | Testler | ✅ Python **147**, Flutter **33**, `backend_health_check` 20/20 `[OK]` |
 | Kalite | ✅ Kopya **0**, geçersiz il **0**, pasif kayıt **0**, adressiz %24 → **%10,1** |
@@ -289,19 +292,50 @@ ama unutulmamalı.
 
 Üç sorunun da cevabı yukarıdaki "ONAYLANAN KARARLAR" tablosunda.
 
+### F4-3: Petrol Ofisi — API yoktu, veri sayfanın içindeydi
+
+Endpoint araması sonuçsuz kaldı; veri zaten `/istasyon-nerede` sayfasına
+**gömülü JSON** olarak duruyordu (3,1 MB). Sayfa il il bölünmüş dizilerde aynı
+istasyonu birden fazla kez taşıyor: **7.869 nesne, 2.623 benzersiz `Id`**.
+Tekilleştirme şart — yoksa 3 kat kayıt yazılırdı.
+
+Veri kalitesi ölçüldü ve kusursuz çıktı: isim/adres/il/ilçe boş **0**,
+koordinatsız **0**, geçersiz il **0**, Türkiye dışı **0**.
+
+Parse mantığı kırılgan olduğu için (dengeli parantez + kaçışlı tırnak) 8 testle
+kilitlendi. Sayfa biçimi değişirse bot **sessizce boş döner ve hiçbir şey
+yazmaz** — bozuk bir kazıma mevcut envanteri silemez.
+
+### Harita performansı — ölçüldü, risk yok
+
+Kullanıcının en büyük endişesiydi. 5.972 istasyonla canlı ölçüm:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Taksim 20 km içindeki istasyon | 371 |
+| RPC'nin döndürdüğü (tavan 250) | **250** |
+| RPC sorgu süresi | **125 ms** |
+| Ekrana çizilen marker (zoom'a göre) | **en fazla 110** |
+
+İstasyon sayısı iki katına çıksa da uygulamanın çektiği ve çizdiği miktar
+değişmiyor. **Not:** yoğun bölgelerde 250 tavanı devreye giriyor (Taksim'de
+371 → 250). RPC mesafeye göre sıraladığı için en yakın 250 dönüyor; pratikte
+yeterli ama ileride "en ucuz" hesabının kapsamını daraltabilir.
+
 ## 8. SIRADAKİ ADIM
 
-**F4-2 (karantina kararı)** — F4-1'in bıraktığı 74 şüpheli kayıt. Bunlar
-75 m – 1 km bandında mevcut bir kayda yakın olduğu için **kasten yazılmadı**.
-Örnekler açıkça aynı istasyonu gösteriyor:
+**F4-4 — Aytemiz + Türkiye Petrolleri.** Kalan iki büyük boşluk:
 
-```
- 82 m  API 'PÜRLÜ OTOMOTİV...'  <->  canlı 'Opet Isparta Merkez'
-107 m  API 'MOBİPA MOBİLYA...'  <->  canlı 'Opet İnegöl'
-```
+| Marka | Bizde | Türkiye'de | Durum |
+|---|---:|---:|---|
+| Aytemiz | 35 | 600+ | Kaynak keşfi gerekiyor (site zaman aşımına uğramıştı) |
+| Türkiye Petrolleri | 69 | ~1.000 | Bot var ama 69'da takılı — neden? |
 
-Karar gereken: bu 74 kayıt için eski kaydı API verisiyle **zenginleştirmek**
-(gerçek ticari unvan + tam adres yazmak) mı, yoksa ayrı istasyon olarak
-eklemek mi? Zenginleştirme daha güvenli; eklemek kopya riski taşır.
+**F4-5 — BP geçişi (takvimli).** BP markası **1 Kasım 2026'da** yok oluyor;
+770 istasyonu Petrol Ofisi'ne geçti. Bugün 37 BP kaydımız var ve hâlâ canlı
+fiyat alıyorlar. Kasım'a kadar karar verilmeli: PO'ya taşı mı, pasifleştir mi?
+Bu iş **unutulmamalı** — aksi halde uygulamada ölü marka pinleri kalır.
 
-Ardından **F4-3 (Petrol Ofisi)** — en büyük boşluk: ~2.700 istasyonun 80'i bizde.
+**Ayrıca not:** F4-1 ve F4-3'ten toplam **94 karantina kaydı** birikti
+(55 Opet + 39 PO). Bunlar F4-2'nin yöntemiyle (1-e-1 + unvan doğrulaması)
+zenginleştirilebilir.

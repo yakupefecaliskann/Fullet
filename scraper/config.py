@@ -37,6 +37,7 @@ OFFICIAL_STATION_SOURCES = {
     "www.tppd.com.tr/tr/stationmaplist",
     "find.shell.com/tr/fuel",
     "api.opet.com.tr/api/stations/v2",
+    "petrolofisi.com.tr/istasyon-nerede",
 }
 
 BRAND_ALIASES = {

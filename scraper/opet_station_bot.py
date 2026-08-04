@@ -43,16 +43,16 @@ from datetime import datetime
 
 from http_utils import HTTP
 
-from config import ISTANBUL_REGION_DISTRICTS
 from db_utils import finish_bot_run, save_station_inventory_to_supabase, supabase
-from matching import StationProximityIndex, _haversine
-from normalization import PROVINCES, normalize_city, normalize_province
-
-# ANADOLU + AVRUPA listelerinin birlesimi: fiyat yolunun tanidigi tum
-# Istanbul ilceleri. Tek dogruluk kaynagi config.ISTANBUL_REGION_DISTRICTS.
-_ISTANBUL_ILCELERI = {
-    ilce for bolge in ISTANBUL_REGION_DISTRICTS.values() for ilce in bolge
-}
+from station_inventory_common import (
+    KARANTINA_ALT_KM,
+    KARANTINA_UST_KM,
+    en_yakin_metre,
+    gecerli_konum,
+    karantinada_mi,
+    rapor_yaz,
+    yakinlik_indeksleri,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -69,13 +69,6 @@ HEADERS = {
     "Referer": "https://www.opet.com.tr/benzin-istasyonu-arama",
 }
 
-# Karantina bandi. Alt sinir envanter yolunun yaricapiyla AYNI olmali
-# (matching.STATION_MATCH_RADIUS_METERS = 75 m), yoksa arada yazilan bir
-# bosluk kalir ve supheli kayit sessizce eklenir.
-KARANTINA_ALT_KM = 0.075
-KARANTINA_UST_KM = 1.0
-
-
 def _fetch_stations():
     response = HTTP.post(API_URL, headers=HEADERS, json={}, timeout=(5, 60))
     response.raise_for_status()
@@ -86,14 +79,14 @@ def _fetch_stations():
 
 
 def _load_live_points():
-    """Mevcut Opet kayitlarinin (enlem, boylam, isim) listesi."""
+    """Mevcut Opet kayitlarinin (enlem, boylam) listesi."""
     if supabase is None:
         return []
     points, start = [], 0
     while True:
         page = (
             supabase.table("istasyonlar")
-            .select("id,isim,enlem,boylam")
+            .select("id,enlem,boylam")
             .eq("marka", BRAND)
             .eq("aktif", True)
             .order("id")
@@ -104,7 +97,7 @@ def _load_live_points():
         )
         for row in page:
             if row.get("enlem") is not None and row.get("boylam") is not None:
-                points.append((float(row["enlem"]), float(row["boylam"]), row.get("isim")))
+                points.append((float(row["enlem"]), float(row["boylam"])))
         if len(page) < 1000:
             break
         start += 1000
@@ -120,14 +113,7 @@ def scrape_data():
         return [], 0
 
     live_points = _load_live_points()
-    # Iki indeks: 75 m "kesin ayni", 1 km "supheli yakinlik". Hucre boyutu
-    # 0,01 derece (~1,1 km) ve komsu hucreler de tarandigi icin 1 km yaricap
-    # bu indekste guvenle calisir.
-    near_index = StationProximityIndex(radius_meters=KARANTINA_ALT_KM * 1000)
-    far_index = StationProximityIndex(radius_meters=KARANTINA_UST_KM * 1000)
-    for lat, lon, name in live_points:
-        near_index.add(BRAND, lat, lon, name)
-        far_index.add(BRAND, lat, lon, name)
+    near_index, far_index = yakinlik_indeksleri(live_points, BRAND)
 
     scraped, karantina, bozuk_il = [], [], []
     # API kendi icinde de tam kopya barindiriyor: ayni (isim, il, ilce, adres)
@@ -152,37 +138,19 @@ def scrape_data():
             continue
         gorulen_kimlikler.add(kimlik)
 
-        # IL DOGRULAMASI. Kaynagin `province` alani her zaman il degil: canlida
-        # bir kayit il alaninda CADDE ADI tasiyordu ("TAYAKADIN YASSIOREN
-        # CADDE", ilcesi ARNAVUTKOY). Boyle bir kayit hicbir il eslesmesine
-        # giremez, dolayisiyla fiyat da alamaz ve kalici olarak `hidden`
-        # kalir — yani sessiz bir cop kayit olur. 81 il listesi tek dogruluk
-        # kaynagidir (normalization.PROVINCES).
-        il = normalize_province(row.get("province"))
-        if il not in PROVINCES:
+        # Il ve (Istanbul ise) ilce dogrulamasi — gerekcesi
+        # station_inventory_common'da yazili.
+        if not gecerli_konum(row.get("province"), row.get("district")):
             bozuk_il.append((row.get("province"), row.get("district"), row.get("name")))
             continue
 
-        # ISTANBUL'un ozel durumu: fiyat yolu Istanbul'u ANADOLU/AVRUPA
-        # bolgelerine ayirir (`ISTANBUL_REGION_DISTRICTS`). Bu iki listenin
-        # disinda kalan bir ilce -- canlida "MERKEZ" goruldu -- hicbir bolgeye
-        # giremez; `_reset_split_region_targets` onu pasiflestirir ve bir daha
-        # aktiflestirmez. Il gecerli oldugu icin yukaridaki kontrol yakalamaz.
-        if il == "ISTANBUL" and normalize_city(row.get("district")) not in _ISTANBUL_ILCELERI:
-            bozuk_il.append((row.get("province"), row.get("district"), row.get("name")))
+        if karantinada_mi(near_index, far_index, BRAND, latitude, longitude):
+            karantina.append((
+                en_yakin_metre(live_points, latitude, longitude),
+                row.get("name", ""),
+                row.get("province", ""),
+            ))
             continue
-
-        # <75 m ise mevcut kayitla ayni sayilir -> gonder, yazma yolu gunceller.
-        # Degilse ama 1 km icinde bir kayit varsa karar belirsizdir -> GONDERME.
-        if not near_index.find(BRAND, latitude, longitude):
-            komsu = far_index.find(BRAND, latitude, longitude)
-            if komsu is not None:
-                mesafe_m = min(
-                    _haversine(latitude, longitude, lat, lon) * 1000
-                    for lat, lon, _ in live_points
-                )
-                karantina.append((mesafe_m, row.get("name", ""), row.get("province", "")))
-                continue
 
         scraped.append({
             "marka": BRAND,
@@ -196,22 +164,7 @@ def scrape_data():
             "veri_kaynagi": SOURCE,
         })
 
-    if bozuk_il:
-        print(f"[BOZUK IL] {len(bozuk_il)} kayit YAZILMADI (il alani 81 il "
-              f"listesinde degil; fiyat eslesmesine giremez, cop kayit olurdu):")
-        for province, district, name in bozuk_il[:5]:
-            print(f"           il={str(province)[:32]!r} ilce={str(district)[:20]!r} "
-                  f"{str(name)[:34]!r}")
-
-    if karantina:
-        print(f"[KARANTINA] {len(karantina)} supheli kayit YAZILMADI "
-              f"({KARANTINA_ALT_KM * 1000:.0f}-{KARANTINA_UST_KM * 1000:.0f} m bandinda "
-              f"mevcut bir kayda yakin). F4-2'de elle karara baglanacak.")
-        for distance, name, province in sorted(karantina)[:10]:
-            print(f"             {distance:6.0f} m  {str(name)[:44]!r} ({province})")
-        if len(karantina) > 10:
-            print(f"             ... ve {len(karantina) - 10} kayit daha")
-
+    rapor_yaz(bozuk_il, karantina)
     return scraped, len(karantina) + len(bozuk_il)
 
 
