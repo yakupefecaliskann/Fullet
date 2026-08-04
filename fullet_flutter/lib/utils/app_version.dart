@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'app_log.dart';
+
 /// Uygulama sürümü için TEK kaynak.
 ///
 /// Sürüm numarası üç ayrı yerde elle yazılıydı
@@ -40,7 +42,7 @@ class AppVersion {
         _loaded = true;
       }
     } catch (e) {
-      debugPrint('AppVersion.init failed, using fallback $fallback: $e');
+      appLog('AppVersion.init failed, using fallback $fallback: $e');
     }
   }
 

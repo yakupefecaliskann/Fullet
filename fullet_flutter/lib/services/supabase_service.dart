@@ -1,9 +1,9 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/news_item.dart';
 import '../models/station.dart';
+import '../utils/app_log.dart';
 import '../utils/brand_utils.dart';
 import '../utils/distance_calculator.dart';
 
@@ -17,7 +17,7 @@ class SupabaseService {
   /// başarısız olunca kullanıcı favoriyi yerelde görüyor, başka cihazda
   /// göremiyor ve hiçbir yerde iz kalmıyordu. Artık en azından iz kalıyor.
   static void _reportSilently(String operation, Object error, StackTrace stack) {
-    debugPrint('SupabaseService.$operation failed: $error');
+    appLog('SupabaseService.$operation failed: $error');
     FirebaseCrashlytics.instance.recordError(
       error,
       stack,
@@ -104,7 +104,7 @@ class SupabaseService {
       lastStationFetchError = null;
       return _parseStations(response);
     } catch (e) {
-      debugPrint('Supabase station fetch with max_results failed: $e');
+      appLog('Supabase station fetch with max_results failed: $e');
       return _fetchStationsLegacy(
         latitude: latitude,
         longitude: longitude,
@@ -143,7 +143,7 @@ class SupabaseService {
       lastStationFetchError = null;
       return stations;
     } catch (e) {
-      debugPrint('Supabase station fetch failed: $e');
+      appLog('Supabase station fetch failed: $e');
       lastStationFetchError = 'İstasyon verisi alınamadı.';
       return [];
     }
@@ -177,7 +177,7 @@ class SupabaseService {
           .map((item) => item.station)
           .toList(growable: false);
     } catch (e) {
-      debugPrint('Station table fallback failed: $e');
+      appLog('Station table fallback failed: $e');
       lastStationFetchError = 'İstasyon verisi alınamadı.';
       return [];
     }
@@ -217,7 +217,7 @@ class SupabaseService {
       // farklı yazılmış olabilir) canonicalBrandKey ile normalize eden
       // cache fallback'ine düş.
       if (rows.isEmpty) {
-        debugPrint(
+        appLog(
           '[Brand] RPC brand_filter returned 0 rows for brands=$brandKeys — '
           'falling back to cache with canonicalBrandKey matching',
         );
@@ -233,7 +233,7 @@ class SupabaseService {
       lastStationFetchError = null;
       return _parseStations(rows);
     } catch (e) {
-      debugPrint(
+      appLog(
         '[Brand] Combined geo+brand RPC failed: $e — falling back to '
         'whole-country scan',
       );
@@ -300,7 +300,7 @@ class SupabaseService {
         maxResults: maxResults,
       );
     } catch (e) {
-      debugPrint('Whole-country brand station fetch failed: $e');
+      appLog('Whole-country brand station fetch failed: $e');
       return _fetchStationsByBrandsFromCache(
         latitude: latitude,
         longitude: longitude,
@@ -335,7 +335,7 @@ class SupabaseService {
         maxResults: maxResults,
       );
     } catch (e) {
-      debugPrint('Brand station cache fallback failed: $e');
+      appLog('Brand station cache fallback failed: $e');
       lastStationFetchError = 'İstasyon verisi alınamadı.';
       return const [];
     }
@@ -429,7 +429,7 @@ class SupabaseService {
     try {
       return await _fetchAllStationsCached();
     } catch (e) {
-      debugPrint('All active stations fetch failed: $e');
+      appLog('All active stations fetch failed: $e');
       lastAllStationsFetchError = 'İstasyon araması şu an yüklenemedi.';
       return const [];
     }
@@ -525,7 +525,7 @@ class SupabaseService {
           .from('fullet_favorites')
           .upsert(rows, onConflict: 'firebase_uid,station_id');
     } catch (e) {
-      debugPrint('syncLocalFavorites failed: $e');
+      appLog('syncLocalFavorites failed: $e');
     }
   }
 
@@ -545,7 +545,7 @@ class SupabaseService {
           .where((news) => news.title.isNotEmpty && news.link.isNotEmpty)
           .toList(growable: false);
     } catch (e) {
-      debugPrint('News fetch failed: $e');
+      appLog('News fetch failed: $e');
       return [];
     }
   }

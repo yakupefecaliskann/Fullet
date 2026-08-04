@@ -197,6 +197,15 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
     final shouldShowPriceStatus =
         hasPrice || priceStatus != 'fresh' || station.isLowPriority;
 
+    // Android 15+ edge-to-edge'de bu panel `Positioned(bottom: 0)` ile sistem
+    // navigasyon çubuğunun ALTINA uzanıyor; API 36'da opt-out kaldırıldığı için
+    // bu artık kaçınılmaz. Bulanık zemin çubuğun arkasına kadar devam etsin
+    // (istenen görünüm) ama içerik — özellikle en alttaki "Yol tarifi" butonu —
+    // çubuğun üstünde kalsın diye inset kadar iç boşluk veriliyor.
+    // `padding` yerine `viewPadding` kullanılıyor: klavye açıkken `padding.bottom`
+    // sıfırlanır ve panel çubuğun altına kayardı.
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+
     return GestureDetector(
       onTap: () {},
       onVerticalDragEnd: (details) {
@@ -209,6 +218,7 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
+            padding: EdgeInsets.only(bottom: bottomInset),
             decoration: BoxDecoration(
               color: surface.withOpacity(isDark ? 0.92 : 0.97),
               borderRadius:

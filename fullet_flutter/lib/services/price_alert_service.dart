@@ -1,5 +1,4 @@
-import 'package:flutter/foundation.dart';
-
+import '../utils/app_log.dart';
 import '../models/price_alert.dart';
 import '../models/station.dart';
 import 'notification_service.dart';
@@ -20,7 +19,7 @@ class PriceAlertService {
           .map(PriceAlert.fromJson)
           .toList();
     } catch (e) {
-      debugPrint('getUserAlerts failed: $e');
+      appLog('getUserAlerts failed: $e');
       return [];
     }
   }
@@ -90,7 +89,7 @@ class PriceAlertService {
             {'son_tetiklenme': now.toUtc().toIso8601String()}).eq('id', alert.id);
       }
     } catch (e) {
-      debugPrint('checkAlerts failed: $e');
+      appLog('checkAlerts failed: $e');
     }
   }
 }

@@ -1534,6 +1534,11 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
   @override
   Widget build(BuildContext context) {
     final prefs = context.watch<UserPreferencesProvider>();
+    // Edge-to-edge (API 35+ zorunlu, API 36'da opt-out yok): harita tam ekran
+    // çizilirken alta sabitlenen kontroller sistem navigasyon çubuğunun altında
+    // kalmasın diye offset'leri inset kadar yukarı kaydırıyoruz. Üst çubuk
+    // zaten `MediaQuery.padding.top` kullanıyor.
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
       body: Stack(
@@ -1675,7 +1680,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
           // Sağ FAB Yığını — her zaman aynı konumda
           Positioned(
             right: 14,
-            bottom: 110,
+            bottom: 110 + bottomInset,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1742,7 +1747,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
           // Side menu her zaman render edilir, açık/kapalı state'ini kendi yönetip kayarak çıkar
           Positioned(
             left: 12,
-            bottom: _visibleStation != null ? 290 : 100,
+            bottom: (_visibleStation != null ? 290 : 100) + bottomInset,
             child: _buildMarkerLegend(),
           ),
 

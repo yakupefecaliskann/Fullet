@@ -16,6 +16,7 @@ import 'services/analytics_service.dart';
 import 'services/app_heartbeat_service.dart';
 import 'services/notification_service.dart';
 import 'theme/ful_theme.dart';
+import 'utils/app_log.dart';
 import 'utils/app_version.dart';
 
 Future<void> main() async {
@@ -23,12 +24,19 @@ Future<void> main() async {
   // Sürümü heartbeat'ten ÖNCE oku: app_heartbeats.app_version kohort
   // analizini besliyor, yanlış kohort verisi haftalar sonra fark edilir.
   await AppVersion.init();
+  // Android 15+ (API 35) edge-to-edge'i zorunlu kılıyor, API 36'da opt-out
+  // tamamen kaldırıldı. Modu açıkça talep etmek, davranışın eski sürümlerde de
+  // aynı olmasını sağlar. systemNavigationBarColor API 35+'te no-op olduğu için
+  // çubuk şeffaf bırakılır; contrast enforcement kapatılmazsa sistem yarı
+  // saydam bir katman çizer ve harita üstünde gri bir bant gibi görünür.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
-    systemNavigationBarColor: Colors.white,
+    systemNavigationBarColor: Colors.transparent,
     systemNavigationBarIconBrightness: Brightness.dark,
+    systemNavigationBarContrastEnforced: false,
   ));
 
   try {
@@ -38,7 +46,7 @@ Future<void> main() async {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     await AnalyticsService.logAppOpen();
   } catch (e) {
-    debugPrint('Firebase init failed (missing config): $e');
+    appLog('Firebase init failed (missing config): $e');
   }
 
   // .env pubspec.yaml'da asset olarak listeli ama .gitignore'da: temiz bir
@@ -48,7 +56,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
-    debugPrint('dotenv.load failed (.env asset missing?): $e');
+    appLog('dotenv.load failed (.env asset missing?): $e');
   }
 
   // dotenv.env, load başarısız olduysa NotInitializedError FIRLATIR
@@ -116,14 +124,16 @@ class FulletApp extends StatelessWidget {
               ? const SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
                   statusBarIconBrightness: Brightness.light,
-                  systemNavigationBarColor: Color(0xFF141925),
+                  systemNavigationBarColor: Colors.transparent,
                   systemNavigationBarIconBrightness: Brightness.light,
+                  systemNavigationBarContrastEnforced: false,
                 )
               : const SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
                   statusBarIconBrightness: Brightness.dark,
-                  systemNavigationBarColor: Color(0xFFFFFFFF),
+                  systemNavigationBarColor: Colors.transparent,
                   systemNavigationBarIconBrightness: Brightness.dark,
+                  systemNavigationBarContrastEnforced: false,
                 ),
           child: child!,
         );

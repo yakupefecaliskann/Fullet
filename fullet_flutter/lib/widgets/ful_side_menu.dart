@@ -107,8 +107,12 @@ class FulSideMenu extends StatelessWidget {
                   // ── Menü öğeleri ──
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 16),
+                      // Panel top:0/bottom:0 ile tam ekran; edge-to-edge'de son
+                      // menü öğesi sistem navigasyon çubuğunun altında kalmasın
+                      // diye alt boşluğa inset ekleniyor (başlık zaten
+                      // padding.top kullanıyor).
+                      padding: EdgeInsets.fromLTRB(16, 16, 16,
+                          16 + MediaQuery.of(context).viewPadding.bottom),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

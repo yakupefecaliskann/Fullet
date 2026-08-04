@@ -1,0 +1,27 @@
+# ÖRNEK dosya — gerçek değerlerle doldurup `key.properties` adıyla BU KLASÖRE kaydet.
+#
+# `key.properties` ve `*.jks` .gitignore'dadır ve depoya GİRMEZ. Bu doğru davranıştır,
+# ama şu anlama da gelir: depoyu klonlarsan/taşırsan imzalama anahtarı GELMEZ.
+# Keystore'u depodan ayrı, yedekli bir yerde sakla (parola yöneticisi + ikinci kopya).
+# Keystore kaybolursa uygulamanın Play'deki güncelleme hattı kopar; tek çare
+# Play Console'dan "upload key reset" talebidir.
+#
+# Aktif upload sertifikası SHA-1 (4 Ağustos 2026'da üretildi; Play Console'da
+# "upload key reset" ile kaydedilecek):
+#   49:7B:9C:C2:DF:7F:94:93:65:F6:B8:0A:35:CB:7F:94:44:CD:67:E2
+#
+# Paketi ürettikten sonra doğrula:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\verify_aab_signature.ps1
+
+# Keystore dosyasının yolu. `android/` klasörüne göre görecelidir
+# (rootProject.file(...) ile çözülür). Mutlak yol da verilebilir.
+storeFile=upload-keystore.jks
+
+# Keystore (store) parolası
+storePassword=
+
+# Anahtar takma adı (alias)
+keyAlias=
+
+# Anahtar parolası (çoğu kurulumda storePassword ile aynıdır)
+keyPassword=

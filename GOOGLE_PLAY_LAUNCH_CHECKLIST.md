@@ -1,86 +1,166 @@
-# Fullet Google Play Launch Checklist
+# Fullet — Google Play Yayın Checklist'i
 
-Son denetim: 2026-05-09
+**Son güncelleme:** 4 Ağustos 2026
+**Kapsam:** Bu dosya Play yayınıyla ilgili TEK doğruluk kaynağıdır. (Eski
+`PLAY_STORE_READINESS.md` buraya birleştirildi; Data Safety tablosu aşağıdadır.)
 
-## Mevcut Teknik Durum
+---
 
-- Flutter release check geçti: backend health, ops report, backend unit test, `flutter analyze`, `flutter test`, release APK ve release AAB.
-- Paket adı: `com.fullet.app`
-- Sürüm: `1.0.2+3`
-- Minimum SDK: `21`
-- Target SDK: `35`
-- Compile SDK: `36`
-- Release APK: `C:\Users\yefec\Desktop\Fullet-1.0.2-build3-release.apk`
-- Play'e yüklenecek ana dosya: `fullet_flutter\build\app\outputs\bundle\release\app-release.aab`
-- Release APK imzası doğrulandı: v1 ve v2 signature geçerli.
-- Backend canlı veri durumu temiz: 2224 aktif istasyon, 5425 aktif fiyat, pasif istasyonlar anon kullanıcıdan gizleniyor.
+## 1. Mevcut Teknik Durum
 
-## Yayından Önce Bloklayan İşler
+| Alan | Değer |
+|---|---|
+| Paket adı | `com.fullet.app` |
+| Sürüm | `1.0.3+6` (versionName 1.0.3, versionCode 6) |
+| minSdkVersion | **24** (Android 7.0) — 4 Ağu 2026'da 21'den yükseltildi, Android 5.x desteği bilinçli olarak bırakıldı |
+| targetSdkVersion | **36** (Android 16) — Play'in 31 Ağustos 2026 eşiğini karşılar |
+| compileSdkVersion | 36 |
+| Android Gradle Plugin | 8.11.1 |
+| Gradle | 8.13 |
+| Kotlin | 2.3.10 |
+| Play'e yüklenecek dosya | `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` |
 
-1. Google Maps API key kısıtlanmalı.
-   - Android package: `com.fullet.app`
-   - Local upload certificate SHA-1: `40:9B:C1:14:68:F0:BC:0F:C1:58:BE:4B:56:5D:8D:FD:20:5E:96:89`
-   - Play App Signing açıldıktan sonra Google Play'in verdiği App signing certificate SHA-1 de ayrıca eklenmeli.
-   - Kota ve bütçe uyarısı açılmalı. Sıfır maliyet hedefi için sürpriz fatura riski bırakılmamalı.
+**Edge-to-edge:** Android 16'da opt-out kaldırıldı. Uygulama `SystemUiMode.edgeToEdge`
+ile açıkça edge-to-edge çalışıyor; alt panel, yan menü ve harita FAB'ları
+`viewPadding.bottom` kadar yukarı itiliyor. **Gerçek cihazda görsel doğrulama şart**
+(bkz. `RELEASE_QA_CHECKLIST.md`).
 
-2. Gizlilik politikası public URL'de hazır tutulmalı.
-   - URL: `https://yakupefecaliskann.github.io/Fullet/privacy.html`
-   - Play politikası PDF olmayan, herkese açık, aktif ve düzenlenemez bir URL istiyor.
-   - Uygulama içindeki gizlilik panelinden bu URL açılır.
+---
 
-3. Data Safety formu doğru doldurulmalı. (Tam eşleme: PLAY_STORE_READINESS.md → "Data Safety Taslağı" tablosu)
-   - Konum (yaklaşık + hassas): yakındaki istasyonları bulmak ve mesafe hesaplamak için.
-   - Konum geçmişi tutulmuyor.
-   - Firebase Analytics VAR: app interactions + search history + user-generated content (Analytics amacı).
-   - Firebase Crashlytics VAR: crash logs + diagnostics.
-   - Google Sign-In ile hesap VAR (isteğe bağlı): ad + e-posta + profil bağlantısı (`fullet_users`). Hesap+veri silme URL'i zorunlu → data-deletion.html.
-   - Reklam SDK'sı / reklam kimliği YOK.
-   - Google Maps yol tarifi ve haber linkleri dış uygulama/site açabilir.
+## 2. Yayından Önce Bloklayan İşler
 
-4. App icon yayına hazır tutulmalı.
-   - Android launcher icon Fullet markalı ikonla değiştirildi.
-   - Play Store 512x512 ikon kaynağı: `fullet_flutter\assets\brand\fullet_play_icon_512.png`
+### 2.1 Upload key reset (🔴 KRİTİK — Play Console'da yapılacak)
 
-5. Store listing hazırlanmalı.
-   - Kısa açıklama, uzun açıklama, kategori, iletişim e-postası, ekran görüntüleri ve feature graphic hazırlanmalı.
-   - Ekran görüntüleri gerçek cihazdan alınmalı: harita, istasyon detayı, sürüş modu, fiyat karşılaştırma.
+**Eski upload keystore kalıcı olarak kaybedildi.** (Depoda 31 Temmuz 2026 tarihli bir
+AAB duruyordu ama o paket upload anahtarıyla değil, bir *Smoke Test* sertifikasıyla
+imzalanmıştı — yani zaten yüklenebilir değildi.) 4 Ağustos 2026'da **yeni bir upload
+keystore üretildi.**
 
-6. Play test süreci seçilmeli.
-   - İlk adım: Internal testing.
-   - Eğer Google Play kişisel geliştirici hesabı 13 Kasım 2023'ten sonra açıldıysa production için kapalı testte en az 12 tester 14 gün kesintisiz opt-in kalmalı.
+| | Değer |
+|---|---|
+| Keystore | `fullet_flutter/android/upload-keystore.jks` (PKCS12, RSA 4096) |
+| Alias | `fullet-upload` |
+| Geçerlilik | 4 Ağu 2026 → **20 Ara 2053** |
+| **SHA-1** | `49:7B:9C:C2:DF:7F:94:93:65:F6:B8:0A:35:CB:7F:94:44:CD:67:E2` |
+| **SHA-256** | `60:EF:89:72:9C:88:DF:B9:2C:7C:65:2B:DE:F3:FE:AD:DB:37:CA:3C:C3:86:B3:DD:57:8C:4A:C2:75:96:B2:B7` |
+| Play'e verilecek sertifika | `fullet_flutter/android/upload_certificate.pem` |
 
-## Uyurken Çalışacak Bot Otomasyonu
+**Yapılacak:** Play Console → *Release* → *Setup* → *App integrity* → *App signing* →
+**Request upload key reset** → yukarıdaki `upload_certificate.pem` dosyası yüklenir.
+Google onaylayana kadar (genelde 1–2 iş günü) yeni anahtarla imzalanmış AAB **reddedilir**.
 
-- GitHub Actions workflow dosyası: `.github/workflows/otopilot.yml`
-- Fiyat botları her gün Türkiye saatiyle yaklaşık 06:20, 12:20, 18:20 ve 00:20 çalışacak.
-- Haber botu her gün Türkiye saatiyle yaklaşık 08:50 ve 20:50 çalışacak.
-- İstasyon envanteri pazar günleri Türkiye saatiyle yaklaşık 04:40 çalışacak.
-- GitHub repository secrets içinde şu değerler dolu olmalı:
-  - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY` veya service-role değerini taşıyan `SUPABASE_KEY`
-  - `SUPABASE_ANON_KEY`
-- En temiz kurulum: `SUPABASE_KEY` eski uyumluluk için kalabilir, ama service-role key ayrıca `SUPABASE_SERVICE_ROLE_KEY` adına da eklenmeli.
-- `SUPABASE_ANON_KEY` olmazsa botlar service-role ile yazabilir, fakat RLS ve public okuma health check'i kırmızıya düşer.
-- Workflow GitHub'a push edilmemişse veya Actions kapalıysa botlar otomatik çalışmaz.
-- Workflow ilk kez GitHub'da açıldığında manuel `workflow_dispatch` ile `mode=prices`, `dry_run=1` denemesi yapılmalı; sonra `dry_run=0` canlı yazma testi yapılmalı.
-- Haber tazeliği backend health check'e bağlı: en yeni haber 48 saati aşarsa sistem artık sağlıklı sayılmaz.
+> ⚠️ Bu bir kerelik bir işlem değil, **geri alınamaz bir kayıp deneyimi.** Yeni keystore
+> ve parolası kaybolursa aynı süreç baştan gerekir. `key.properties` ve `.jks` git'e
+> girmez (`.gitignore`'da) — bu doğru davranıştır, ama depo kopyalanınca/taşınınca da
+> gelmez. **Her ikisinin de depo dışında, yedekli bir kopyası tutulmalıdır**
+> (parola yöneticisi + ikinci fiziksel kopya).
 
-## Güçlü Ama Bloklamayan Teknik Borçlar
+- Kurulum şablonu: `fullet_flutter/android/key.properties.example`
+- `key.properties` yoksa `flutter build appbundle --release` **imzasız** paket üretir
+  (build.gradle bunu artık açık bir uyarıyla söylüyor) ve Play yüklemeyi reddeder.
+- Üretilen paketi her zaman doğrula:
+  `powershell -ExecutionPolicy Bypass -File .\scripts\verify_aab_signature.ps1`
 
-- Lokal Flutter SDK `3.16.5`; güncel paketlere çıkmak için Flutter SDK yükseltme planı yapılmalı.
-- `flutter pub outdated` çıktısında güncel majör sürümü olan paketler var: `google_maps_flutter`, `geolocator`, `supabase_flutter`, `shared_preferences`.
-- Bu yükseltme tester APK'yi engellemiyor ama uzun vadeli kalite hedefi için ayrı bir modernizasyon sprinti olmalı.
-- Admin panel altyapısı repo içinde hazırdır ve GitHub Pages üzerinden yayınlanır: `https://yakupefecaliskann.github.io/Fullet/`
+### 2.2 Google Maps API key kısıtlaması
 
-## Yayın Öncesi Komut
+- Android package: `com.fullet.app`
+- **Yeni** upload sertifikası SHA-1 (`49:7B:9C:...:67:E2`) eklenmeli.
+  Eski `40:9B:C1:...` değeri artık geçersizdir, kaldırılabilir.
+- Play App Signing açıldıktan sonra Google'ın verdiği **App signing SHA-1** de eklenmeli.
+- API restrictions → yalnızca **Maps SDK for Android**.
+- Kota + bütçe uyarısı açılmalı ("sıfır maliyet" hedefi için sürpriz fatura riski).
+
+### 2.3 Gizlilik politikası
+
+- Canlı URL: `https://yakupefecaliskann.github.io/Fullet/privacy.html`
+- Kaynak dosya: `admin_panel/public/privacy.html` (tek doğruluk kaynağı).
+- Play; herkese açık, aktif, PDF olmayan ve düzenlenemez bir URL istiyor.
+- Hesap + veri silme: `https://yakupefecaliskann.github.io/Fullet/data-deletion.html`
+
+### 2.4 Store listing
+
+- Kısa açıklama, uzun açıklama, kategori, iletişim e-postası.
+- Görseller hazır: `play_store_assets/upload/` (telefon 6 + 7"/10" tablet),
+  feature graphic 1024×500, 512×512 ikon
+  (`fullet_flutter/assets/brand/fullet_play_icon_512.png`).
+- Açıklamada **"fiyatlar resmi/marka kaynaklarından; tahmini fiyat gösterilmez"**
+  vurgusu bulunmalı.
+- Sürüm notu metni: `RELEASE_NOTES.md`
+
+### 2.5 Test süreci
+
+- İlk adım **Internal testing**, sonra **Closed testing**.
+- Hesap 13 Kasım 2023'ten sonra açıldıysa production için **12 tester × 14 gün
+  kesintisiz opt-in** zorunlu.
+- Production'a kademeli rollout (%20 → %50 → %100); ilk crash dalgası Crashlytics'te izlenir.
+
+---
+
+## 3. Data Safety Formu (kodla doğrulanmış)
+
+**Genel:** Data shared with third parties = **No** (Firebase, hizmet sağlayıcı sıfatıyla
+işler) · Data encrypted in transit = **Yes** (HTTPS) · Users can request data deletion =
+**Yes** → `data-deletion.html` · Reklam SDK'sı / reklam kimliği = **Yok**.
+
+| Data Safety kategorisi | Tür | Amaç | Zorunlu/İsteğe bağlı | Kaynak |
+|---|---|---|---|---|
+| **Location** | Approximate + Precise | App functionality | İsteğe bağlı (izin reddedilebilir) | `geolocator` + `get_nearby_stations` RPC. Konum geçmişi tutulmaz. |
+| **Personal info** | Name, Email | App functionality, Account management | İsteğe bağlı (yalnızca Google ile giriş) | `auth_service.dart` → `fullet_users` |
+| **App activity** | App interactions, Search history, Other UGC | Analytics | Zorunlu (otomatik) | `analytics_service.dart` (Firebase Analytics) |
+| **App info & performance** | Crash logs, Diagnostics | Analytics, App functionality | Zorunlu (otomatik) | `firebase_crashlytics` (`main.dart`) |
+| **Device or other IDs** | Device or other IDs | Analytics | Zorunlu (otomatik) | Firebase Analytics instance ID + `app_heartbeat_service.dart` |
+
+- **Cihazda kalan (toplanmayan):** seçili yakıt, garaj bilgisi, favoriler, son bakılan
+  istasyonlar → `shared_preferences`. Data Safety'de "toplanan" sayılmaz.
+- **İçerik:** istasyon/fiyat/haber verisi resmi kaynaklardan toplanır, kullanıcıdan veri değildir.
+- **Harici açılışlar:** yol tarifi için Google Maps, haberler için dış tarayıcı.
+
+---
+
+## 4. Backend Kırmızı Çizgileri (yayın öncesi)
+
+- `python scraper\backend_health_check.py` temiz bitmeden yayın yok.
+- Canlı DB'de şu betikler bu sırayla çalışmış olmalı:
+  `database/production_hardening.sql` → `database/add_status_columns.sql` →
+  `database/create_postgis_rpc.sql` → `database/rls_policies.sql`
+- `database/live_public_schema_fix.sql` legacy onarım betiğidir; normal yayın
+  hazırlığında çalıştırılmaz.
+- `verify_live_schema.sql` çıktısında `fiyatlar_veri_kaynagi_exists`,
+  `istasyonlar_rls_enabled` ve `istasyonlar_anon_policy_filters_active` **true** dönmeli.
+- Anon kullanıcı pasif istasyonları okuyamamalı (health check bunu fail eder).
+- Fiyat ve istasyon verisi **sadece resmi kaynaklardan** gelmeli; tahmini fiyat
+  canlıya yazılmaz.
+
+---
+
+## 5. Bot Otomasyonu
+
+- Workflow: `.github/workflows/otopilot.yml`
+- Fiyat botları: her gün ~06:20, 12:20, 18:20, 00:20 (TR saati)
+- Haber botu: her gün ~08:50 ve 20:50 · İstasyon envanteri: pazar ~04:40
+- Gerekli GitHub secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+  (veya service-role taşıyan `SUPABASE_KEY`), `SUPABASE_ANON_KEY`
+- `SUPABASE_ANON_KEY` yoksa botlar yazabilir ama RLS/public okuma health check'i kırmızıya düşer.
+- **Bakım sınırı:** GitHub Actions zamanlanmış workflow'lar 60 gün repo aktivitesi
+  olmazsa devre dışı kalır. Her ~8 haftada bir commit (veya manuel "Enable") gerekir.
+
+---
+
+## 6. Yayın Öncesi Komut
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\release_check.ps1 -BuildApk -BuildAab
+powershell -ExecutionPolicy Bypass -File .\scripts\release_check.ps1 -BuildAab
 ```
 
-Bu komut temiz geçmeden Play'e dosya yüklenmemeli.
+> **Not:** `release_check.ps1` içindeki `flutter analyze` adımı, kod tabanında
+> `info` seviyesinde uyarı bulunduğu sürece sıfır olmayan çıkış kodu döndürür
+> (şu an 77 adet `withOpacity`/Maps deprecation'ı var, hiçbiri hata değil).
+> Kapıyı geçmek için ya bu deprecation'lar temizlenmeli ya da adım
+> `flutter analyze --no-fatal-infos` olarak güncellenmelidir.
 
-## Resmi Referanslar
+---
+
+## 7. Resmi Referanslar
 
 - Target API: https://support.google.com/googleplay/android-developer/answer/11926878
 - Play App Signing: https://support.google.com/googleplay/android-developer/answer/9842756

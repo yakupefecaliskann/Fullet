@@ -1,7 +1,7 @@
 name: fullet_flutter
 description: Fullet fuel-price map app.
 publish_to: 'none'
-version: 1.0.2+5
+version: 1.0.3+6
 
 environment:
   # package_info_plus 8.x sdk >=3.3.0 istiyor; alt sınır 3.2.3'te kalırsa

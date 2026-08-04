@@ -1,14 +1,6 @@
-buildscript {
-    ext.kotlin_version = '1.9.22'
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
+// Kotlin Gradle Plugin sürümü artık `settings.gradle` plugins bloğunda
+// bildiriliyor (Flutter 3.19+ düzeni). Buradaki buildscript classpath'i
+// eklenti alt-projelerine ulaşmadığı için kaldırıldı.
 
 allprojects {
     repositories {

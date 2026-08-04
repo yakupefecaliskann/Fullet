@@ -31,9 +31,27 @@ Her yayın adayında bu liste bitmeden paket yüklenmez.
 - Bağlantı/veri hatasında tekrar dene akışı gösteriliyor.
 - Yol tarifi butonu harici harita uygulamasını açıyor.
 
+## Edge-to-Edge (Android 15+ / API 36 — targetSdk 36'dan beri zorunlu)
+
+Bu blok **gerçek cihazda** koşulmalı; emülatör jest çubuğu yüksekliğini her zaman
+doğru raporlamıyor. Hem **jest navigasyonu** hem **3 düğmeli navigasyon** ile bakılmalı.
+
+- İstasyon detay paneli açıkken en alttaki buton (Yol tarifi) navigasyon çubuğunun
+  ÜSTÜNDE; çubuk paneli kesmiyor.
+- Panelin bulanık zemini çubuğun arkasına kadar uzanıyor (altta harita görünen boşluk yok).
+- Yan menü sonuna kadar kaydırıldığında son öğe çubuğun altında kalmıyor.
+- Sağdaki FAB yığını (tema, konumum, sürüş) ve sol alttaki lejant çubukla çakışmıyor.
+- Üst arama çubuğu durum çubuğunun altında kalmıyor.
+- Klavye açılıp kapandığında panel yukarı zıplamıyor / çubuğun altına kaymıyor.
+- Koyu ve açık temada durum çubuğu ikonları okunabilir (zemine göre kontrast doğru).
+
 ## Play Store
 
 - App Bundle üretildi: `fullet_flutter\build\app\outputs\bundle\release\app-release.aab`
+- AAB **upload keystore** ile imzalandı — doğrulama komutu:
+  `powershell -ExecutionPolicy Bypass -File .\scripts\verify_aab_signature.ps1`
+  (script `[OK]` demeden paket yüklenmez; bkz. `GOOGLE_PLAY_LAUNCH_CHECKLIST.md` §2.1)
+- Play Console'da **upload key reset** onaylandı (yeni anahtara geçiş, 4 Ağu 2026).
 - Privacy policy URL hazır: `https://yakupefecaliskann.github.io/Fullet/privacy.html`
 - Data safety formu uygulamadaki gerçek veri kullanımına göre dolduruldu.
 - Google Maps API key paket adı + SHA-1 ile kısıtlandı.

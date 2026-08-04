@@ -1,5 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter/foundation.dart';
+
+import '../utils/app_log.dart';
 
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
@@ -11,7 +12,7 @@ class AnalyticsService {
     try {
       await _analytics.logEvent(name: name, parameters: parameters);
     } catch (e) {
-      debugPrint('Analytics event failed ($name): $e');
+      appLog('Analytics event failed ($name): $e');
     }
   }
 
@@ -19,7 +20,7 @@ class AnalyticsService {
     try {
       await _analytics.logAppOpen();
     } catch (e) {
-      debugPrint('Analytics app_open failed: $e');
+      appLog('Analytics app_open failed: $e');
     }
   }
 

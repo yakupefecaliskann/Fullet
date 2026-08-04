@@ -1051,7 +1051,9 @@ botun yazdığı istasyon toplamıyla birebir eşleşiyor.
 
 Kullanıcı Faz 0–3'ün kapanış onayını istedi. Onaydan **önce** yapılan ölçüm,
 Faz 3'ün kapalı OLMADIĞINI gösterdi. Aşağıdaki operasyon o boşlukları kapattı
-ve ertelenen 21–25. maddeleri bitirdi. Uygulama planı: `implementation_plan.md`.
+ve ertelenen 21–25. maddeleri bitirdi. (Uygulama planı `implementation_plan.md`
+dosyasındaydı; Faz 4 tamamlandığı için 4 Ağustos 2026'da silindi — içeriği git
+geçmişinde `243c866` ve öncesindeki commit'lerde duruyor.)
 
 ## Kapanışı engelleyen bulgular (ölçüldü)
 

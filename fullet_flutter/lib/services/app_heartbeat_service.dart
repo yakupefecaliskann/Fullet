@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/app_log.dart';
 import '../utils/app_version.dart';
 import 'supabase_service.dart';
 
@@ -31,7 +32,7 @@ class AppHeartbeatService {
         'p_platform': defaultTargetPlatform.name,
       });
     } catch (error) {
-      debugPrint('App heartbeat skipped: $error');
+      appLog('App heartbeat skipped: $error');
     } finally {
       _isSending = false;
     }

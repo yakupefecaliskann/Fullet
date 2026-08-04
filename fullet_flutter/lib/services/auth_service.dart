@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../utils/app_log.dart';
 import 'supabase_service.dart';
 
 enum AuthResultStatus { success, cancelled, error }
@@ -81,7 +81,7 @@ class AuthService {
           .invoke('set-authenticated-role');
       await user.getIdToken(true);
     } catch (e) {
-      debugPrint('ensureAuthenticatedRole failed: $e');
+      appLog('ensureAuthenticatedRole failed: $e');
     }
   }
 

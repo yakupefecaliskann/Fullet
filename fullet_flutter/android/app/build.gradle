@@ -29,7 +29,11 @@ if (flutterVersionName == null) {
 android {
     namespace "com.fullet.app"
     compileSdkVersion 36
-    ndkVersion "25.1.8937393"
+    // Eklentiler (google_sign_in_android, package_info_plus,
+    // shared_preferences_android, url_launcher_android, path_provider_android)
+    // en az NDK 27 istiyor. NDK sürümleri geriye dönük uyumlu olduğu için
+    // en yükseğini sabitlemek doğru olan.
+    ndkVersion "27.0.12077973"
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -47,8 +51,8 @@ android {
 
     defaultConfig {
         applicationId "com.fullet.app"
-        minSdkVersion 21
-        targetSdkVersion 35
+        minSdkVersion 24
+        targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -72,8 +76,19 @@ android {
 
     buildTypes {
         release {
-            // Signing with the release keys
-            signingConfig signingConfigs.release
+            // key.properties YOKSA signingConfigs.release boş kalıyor ve AGP,
+            // üç dakikalık bir derlemenin en sonunda `:app:signReleaseBundle`
+            // adımında mesajsız bir NullPointerException fırlatıyordu. Koşulu
+            // buraya taşımak hatayı okunur bir uyarıya çeviriyor: paket imzasız
+            // üretilir, ama bunun Play'e yüklenemeyeceği açıkça söylenir.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.lifecycle(
+                    "UYARI: android/key.properties bulunamadi -> release paketi IMZASIZ uretiliyor. " +
+                    "Google Play bu paketi REDDEDER. Kurulum icin: GOOGLE_PLAY_LAUNCH_CHECKLIST.md ss.2.1"
+                )
+            }
         }
     }
 }
