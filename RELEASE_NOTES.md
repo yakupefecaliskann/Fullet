@@ -56,11 +56,18 @@ Ve şu kuralı değiştirmedik: **doğrulayamadığımız fiyatı hiç göstermi
 da şüpheli bir fiyat, tahmin edilip gösterilmek yerine gizlenir. Fullet'in sana yanlış
 istasyonu göstermemesi, çok istasyon göstermesinden daha önemli.
 
+#### 🔎 Arama artık gerçekten "en yakın"ı gösteriyor
+
+Yaygın markalarda (Shell, Opet, Petrol Ofisi) arama sonuçları, mesafeye göre
+sıralanmadan önce kırpılıyordu. Sonuç: sana 2 km ötedeki istasyon, listede hiç
+görünmeyebiliyordu — üstelik liste sıralı göründüğü için bunu fark etmen mümkün
+değildi. Düzeltildi; artık listedeki 50 sonuç gerçekten en yakın 50 sonuç.
+
 #### 📱 Android 16 uyumu ve arayüz iyileştirmeleri
 
 - Android 16'nın yeni tam ekran (edge-to-edge) kurallarına tam uyum: istasyon detay
   paneli, yan menü ve harita düğmeleri sistem çubuklarının altında kalmıyor.
-- Harita ve fiyat kartlarında akıcılık iyileştirmeleri.
+- Uzun sürüşlerde bellek kullanımı sabitlendi: harita ikonu önbelleği artık sınırlı.
 - Çeşitli hata düzeltmeleri ve kararlılık iyileştirmeleri.
 
 ---
@@ -72,8 +79,11 @@ istasyonu göstermemesi, çok istasyon göstermesinden daha önemli.
 | `minSdkVersion` | 21 (Android 5.0) | **24 (Android 7.0)** |
 | `targetSdkVersion` | 35 | **36 (Android 16)** |
 | Android Gradle Plugin | 8.2.1 | **8.11.1** |
-| Gradle | 8.7 | **8.13** |
+| Gradle | 8.7 | **8.14** |
 | Kotlin | 1.9.22 | **2.3.10** |
+| NDK | 25.1.8937393 | **27.0.12077973** |
+| Marker ikon önbelleği | sınırsız (bellek sızıntısı) | **300 girişli LRU** |
+| Arama kırpması | sıralamadan önce (hatalı) | **sıralamadan sonra** |
 | `google_maps_flutter` | 2.5.3 | **2.14.2** |
 | Teşhis logları | `debugPrint` (release'de de yazıyordu) | `appLog()` → yalnızca debug |
 | `android.enableJetifier` | true | kaldırıldı |

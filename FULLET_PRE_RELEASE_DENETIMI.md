@@ -22,6 +22,8 @@ bulgular kapatıldı; geri kalanlar hâlâ açıktır.
 | **M5** — `debugPrint` release'de log yazıyor | 20 çağrı tek bir `lib/utils/app_log.dart` → `appLog()` yardımcısına toplandı; gövde `kDebugMode` ile korunuyor, release AOT'de eleniyor. |
 | **L3** — `android.enableJetifier` | Kaldırıldı. |
 | Sürüm kodu | 1.0.2+5 → **1.0.3+6**. |
+| **H1** — Sınırsız marker ikon önbelleği | `LinkedHashMap` tabanlı LRU'ya çevrildi, tavan **300 giriş** (`_DeclutterConfig` en fazla 110 marker çizdiği için ~3 ekran dolusu ikon sıcak kalır). Erişimde giriş "en yeni" konuma taşınır; tavan aşılınca `keys.first` (en uzun süredir kullanılmayan) düşer. 4 test: `test/marker_icon_cache_test.dart`. |
+| **M1** — Arama sıralamadan ÖNCE kırpılıyor | Kırpma sıralamadan **sonraya** alındı. Sıralama/kırpma mantığı test edilebilir olsun diye `lib/utils/station_search.dart` içinde saf fonksiyonlara çıkarıldı (`rankStationSearchResults`, `rankStationsByPrice`); `_SearchResult` → public `StationSearchResult`. 7 test: `test/station_search_test.dart`. |
 
 ### 🔴 Denetimde görülmeyen, derleme sırasında çıkan bulgu
 
@@ -39,9 +41,6 @@ alt-projelerine ulaşmıyor).
 
 ### ⛔ Açık kalanlar (öncelik sırasıyla)
 
-- **H1** — Sınırsız marker ikon önbelleği (gerçek bellek sızıntısı) — §2
-- **M1** — Arama sonuçları sıralamadan ÖNCE 50'ye kırpılıyor (kullanıcıya doğrudan
-  yansıyan tek mantık hatası) — §3
 - **H4** — `PlatformDispatcher.instance.onError` kurulmamış (async crash körlüğü) — §2
 - **H2** — `_markersNotifier` dispose edilmiyor — §2
 - **H3** — Her tercih değişiminde haritanın tamamı yeniden inşa ediliyor — §2

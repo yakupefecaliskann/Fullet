@@ -1,10 +1,65 @@
+import 'dart:collection';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MarkerIconFactory {
-  static final Map<String, BitmapDescriptor> _cache = {};
+  /// H1: Bu önbellek eskiden sınırsızdı ve hiçbir yerde temizlenmiyordu —
+  /// gerçek bir bellek sızıntısıydı.
+  ///
+  /// Anahtar fiyat metnini ve durum bayraklarını içeriyor
+  /// (`isCheapest`/`isMostLogical`/`isSelected`), yani **oturum boyunca sürekli
+  /// yeni değerler alıyor**: fiyatlar güncellenir, kullanıcı hareket ettikçe taç
+  /// istasyon değiştirir, her dokunuş 1.32x ölçekli yeni bir PNG üretir. En kötü
+  /// senaryo sürüş modu: her konum güncellemesi tam marker yeniden inşası
+  /// tetikliyor, uzun bir yolculukta önbellek monoton büyüyordu. Her giriş
+  /// çözülmüş bir `BitmapDescriptor` (124×60, seçiliyken 164×79 PNG).
+  ///
+  /// Tavan, ekranda aynı anda çizilen marker sayısına göre seçildi:
+  /// `_DeclutterConfig` en fazla 110 marker'a izin veriyor, yani 300 giriş
+  /// yaklaşık üç ekran dolusu ikonu sıcak tutar — pan/zoom sırasında isabet
+  /// oranı korunur, bellek ise sabit kalır.
+  static const int _maxCacheEntries = 300;
+
+  /// `LinkedHashMap` ekleme sırasını korur; erişimde girişi silip yeniden
+  /// eklemek onu "en yeni" konuma taşır, böylece `keys.first` daima en uzun
+  /// süredir kullanılmayan giriştir (LRU).
+  static final LinkedHashMap<String, BitmapDescriptor> _cache =
+      LinkedHashMap<String, BitmapDescriptor>();
+
+  static BitmapDescriptor? _cacheGet(String key) {
+    final cached = _cache.remove(key);
+    if (cached != null) {
+      _cache[key] = cached;
+    }
+    return cached;
+  }
+
+  static void _cachePut(String key, BitmapDescriptor descriptor) {
+    _cache.remove(key);
+    _cache[key] = descriptor;
+    while (_cache.length > _maxCacheEntries) {
+      _cache.remove(_cache.keys.first);
+    }
+  }
+
+  /// Yalnızca testler için: önbelleği ve sayacını sıfırlar.
+  @visibleForTesting
+  static void resetCacheForTest() => _cache.clear();
+
+  @visibleForTesting
+  static int get cacheLength => _cache.length;
+
+  @visibleForTesting
+  static int get maxCacheEntries => _maxCacheEntries;
+
+  @visibleForTesting
+  static void putForTest(String key, BitmapDescriptor descriptor) =>
+      _cachePut(key, descriptor);
+
+  @visibleForTesting
+  static BitmapDescriptor? getForTest(String key) => _cacheGet(key);
 
   static Future<BitmapDescriptor> stationPrice({
     required String brand,
@@ -19,7 +74,7 @@ class MarkerIconFactory {
   }) async {
     final key =
         'price|$brand|$priceText|$hasPrice|$priceStatus|$isCheapest|$isMostLogical|$compact|$isSelected|$isLowPriority';
-    final cached = _cache[key];
+    final cached = _cacheGet(key);
     if (cached != null) return cached;
 
     var palette = _paletteFor(
@@ -47,7 +102,7 @@ class MarkerIconFactory {
     // payload for runtime-generated marker PNGs.
     // ignore: deprecated_member_use
     final descriptor = BitmapDescriptor.fromBytes(bytes);
-    _cache[key] = descriptor;
+    _cachePut(key, descriptor);
     return descriptor;
   }
 
@@ -55,13 +110,13 @@ class MarkerIconFactory {
     required int count,
   }) async {
     final key = 'cluster|$count';
-    final cached = _cache[key];
+    final cached = _cacheGet(key);
     if (cached != null) return cached;
 
     final bytes = await _drawClusterMarker(count: count);
     // ignore: deprecated_member_use
     final descriptor = BitmapDescriptor.fromBytes(bytes);
-    _cache[key] = descriptor;
+    _cachePut(key, descriptor);
     return descriptor;
   }
 

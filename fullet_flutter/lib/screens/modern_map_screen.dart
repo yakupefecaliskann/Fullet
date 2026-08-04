@@ -25,7 +25,7 @@ import '../utils/price_formatter.dart';
 import '../utils/marker_icon_factory.dart';
 import '../utils/distance_calculator.dart';
 import '../utils/brand_utils.dart';
-import '../utils/text_normalize.dart';
+import '../utils/station_search.dart';
 import '../widgets/top_search_bar.dart';
 import '../theme/ful_theme.dart';
 import '../services/notification_service.dart';
@@ -2448,132 +2448,32 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
     );
   }
 
-  List<_SearchResult> _searchResults(List<Station> stations) {
-    final query = _normalize(_query);
-    var filtered = stations.where((station) {
-      if (widget.selectedBrands.isNotEmpty &&
-          !widget.selectedBrands.contains(canonicalBrandKey(station.brand))) {
-        return false;
-      }
-      if (!station.isVisibleInApp) {
-        return false;
-      }
-      if (query.isEmpty) return true;
-      final haystack = _normalize(
-        '${station.brand} ${station.displayName} ${station.city} ${station.district}',
-      );
-      return haystack.contains(query);
-    }).toList();
-
-    if (query.isEmpty) {
-      filtered = filtered
-          .where((s) =>
-              widget.favoriteStationIds.contains(s.id) ||
-              widget.recentStationIds.contains(s.id))
-          .toList();
-    } else if (filtered.length > 50) {
-      filtered = filtered.sublist(0, 50);
-    }
-
-    final results = filtered.map((station) {
-      final distance = getDistanceKm(
-        widget.location.latitude,
-        widget.location.longitude,
-        station.latitude,
-        station.longitude,
-      );
-      return _SearchResult(
-        station: station,
-        distanceKm: distance,
-        isFavorite: widget.favoriteStationIds.contains(station.id),
-        recentIndex: widget.recentStationIds.indexOf(station.id),
-      );
-    }).toList();
-
-    results.sort((a, b) {
-      if (query.isNotEmpty) {
-        final aStarts = _normalize(a.station.displayName).startsWith(query) ||
-            _normalize(a.station.brand).startsWith(query);
-        final bStarts = _normalize(b.station.displayName).startsWith(query) ||
-            _normalize(b.station.brand).startsWith(query);
-        if (aStarts != bStarts) return aStarts ? -1 : 1;
-      }
-      final pinCompare = _pinRank(a).compareTo(_pinRank(b));
-      if (pinCompare != 0) return pinCompare;
-      if (query.isEmpty && a.isRecent && b.isRecent) {
-        final recentCompare = a.recentIndex.compareTo(b.recentIndex);
-        if (recentCompare != 0) return recentCompare;
-      }
-      return (a.distanceKm ?? double.maxFinite)
-          .compareTo(b.distanceKm ?? double.maxFinite);
-    });
-
-    return results;
+  /// Sıralama/kırpma mantığı `utils/station_search.dart` içinde saf bir
+  /// fonksiyona taşındı; M1 regresyon testi oraya yazıldı
+  /// (`test/station_search_test.dart`).
+  List<StationSearchResult> _searchResults(List<Station> stations) {
+    return rankStationSearchResults(
+      stations: stations,
+      query: _query,
+      selectedBrands: widget.selectedBrands,
+      favoriteStationIds: widget.favoriteStationIds,
+      recentStationIds: widget.recentStationIds,
+      latitude: widget.location.latitude,
+      longitude: widget.location.longitude,
+    );
   }
 
-  /// (price_status_rank, fiyat) ile sıralar — bayat/bilinmeyen bir fiyat
-  /// doğrulanmış bir fiyattan asla "daha ucuz" görünmez (fresh her zaman
-  /// önce), aksi halde ürünün "yanlış fiyat göstermeme" ilkesi ihlal edilir.
-  List<_SearchResult> _priceSortedResults(List<Station> stations) {
-    final filtered = stations.where((station) {
-      if (widget.selectedBrands.isNotEmpty &&
-          !widget.selectedBrands.contains(canonicalBrandKey(station.brand))) {
-        return false;
-      }
-      if (!station.isVisibleInApp) return false;
-      return station.hasDisplayablePriceFor(widget.selectedFuel);
-    }).toList();
-
-    final results = filtered.map((station) {
-      final distance = getDistanceKm(
-        widget.location.latitude,
-        widget.location.longitude,
-        station.latitude,
-        station.longitude,
-      );
-      return _SearchResult(
-        station: station,
-        distanceKm: distance,
-        isFavorite: widget.favoriteStationIds.contains(station.id),
-        recentIndex: widget.recentStationIds.indexOf(station.id),
-      );
-    }).toList();
-
-    results.sort((a, b) {
-      final rankCompare = priceStatusRank(a.station.priceStatusFor(widget.selectedFuel))
-          .compareTo(priceStatusRank(b.station.priceStatusFor(widget.selectedFuel)));
-      if (rankCompare != 0) return rankCompare;
-      final aPrice = a.station.priceValueFor(widget.selectedFuel) ?? double.maxFinite;
-      final bPrice = b.station.priceValueFor(widget.selectedFuel) ?? double.maxFinite;
-      return aPrice.compareTo(bPrice);
-    });
-
-    return results;
+  List<StationSearchResult> _priceSortedResults(List<Station> stations) {
+    return rankStationsByPrice(
+      stations: stations,
+      selectedFuel: widget.selectedFuel,
+      selectedBrands: widget.selectedBrands,
+      favoriteStationIds: widget.favoriteStationIds,
+      recentStationIds: widget.recentStationIds,
+      latitude: widget.location.latitude,
+      longitude: widget.location.longitude,
+    );
   }
-
-  String _normalize(String value) => normalizeTurkish(value);
-
-  int _pinRank(_SearchResult result) {
-    if (result.isFavorite) return 0;
-    if (result.isRecent) return 1;
-    return 2;
-  }
-}
-
-class _SearchResult {
-  final Station station;
-  final double? distanceKm;
-  final bool isFavorite;
-  final int recentIndex;
-
-  const _SearchResult({
-    required this.station,
-    required this.distanceKm,
-    required this.isFavorite,
-    required this.recentIndex,
-  });
-
-  bool get isRecent => recentIndex >= 0;
 }
 
 class _SearchResultTile extends StatelessWidget {
