@@ -38,6 +38,7 @@ OFFICIAL_STATION_SOURCES = {
     "find.shell.com/tr/fuel",
     "api.opet.com.tr/api/stations/v2",
     "petrolofisi.com.tr/istasyon-nerede",
+    "aytemiz.com.tr/haritalar/en-yakin-aytemiz",
 }
 
 BRAND_ALIASES = {

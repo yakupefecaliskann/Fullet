@@ -15,8 +15,22 @@ Kural neden medyan? Tek tek istasyon fiyatları meşru biçimde dalgalanır
 sapıyorsa bu coğrafya değil **birim/kolon hatasıdır**. Shell LPG'de sapma
 %20 idi — bu kural onu ilk gün yakalardı.
 
-Kapı, yakıt bazında çalışır: LPG reddedilse bile aynı koşudaki Motorin ve
+Kapı yakıt bazında çalışır: LPG reddedilse bile aynı koşudaki Motorin ve
 Kurşunsuz 95 yazılmaya devam eder. Kısmi veri, sahte veriden iyidir.
+
+İkinci kural KAYNAK BÜTÜNLÜĞÜdür (4 Ağustos 2026, Aytemiz vakası):
+
+    Bir yakıt reddedildiyse, aynı koşudaki KARDEŞ yakıtlar da şüphe
+    eşiğini (SIBLING_SUSPICION_DEVIATION) aşıyorsa onlar da yazılmaz.
+
+Çünkü hepsi aynı HTML tablosundan, aynı ayrıştırıcıyla gelir. Aytemiz'de
+Motorin %18,9 sapıp reddedilirken Benzin %5,6 ile eşiği geçti — ve geçen o
+fiyat 81 ilin 79'unda "en ucuz" çıkarak kullanıcıyı yanlış istasyona
+yönlendirdi.
+
+Kural kasten dar tutuldu: Shell LPG hatasında Motorin %0,3 ile tertemizdi ve
+yazılmaya devam etmeliydi. Sorun tek kolondaysa kardeşine dokunulmaz; kardeşi
+de sapıyorsa tablonun bütünü şüphelidir.
 """
 
 from __future__ import annotations
@@ -34,6 +48,20 @@ MAX_MEDIAN_DEVIATION = 0.10
 
 # Bu sayının altında örnek varsa medyan anlamlı değil; kapı uygulanmaz.
 MIN_SAMPLES_FOR_GATE = 5
+
+# Kardeş yakıt şüphe eşiği (bkz. KAYNAK BÜTÜNLÜĞÜ kuralı).
+#
+# Yalnızca aynı koşuda BAŞKA bir yakıt reddedilmişse uygulanır; tek başına
+# bu kadar sapan bir yakıt normal yolla yazılır. Değer canlı veriyle
+# kalibre edildi:
+#
+#     Shell  Motorin (sağlam, LPG bozukken)  -> %0,3   yazılmalı
+#     Aytemiz Benzin (bozuk, Motorin bozuk)  -> %4,9   yazılmamalı
+#
+# Markalar arası gerçek fark kuruş mertebesinde (canlı ölçüm: iller arası
+# medyan fark %0,1), dolayısıyla %3 zaten anormaldir. Eşik bu iki gözlemin
+# ortasında değil, sağlam tarafa yakın seçildi: amaç sağlam veriyi korumak.
+SIBLING_SUSPICION_DEVIATION = 0.03
 
 
 _PAGE_SIZE = 1000
@@ -125,6 +153,7 @@ def check_fuel_sanity(
         # devre dışı. Veri yokluğunda yazmayı engellemek daha zararlı olurdu.
         return rejected, reasons
 
+    sapmalar: dict[str, float] = {}
     for fuel, values in incoming.items():
         if len(values) < MIN_SAMPLES_FOR_GATE:
             continue
@@ -133,6 +162,7 @@ def check_fuel_sanity(
             continue
         incoming_median = statistics.median(values)
         deviation = abs(incoming_median - reference_median) / reference_median
+        sapmalar[fuel] = deviation
         if deviation > MAX_MEDIAN_DEVIATION:
             rejected.add(fuel)
             reasons[fuel] = (
@@ -141,6 +171,42 @@ def check_fuel_sanity(
                 f"%{MAX_MEDIAN_DEVIATION * 100:.0f}). Kolon/birim hatası şüphesi — "
                 f"bu yakıt YAZILMADI."
             )
+
+    # KAYNAK BÜTÜNLÜĞÜ (4 Ağustos 2026, Aytemiz vakası).
+    #
+    # Ana kural yakıt bazındadır ve bu bilinçliydi: Shell LPG hatasında LPG
+    # %20 sapmıştı ama Motorin %0,3 ile tertemizdi — onu da atmak, sağlam
+    # veriyi çöpe atmak olurdu.
+    #
+    # Aytemiz o ilkenin sınırını gösterdi. Aynı HTML tablosundan gelen iki
+    # fiyatın İKİSİ de sapıyordu, ama yalnızca biri eşiği aşabildi:
+    #
+    #     Motorin  67,17 TL  (piyasa 82,14)  -> sapma %18,9  REDDEDİLDİ
+    #     Benzin   64,86 TL  (piyasa 68,20)  -> sapma  %5,6  GEÇTİ
+    #
+    # Geçen benzin fiyatı 81 ilin 79'unda "en ucuz" çıkıp kullanıcıyı yanlış
+    # istasyona yönlendirdi.
+    #
+    # Ayrım şudur: kardeş yakıt TEMİZSE (Shell Motorin %0,3) kaynak sağlamdır,
+    # sorun tek kolondadır. Kardeş yakıt da ANLAMLI ölçüde sapıyorsa
+    # (Aytemiz Benzin %5,6) tablonun bütünü şüphelidir. Eşik için bkz.
+    # SIBLING_SUSPICION_DEVIATION: tek başına kabul edilebilir bir sapma, ama
+    # kardeşi bozukken güvenilmez.
+    supheli_esik = SIBLING_SUSPICION_DEVIATION
+    if rejected:
+        for fuel, sapma in sapmalar.items():
+            if fuel in rejected or sapma <= supheli_esik:
+                continue
+            reasons[fuel] = (
+                f"{brand} {fuel} tek başına eşiği geçiyordu (sapma "
+                f"%{sapma * 100:.1f} < %{MAX_MEDIAN_DEVIATION * 100:.0f}) ama aynı "
+                f"koşuda {', '.join(sorted(rejected))} reddedildi ve bu yakıt da "
+                f"şüphe eşiğinin (%{supheli_esik * 100:.0f}) üstünde sapıyor. Hepsi "
+                f"aynı kaynak tablosundan geliyor — kaynağın bütünlüğü şüpheli "
+                f"olduğu için bu yakıt da YAZILMADI."
+            )
+            rejected.add(fuel)
+
     return rejected, reasons
 
 

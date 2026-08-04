@@ -23,7 +23,10 @@
 | **F4-1** `opet_station_bot.py` | ✅ Opet **503 → 1.286** istasyon |
 | **F4-2** karantina zenginleştirme | ✅ 25 kayda gerçek unvan + adres işlendi, 46 şüpheli kayda dokunulmadı |
 | **F4-3** `po_station_bot.py` | ✅ Petrol Ofisi **80 → 2.567** istasyon, **81 ilde** |
-| **Toplam** | **2.702 → 5.972 aktif istasyon** (+%121) |
+| **F4-4** `aytemiz_station_bot.py` | ✅ Aytemiz **35 → 875** istasyon, 79 ilde — ⚠️ fiyat kaynağı bozuk, haritada gizli |
+| **F4-4** Türkiye Petrolleri | ⛔ **Kaynak yetersiz** — gerekçe aşağıda |
+| Karantina zenginleştirme | ✅ 7 kayıt (Opet 6, PO 1); 83 şüpheli kayda dokunulmadı |
+| **Toplam** | **2.702 → 6.812 aktif istasyon** (+%152); haritada görünen **5.937** |
 | Şeffaflık katmanı | ✅ DB kolonu + bot + Flutter modeli + arayüz bandı |
 | Testler | ✅ Python **147**, Flutter **33**, `backend_health_check` 20/20 `[OK]` |
 | Kalite | ✅ Kopya **0**, geçersiz il **0**, pasif kayıt **0**, adressiz %24 → **%10,1** |
@@ -306,6 +309,59 @@ Parse mantığı kırılgan olduğu için (dengeli parantez + kaçışlı tırna
 kilitlendi. Sayfa biçimi değişirse bot **sessizce boş döner ve hiçbir şey
 yazmaz** — bozuk bir kazıma mevcut envanteri silemez.
 
+### F4-4a: Aytemiz — envanter başarılı, ama fiyat kaynağı bozuk çıktı
+
+Envanter kaynağı PO'dakiyle aynı desende bulundu: `/haritalar/en-yakin-aytemiz`
+sayfasında `var markers=[...]` içinde **876 istasyon** (`City`, `County`,
+`Title`, `Address`, `Lat`, `Lon`). 875 kayıt yazıldı, 79 il, kopya 0.
+
+**Ama fiyat tarafı bozuk.** Envanter akıtıldıktan sonra fiyat botu koştu ve
+sanity gate motorini reddetti. Ölçüm (4 Ağustos 2026):
+
+| | Aytemiz sayfası | Gerçek piyasa | Sapma |
+|---|---:|---:|---:|
+| Benzin | 64,86 ₺ | 68,20 ₺ | %4,9 |
+| Motorin | 67,17 ₺ | 82,14 ₺ | **%18,9** |
+
+Sayfa "Son Güncelleme: 04.08.2026 13:52" diyor, yani bayat değil — **yanlış**.
+İç tutarsızlık da bunu doğruluyor: Aytemiz'de benzin-motorin farkı 2,31 ₺,
+diğer tüm markalarda ~14 ₺.
+
+Motorin reddedildi ama **benzin eşiği geçti (%4,9 < %10) ve 81 ilin 79'unda
+"en ucuz" çıkarak kullanıcıyı yanlış istasyona yönlendirdi.** Bu, envanter
+35'ten 875'e çıktığı için 25 kat büyümüş bir hataydı.
+
+**Yapılan:** Aytemiz fiyatları `unknown`a çekildi (silinmedi — kaynak
+düzelirse bot yeniden `fresh` yazar), JOB 5a istasyonları gizledi. Envanter
+kayıtları duruyor; fiyat geldiği an 875 istasyon haritaya döner.
+
+**Kalıcı düzeltme — sanity gate'e KAYNAK BÜTÜNLÜĞÜ kuralı:** bir yakıt
+reddedildiyse, aynı koşudaki kardeş yakıtlar da şüphe eşiğini (%3) aşıyorsa
+onlar da yazılmaz. Hepsi aynı HTML tablosundan, aynı ayrıştırıcıyla geliyor.
+
+Kural **kasten dar** tutuldu: Shell LPG hatasında Motorin %0,3 ile tertemizdi
+ve yazılmaya devam etmeliydi. Eşik canlı veriyle kalibre edildi (sağlam
+tarafa yakın), mevcut Shell regresyon testi korunarak.
+
+### F4-4b: Türkiye Petrolleri — kaynak yetersiz ⛔
+
+TP'nin gerçek büyüklüğü **592 istasyon**. Ama sitesi bu veriyi vermiyor:
+
+* `stationmaplist?cityID=0` → **23 kayıt**, 17 il (parametresiz de aynı)
+* `cityID` = plaka kodu; İstanbul (34) → 4 kayıt, İzmir (35) → 1 kayıt
+* `/istasyonlar`, `/istasyon-arama` ve il sayfaları (`/istanbul-istasyonlari`)
+  aynı boş şablonu döndürüyor — gömülü veri yok
+* `/tr/search-stations` → 404
+
+Yani mevcut bot **hatalı değil, kaynağı eksik.** Bot 69 kayıtta "takılı"
+değil: DB'deki 69 kaydın çoğu fiyat botundan (il bazlı) geliyor, envanter
+botu zaten yalnızca 23 kayıt görebiliyor.
+
+**Karar: TP'ye kod yazılmadı.** Yapılabilecek tek şey F4-6'daki resmi olmayan
+kaynaklara (OSM) düşmek; bu, `OFFICIAL_STATION_SOURCES` ayrımını bozar ve
+ayrı bir güven seviyesi tasarımı gerektirir. TP'nin pazar payı %4,3 —
+maliyeti getirisinden yüksek.
+
 ### Harita performansı — ölçüldü, risk yok
 
 Kullanıcının en büyük endişesiydi. 5.972 istasyonla canlı ölçüm:
@@ -324,12 +380,11 @@ yeterli ama ileride "en ucuz" hesabının kapsamını daraltabilir.
 
 ## 8. SIRADAKİ ADIM
 
-**F4-4 — Aytemiz + Türkiye Petrolleri.** Kalan iki büyük boşluk:
-
-| Marka | Bizde | Türkiye'de | Durum |
-|---|---:|---:|---|
-| Aytemiz | 35 | 600+ | Kaynak keşfi gerekiyor (site zaman aşımına uğramıştı) |
-| Türkiye Petrolleri | 69 | ~1.000 | Bot var ama 69'da takılı — neden? |
+**F4-4c — Aytemiz fiyat kaynağı (açık iş).** Envanter hazır (875 istasyon) ama
+fiyat kaynağı yanlış veri yayınlıyor, bu yüzden hepsi haritada gizli. Seçenekler:
+(a) Aytemiz'in başka bir fiyat kaynağını bulmak, (b) kaynağın düzelmesini
+beklemek — sistem kendiliğinden toparlar, ek iş gerekmez.
+**Not:** Aytemiz sitesi bugün birkaç kez zaman aşımına uğradı; sunucusu yavaş.
 
 **F4-5 — BP geçişi (takvimli).** BP markası **1 Kasım 2026'da** yok oluyor;
 770 istasyonu Petrol Ofisi'ne geçti. Bugün 37 BP kaydımız var ve hâlâ canlı

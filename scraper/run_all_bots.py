@@ -28,6 +28,7 @@ STATION_BOTS = [
     "shell_station_bot.py",
     "opet_station_bot.py",
     "po_station_bot.py",
+    "aytemiz_station_bot.py",
 ]
 
 PRICE_BOTS = [
