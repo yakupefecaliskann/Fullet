@@ -3,7 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-from config import supabase, CANONICAL_FUELS, ISTANBUL_REGION_DISTRICTS
+from config import (
+    supabase,
+    CANONICAL_FUELS,
+    ISTANBUL_REGION_DISTRICTS,
+    OFFICIAL_STATION_SOURCES,
+)
 from freshness import needs_verification_write, now_utc
 from matching import (
     StationProximityIndex,
@@ -48,6 +53,20 @@ def _bulk_upsert_prices(rows: list[dict[str, Any]]) -> int:
         for row in rows
     }
     unique_rows = list(deduped_rows.values())
+
+    # Fiyatın KAPSAMINI kaynağından türet (4 Ağustos 2026 şeffaflık kararı).
+    # Tek noktada yapılır: price_rows üç ayrı yerde kuruluyor ve hepsinin
+    # `veri_kaynagi`'si var, ama hiçbiri kapsamı bilmiyor.
+    #
+    # Bugün canlıdaki 6.718 satırın tamamı `regional` — ölçüldü: Ankara'daki
+    # 86 Shell istasyonu tek fiyat gösteriyor. Uygulama bu alanı okuyup
+    # kullanıcıya "il geneli ilan fiyatı" diye bildirir; sahte istasyon-bazlı
+    # kesinlik iddia etmemek için var.
+    for row in unique_rows:
+        row["fiyat_kapsami"] = (
+            "station" if row.get("veri_kaynagi") in OFFICIAL_STATION_SOURCES
+            else "regional"
+        )
 
     station_ids = list(set(row["istasyon_id"] for row in unique_rows))
     existing_prices = {}

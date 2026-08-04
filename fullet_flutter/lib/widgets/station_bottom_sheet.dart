@@ -108,8 +108,25 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
     await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 
-  String _priceStatusLabel(String? status, DateTime? updatedAt) {
+  /// Fiyat bandının metni.
+  ///
+  /// [scopeIsRegional] doğruysa fiyat, markanın **il geneli ilan fiyatıdır**;
+  /// o istasyonun pompasından teyit edilmiş değildir. Ölçüldü (4 Ağustos 2026):
+  /// Ankara'daki 86 Shell istasyonu da, 22 Opet istasyonu da tek fiyat
+  /// gösteriyor — bugün veritabanındaki fiyatların %100'ü bu kapsamda.
+  ///
+  /// Eskiden bu durumda "✓ Doğrulanmış fiyat" yazıyordu. Fiyat gerçekten
+  /// doğrulanmıştı (bot kaynağı her koşuda teyit ediyor), ama ifade
+  /// kullanıcıya "bu istasyonun kendi fiyatı" izlenimi veriyordu. Metin artık
+  /// neyin doğrulandığını söylüyor.
+  String _priceStatusLabel(
+    String? status,
+    DateTime? updatedAt, {
+    required bool scopeIsRegional,
+    String province = '',
+  }) {
     if (status == 'stale') {
+      // Bayatlıkta asıl mesaj tazelik; kapsam ikinci planda kalır.
       if (updatedAt != null) {
         final hours = DateTime.now().difference(updatedAt).inHours;
         if (hours >= 48) return '⚠️ ${hours ~/ 24} gün önce güncellendi';
@@ -119,7 +136,12 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
     }
     if (status == 'unknown') return 'ℹ️ Fiyat teyit aşamasında';
     if (status == null) return 'ℹ️ Fiyat bilgisi bulunamadı';
-    return '✓ Doğrulanmış fiyat';
+
+    if (!scopeIsRegional) return '✓ Bu istasyondan doğrulandı';
+    final where = province.trim();
+    return where.isEmpty
+        ? '✓ Marka il geneli ilan fiyatı'
+        : '✓ $where geneli ilan fiyatı';
   }
 
   String _sourceLabel(Station station) {
@@ -168,6 +190,10 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
     // koşusunda tazeleniyor; bandın "2 saat önce güncellendi" demesine yol
     // açıyordu. Zaman damgası yoksa band zamansız metne düşer.
     final priceUpdatedAt = station.priceFor(widget.selectedFuel)?.updatedAt;
+    // Kapsam bilinmiyorsa `regional` varsayılır — bugünkü gerçek bu ve eksik
+    // veride "istasyondan doğrulandı" demek yanlış yönde bir hata olurdu.
+    final priceScopeIsRegional =
+        station.priceFor(widget.selectedFuel)?.isRegionalScope ?? true;
     final shouldShowPriceStatus =
         hasPrice || priceStatus != 'fresh' || station.isLowPriority;
 
@@ -217,7 +243,12 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                 if (shouldShowPriceStatus)
                   _PriceStatusBand(
                     status: priceStatus,
-                    label: _priceStatusLabel(priceStatus, priceUpdatedAt),
+                    label: _priceStatusLabel(
+                      priceStatus,
+                      priceUpdatedAt,
+                      scopeIsRegional: priceScopeIsRegional,
+                      province: station.city,
+                    ),
                     color: priceStatusColor(priceStatus),
                   ),
 

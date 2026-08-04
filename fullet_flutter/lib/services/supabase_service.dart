@@ -52,7 +52,7 @@ class SupabaseService {
     visibility_status,
     veri_kaynagi,
     guncellenme_tarihi,
-    fiyatlar (yakit_tipi, fiyat, price_status, son_guncelleme),
+    fiyatlar (yakit_tipi, fiyat, price_status, fiyat_kapsami, son_guncelleme),
     fiyat_gecmisi (yakit_tipi, fiyat_farki, degisim_tarihi)
   ''';
 
@@ -68,7 +68,7 @@ class SupabaseService {
     visibility_status,
     veri_kaynagi,
     guncellenme_tarihi,
-    fiyatlar (yakit_tipi, fiyat, price_status, son_guncelleme),
+    fiyatlar (yakit_tipi, fiyat, price_status, fiyat_kapsami, son_guncelleme),
     fiyat_gecmisi (yakit_tipi, fiyat_farki, degisim_tarihi)
   ''';
 

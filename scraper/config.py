@@ -36,6 +36,7 @@ OFFICIAL_STATION_SOURCES = {
     "apimobile.guzelenerji.com.tr/exapi/stations",
     "www.tppd.com.tr/tr/stationmaplist",
     "find.shell.com/tr/fuel",
+    "api.opet.com.tr/api/stations/v2",
 }
 
 BRAND_ALIASES = {
