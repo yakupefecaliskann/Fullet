@@ -172,6 +172,11 @@ class SupabaseService {
           .toList()
         ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
 
+      // M3: Bu başarı yolu eskiden `lastStationFetchError`'a dokunmuyordu. Bir
+      // istek hata verip sonraki istek bu fallback ile BAŞARILI olduğunda,
+      // harita dolu istasyonlarla çalışırken ekranda "Veri alınamadı" +
+      // "Tekrar dene" banner'ı asılı kalıyordu.
+      lastStationFetchError = null;
       return withDistance
           .take(maxResults)
           .map((item) => item.station)

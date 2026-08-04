@@ -470,7 +470,7 @@ class _NotificationToggleCard extends StatelessWidget {
                 )
               : Switch(
                   value: enabled,
-                  activeColor: FulColors.primary,
+                  activeThumbColor: FulColors.primary,
                   onChanged: onChanged,
                 ),
         ],

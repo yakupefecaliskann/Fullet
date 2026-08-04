@@ -95,7 +95,20 @@ try {
     if ($BuildAab) {
         Invoke-Step "Flutter release App Bundle" {
             Push-Location $FlutterDir
-            try { flutter build appbundle --release --build-name $BuildName --build-number $BuildNumber } finally { Pop-Location }
+            # L5: --obfuscate Dart sembollerini gizler. Sembol dosyalari SURUME
+            # GORE arsivlenir; Crashlytics'teki Dart stack trace'lerini okumak
+            # icin O SURUMUN symbols klasoru sart. Klasoru silersen o surumun
+            # crash raporlari kalici olarak okunamaz hale gelir.
+            $symbols = "build\symbols\$BuildName+$BuildNumber"
+            try {
+                flutter build appbundle --release `
+                    --build-name $BuildName --build-number $BuildNumber `
+                    --obfuscate --split-debug-info=$symbols
+            } finally { Pop-Location }
+        }
+
+        Invoke-Step "AAB imza dogrulamasi" {
+            & (Join-Path $PSScriptRoot "verify_aab_signature.ps1")
         }
     }
 

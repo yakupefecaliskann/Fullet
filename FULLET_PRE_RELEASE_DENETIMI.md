@@ -39,16 +39,30 @@ getirdiği için Kotlin derleyicisi de 2.3.10'a çekilmek zorunda kaldı ve KGP 
 `settings.gradle` plugins bloğuna taşındı (kök `buildscript` classpath'i eklenti
 alt-projelerine ulaşmıyor).
 
-### ⛔ Açık kalanlar (öncelik sırasıyla)
+### ✅ Faz B / C / D — tamamı kapatıldı (4 Ağustos 2026)
 
-- **H4** — `PlatformDispatcher.instance.onError` kurulmamış (async crash körlüğü) — §2
-- **H2** — `_markersNotifier` dispose edilmiyor — §2
-- **H3** — Her tercih değişiminde haritanın tamamı yeniden inşa ediliyor — §2
-- **M3** — Bayat hata banner'ı temizlenmiyor — §3
-- **M4** — Sistem teması değişince harita stili güncellenmiyor + override sıfırlanamıyor — §3
-- **M2** — Arama normalizasyonu her tuşta ~6.000 istasyonu yeniden işliyor — §3
-- **L1/L2/L4** — Ölü `google_maps_cluster_manager_2` bağımlılığı; 77 deprecation;
-  R8/obfuscation kapalı — §4
+| Bulgu | Ne yapıldı |
+|---|---|
+| **H4** — async hatalar Crashlytics'e ulaşmıyor | `PlatformDispatcher.instance.onError` kuruldu; Future zincirlerinde ve platform kanallarında oluşan yakalanmamış hatalar artık fatal olarak raporlanıyor. |
+| **H2** — `_markersNotifier` dispose edilmiyor | `dispose()`'a eklendi. |
+| **H3** — Her tercih değişiminde tam yeniden inşa | `didChangeDependencies` iki imzayla korumaya alındı: `_calcSignature` (yakıt/depo/tüketim) ve `_markerSignature` (+ favoriler). Favori eklemek artık akıllı hesabı yeniden koşmuyor, yalnızca marker seçimini tazeliyor; `rememberStation` hiçbir şey tetiklemiyor. İmzalar `_updateCalculationsAndMarkers` içinde de tazelendiği için açık çağrılarla oluşan **çift iş** de bitti. |
+| **M3** — Bayat hata banner'ı | `_fetchStationsFromTableFallback` başarı yolunda `lastStationFetchError = null`. Tüm başarı yolları tarandı, hepsi temizliyor. |
+| **M4** — Tema değişimi + override | `WidgetsBindingObserver` + `didChangePlatformBrightness` eklendi. Override artık `SharedPreferences`'a yazılıyor (kalıcı) ve tema düğmesine **uzun basınca** `null`'a dönüyor (sisteme geri dönüş yolu vardı yoktu). Harita stili `GoogleMap.style` parametresine bağlandı, `setState` ile kendiliğinden güncelleniyor. |
+| **M2** — Arama normalizasyonu | `Station` üzerinde `searchHaystack`, `normalizedDisplayName`, `normalizedBrand` tembel önbellekli getter'lar. İstasyon başına bir kez hesaplanıyor; sıralama karşılaştırıcısı da bunları kullanıyor. |
+| **L1** — Ölü bağımlılık | `google_maps_cluster_manager_2` pubspec'ten kaldırıldı; `Station with ClusterItem` mixin'i çıkarıldı (`location` getter'ı zaten sınıfın kendisindeydi). |
+| **L2** — 77 deprecation | 73 × `withOpacity` → `withValues(alpha:)`, `Switch.activeColor` → `activeThumbColor`, `setMapStyle` → `GoogleMap.style`, `Supabase.anonKey` → `publishableKey`. `flutter_lints` ^2.0.0 → **^6.0.0**. **`dart analyze` artık "No issues found!"** |
+| **L4/L5** — Küçültme ve sembol gizleme | `minifyEnabled` + `shrinkResources` açıldı, `android/app/proguard-rules.pro` eklendi. Release derlemesi `--obfuscate --split-debug-info` ile yapılıyor. |
+| **L6** — `build()` içinde Future | `FulletApp` `StatefulWidget`'a çevrildi; başlangıç Future'ı State'te bir kez üretiliyor. |
+
+> ⚠️ **Obfuscation'ın operasyonel bedeli:** Dart sembolleri gizlendiği için
+> Crashlytics'teki Dart stack trace'leri, o sürümün
+> `build/symbols/<sürüm>` klasörü olmadan **okunamaz**. `release_check.ps1`
+> sembolleri sürüme göre ayrı klasöre yazıyor; bu klasör her yayınla birlikte
+> arşivlenmelidir. Crash okunabilirliği sembol gizlemeden daha kıymetliyse
+> `--obfuscate` bayrağı kaldırılabilir — AOT derlenmiş Dart kodu zaten
+> kaynak biçiminde paketlenmiyor.
+
+**Bu raporda açık bulgu kalmadı.**
 
 ---
 

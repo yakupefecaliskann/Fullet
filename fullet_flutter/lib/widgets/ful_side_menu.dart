@@ -73,7 +73,7 @@ class FulSideMenu extends StatelessWidget {
             opacity: isOpen ? 1.0 : 0.0,
             child: GestureDetector(
               onTap: onClose,
-              child: Container(color: Colors.black.withOpacity(0.45)),
+              child: Container(color: Colors.black.withValues(alpha: 0.45)),
             ),
           ),
         ),
@@ -585,7 +585,7 @@ class _MenuHeader extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            FulColors.primary.withOpacity(isDark ? 0.18 : 0.08),
+            FulColors.primary.withValues(alpha: isDark ? 0.18 : 0.08),
             Colors.transparent,
           ],
           begin: Alignment.topLeft,
@@ -610,7 +610,7 @@ class _MenuHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -647,7 +647,7 @@ class _MenuHeader extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: FulColors.primary.withOpacity(0.15),
+                        color: FulColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -798,7 +798,7 @@ class _ModeOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.vertical(
             top: isFirst ? const Radius.circular(15) : Radius.zero,
             bottom: isLast ? const Radius.circular(15) : Radius.zero,
@@ -810,7 +810,7 @@ class _ModeOption extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: isSelected ? color : color.withOpacity(0.1),
+                color: isSelected ? color : color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon,
@@ -986,7 +986,7 @@ class _NewsCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: FulColors.primary.withOpacity(0.12),
+                    color: FulColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
@@ -1103,7 +1103,7 @@ class AccountSectionState extends State<AccountSection> {
           // Avatar
           CircleAvatar(
             radius: 22,
-            backgroundColor: FulColors.primary.withOpacity(0.15),
+            backgroundColor: FulColors.primary.withValues(alpha: 0.15),
             backgroundImage:
                 photoUrl != null ? NetworkImage(photoUrl) : null,
             child: photoUrl == null
@@ -1155,8 +1155,8 @@ class AccountSectionState extends State<AccountSection> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: widget.isDark
-                    ? Colors.white.withOpacity(0.06)
-                    : Colors.black.withOpacity(0.04),
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.black.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: _loading
@@ -1192,7 +1192,7 @@ class AccountSectionState extends State<AccountSection> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: FulColors.primary.withOpacity(0.12),
+                  color: FulColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.cloud_done_rounded,
@@ -1232,7 +1232,7 @@ class AccountSectionState extends State<AccountSection> {
                 padding: const EdgeInsets.symmetric(vertical: 11),
                 decoration: BoxDecoration(
                   color: _loading
-                      ? FulColors.primary.withOpacity(0.7)
+                      ? FulColors.primary.withValues(alpha: 0.7)
                       : FulColors.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),

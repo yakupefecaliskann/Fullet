@@ -55,7 +55,7 @@ class FavoriteStationTile extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: FulColors.primary.withOpacity(0.1),
+                    color: FulColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Icon(

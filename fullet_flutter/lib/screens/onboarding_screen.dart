@@ -122,10 +122,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             width: 92,
                             height: 92,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.18),
+                              color: Colors.white.withValues(alpha: 0.18),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.35),
+                                color: Colors.white.withValues(alpha: 0.35),
                               ),
                             ),
                             child:
@@ -148,7 +148,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             page.description,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.88),
+                              color: Colors.white.withValues(alpha: 0.88),
                               fontFamily: 'Outfit',
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
@@ -175,7 +175,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     height: 8,
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(selected ? 1 : 0.42),
+                      color: Colors.white.withValues(alpha: selected ? 1 : 0.42),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   );

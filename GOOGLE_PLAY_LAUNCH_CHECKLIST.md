@@ -153,11 +153,14 @@ işler) · Data encrypted in transit = **Yes** (HTTPS) · Users can request data
 powershell -ExecutionPolicy Bypass -File .\scripts\release_check.ps1 -BuildAab
 ```
 
-> **Not:** `release_check.ps1` içindeki `flutter analyze` adımı, kod tabanında
-> `info` seviyesinde uyarı bulunduğu sürece sıfır olmayan çıkış kodu döndürür
-> (şu an 77 adet `withOpacity`/Maps deprecation'ı var, hiçbiri hata değil).
-> Kapıyı geçmek için ya bu deprecation'lar temizlenmeli ya da adım
-> `flutter analyze --no-fatal-infos` olarak güncellenmelidir.
+Bu komut sırasıyla: backend health check → ops report → backend unit testleri →
+`flutter analyze --no-fatal-infos` → `flutter test` → obfuscated release AAB →
+**imza doğrulaması** çalıştırır. Herhangi bir adım kırmızıysa paket yüklenmez.
+
+> **Sembol arşivi (zorunlu):** Release derlemesi `--obfuscate` kullanıyor.
+> Sembol dosyaları `fullet_flutter/build/symbols/<sürüm>` altına yazılır ve
+> **her yayınla birlikte arşivlenmelidir**. O klasör olmadan ilgili sürümün
+> Crashlytics'teki Dart stack trace'leri kalıcı olarak okunamaz.
 
 ---
 

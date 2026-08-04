@@ -1,10 +1,15 @@
 import 'fuel_price.dart';
 import 'price_history.dart';
 import '../utils/price_formatter.dart';
-import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart';
+import '../utils/text_normalize.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class Station with ClusterItem {
+/// L1: Bu sınıf eskiden `google_maps_cluster_manager_2` paketinin `ClusterItem`
+/// mixin'ini kullanıyordu. Paketin `ClusterManager` sınıfı kod tabanında hiç
+/// kullanılmıyor — kümeleme elle yazılmış (`_clustersForZoom`). Mixin yalnızca
+/// aşağıdaki `location` getter'ı için duruyordu; getter zaten burada tanımlı
+/// olduğu için mixin ve paket kaldırıldı.
+class Station {
   final String id;
   final String brand;
   final String name;
@@ -81,8 +86,24 @@ class Station with ClusterItem {
 
   bool get hasLocation => latitude != null && longitude != null;
 
-  @override
   LatLng get location => LatLng(latitude ?? 0, longitude ?? 0);
+
+  /// M2: Arama her tuş vuruşunda ~6.000 istasyonun 4 alanını birleştirip
+  /// `normalizeTurkish()` çağırıyordu; o fonksiyon 7 ardışık `replaceAll`
+  /// yapıyor → tuş başına kabaca 42.000 string işlemi, UI thread'inde. Üstelik
+  /// sıralama karşılaştırıcısı aynı stringleri O(n log n) kez yeniden normalize
+  /// ediyordu. Değerler istasyon başına bir kez hesaplanıp saklanıyor
+  /// (`Station` nesneleri değişmez, alanlar `final`).
+  String? _searchHaystack;
+  String get searchHaystack => _searchHaystack ??=
+      normalizeTurkish('$brand $displayName $city $district');
+
+  String? _normalizedDisplayName;
+  String get normalizedDisplayName =>
+      _normalizedDisplayName ??= normalizeTurkish(displayName);
+
+  String? _normalizedBrand;
+  String get normalizedBrand => _normalizedBrand ??= normalizeTurkish(brand);
 
   bool get isLowPriority => visibilityStatus == 'low_priority';
 

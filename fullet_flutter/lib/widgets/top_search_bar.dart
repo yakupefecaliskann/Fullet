@@ -37,7 +37,7 @@ class TopSearchBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.4 : 0.10),
+              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.10),
               blurRadius: 20,
               offset: const Offset(0, 6),
               spreadRadius: -2,
@@ -101,10 +101,10 @@ class TopSearchBar extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: FulColors.primary.withOpacity(isDark ? 0.25 : 0.12),
+                  color: FulColors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: FulColors.primary.withOpacity(0.4),
+                    color: FulColors.primary.withValues(alpha: 0.4),
                     width: 1,
                   ),
                 ),
@@ -164,9 +164,9 @@ class _FocusBadge extends StatelessWidget {
       margin: const EdgeInsets.only(left: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.20 : 0.12),
+        color: color.withValues(alpha: isDark ? 0.20 : 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
         label,

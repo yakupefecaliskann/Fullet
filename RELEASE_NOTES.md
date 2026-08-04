@@ -84,6 +84,11 @@ değildi. Düzeltildi; artık listedeki 50 sonuç gerçekten en yakın 50 sonuç
 | NDK | 25.1.8937393 | **27.0.12077973** |
 | Marker ikon önbelleği | sınırsız (bellek sızıntısı) | **300 girişli LRU** |
 | Arama kırpması | sıralamadan önce (hatalı) | **sıralamadan sonra** |
+| `flutter_lints` | ^2.0.0 | **^6.0.0** |
+| `dart analyze` | 77 bulgu | **0 bulgu** |
+| R8 küçültme / kaynak temizliği | kapalı | **açık** |
+| Dart sembol gizleme | kapalı | **açık** (`--obfuscate`) |
+| Async crash raporlama | yok | `PlatformDispatcher.onError` → Crashlytics |
 | `google_maps_flutter` | 2.5.3 | **2.14.2** |
 | Teşhis logları | `debugPrint` (release'de de yazıyordu) | `appLog()` → yalnızca debug |
 | `android.enableJetifier` | true | kaldırıldı |

@@ -48,7 +48,8 @@ class ModernMapScreen extends StatefulWidget {
 
 enum _LocationState { checking, precise, fallback, serviceOff, denied }
 
-class _ModernMapScreenState extends State<ModernMapScreen> {
+class _ModernMapScreenState extends State<ModernMapScreen>
+    with WidgetsBindingObserver {
   static const double _drivingFetchRadiusMeters = 30000;
   static const double _drivingFetchMoveMeters = 1200;
   static const Duration _drivingFetchInterval = Duration(seconds: 45);
@@ -86,7 +87,13 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
   String? _drivingError;
   LatLng? _lastDrivingFetchLocation;
   DateTime? _lastDrivingFetchAt;
+  /// M4: `null` = sistem temasını takip et. Kullanıcı harita temasını elle
+  /// değiştirdiğinde dolar ve **SharedPreferences'a yazılır** (eskiden yazılmıyordu,
+  /// seçim her açılışta sıfırlanıyordu). Tema düğmesine uzun basmak `null`'a
+  /// döndürür — eskiden override bir kez set edilince sistem teması kalıcı
+  /// olarak yok sayılıyordu ve geri dönüş yolu yoktu.
   bool? _isDarkModeOverride;
+  static const _darkModeOverrideKey = 'mapDarkModeOverride';
 
   bool get _currentIsDark {
     if (_isDarkModeOverride != null) return _isDarkModeOverride!;
@@ -94,11 +101,35 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
         Brightness.dark;
   }
 
+  /// H3: `build()` içinde `context.watch<UserPreferencesProvider>()` olduğu için
+  /// provider'daki HERHANGİ bir `notifyListeners()` `didChangeDependencies`'i
+  /// tetikliyor. Eskiden burada koşulsuz olarak tam yeniden hesap
+  /// (`SmartStationService.calculateBestStations`, tüm istasyonlar) + tam marker
+  /// inşası yapılıyordu; yani favori eklemek, araç bilgisi güncellemek, hatta bir
+  /// istasyona dokunmak (`rememberStation`) tüm haritayı yeniden çiziyordu.
+  /// Bu imzalar, işin yalnızca gerçekten ilgili tercih değiştiğinde yapılmasını
+  /// sağlar ve açık çağrılarla oluşan çift işi de engeller.
+  String? _lastCalcSignature;
+  String? _lastMarkerSignature;
+
+  String _calcSignatureFor(UserPreferencesProvider p) =>
+      '${p.selectedFuel}|${p.tankCapacity}|${p.fuelConsumption}';
+
+  /// Favoriler marker SEÇİMİNİ etkiliyor (`_stationsForZoom` favorileri
+  /// önceliklendiriyor), bu yüzden marker imzasında yer alıyor — ama fiyat/tüketim
+  /// hesabını etkilemedikleri için `_calcSignature`'da yoklar.
+  String _markerSignatureFor(UserPreferencesProvider p) {
+    final favorites = p.favoriteStationIds.toList()..sort();
+    return '${_calcSignatureFor(p)}|${favorites.join(",")}';
+  }
+
   bool _menuOpen = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_restoreDarkModeOverride());
     _currentUser = AuthService.currentUser;
     if (_currentUser != null) {
       unawaited(_handleSignIn(_currentUser!));
@@ -364,6 +395,11 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
   void _updateCalculationsAndMarkers({bool forceMarkerRefresh = false}) {
     if (!mounted) return;
     final prefs = context.read<UserPreferencesProvider>();
+    // H3: İmzaları burada tazelemek, açık çağrıların (yakıt çipi, istasyon
+    // seçimi) hemen ardından gelen `didChangeDependencies`'in aynı işi ikinci
+    // kez yapmasını engeller.
+    _lastCalcSignature = _calcSignatureFor(prefs);
+    _lastMarkerSignature = _markerSignatureFor(prefs);
     final displayStations = _filteredStations(fuelType: prefs.selectedFuel);
 
     _smartResult = SmartStationService.calculateBestStations(
@@ -926,20 +962,71 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _fetchDebouncer?.cancel();
     _markerDebouncer?.cancel();
     _drivingPositionSubscription?.cancel();
+    // H2: Diğer tüm kaynaklar burada temizleniyordu, yalnızca bu atlanmıştı.
+    _markersNotifier.dispose();
     _mapController?.dispose();
     super.dispose();
+  }
+
+  /// M4: Uygulama açıkken sistem teması değişirse harita stili de değişmeli.
+  /// Kod tabanında hiçbir yerde `WidgetsBindingObserver` yoktu, bu yüzden
+  /// `setMapStyle` yalnızca `onMapCreated`'da ve manuel geçişte çağrılıyor,
+  /// harita zemini eski stilinde kalıyordu.
+  @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    // Kullanıcı elle bir tercih yaptıysa sistemi takip etme.
+    if (_isDarkModeOverride != null) return;
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _restoreDarkModeOverride() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_darkModeOverrideKey)) return;
+    final stored = prefs.getBool(_darkModeOverrideKey);
+    if (!mounted || stored == null) return;
+    setState(() => _isDarkModeOverride = stored);
+  }
+
+  Future<void> _setDarkModeOverride(bool? value) async {
+    setState(() => _isDarkModeOverride = value);
+    final prefs = await SharedPreferences.getInstance();
+    if (value == null) {
+      await prefs.remove(_darkModeOverrideKey);
+    } else {
+      await prefs.setBool(_darkModeOverrideKey, value);
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Re-calculate when preferences change
-    if (!_isLoading) {
+    if (_isLoading) return;
+    final prefs = context.read<UserPreferencesProvider>();
+    final calcSignature = _calcSignatureFor(prefs);
+    final markerSignature = _markerSignatureFor(prefs);
+
+    final calcChanged = calcSignature != _lastCalcSignature;
+    final markerChanged = markerSignature != _lastMarkerSignature;
+    // H3: Favori eklemek, istasyon hatırlamak, aracı temizlemek gibi haritayı
+    // etkilemeyen bildirimlerde hiçbir iş yapılmaz.
+    if (!calcChanged && !markerChanged) return;
+
+    _lastCalcSignature = calcSignature;
+    _lastMarkerSignature = markerSignature;
+
+    if (calcChanged) {
       _updateCalculationsAndMarkers(forceMarkerRefresh: true);
+    } else {
+      // Yalnızca favoriler değişti: tüm istasyonlar üzerinde akıllı hesabı
+      // yeniden koşmaya gerek yok, marker seçimi yenilenmesi yeterli.
+      _scheduleMarkerRefresh(force: true);
     }
   }
 
@@ -974,8 +1061,8 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
                   color: isSelected
                       ? FulColors.primary
                       : (isDark
-                          ? FulColors.darkSurface.withOpacity(0.95)
-                          : Colors.white.withOpacity(0.95)),
+                          ? FulColors.darkSurface.withValues(alpha: 0.95)
+                          : Colors.white.withValues(alpha: 0.95)),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
@@ -988,14 +1075,14 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: FulColors.primary.withOpacity(0.4),
+                            color: FulColors.primary.withValues(alpha: 0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           )
                         ]
                       : [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           )
@@ -1059,6 +1146,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
     IconData? icon,
     bool loading = false,
     required VoidCallback onTap,
+    VoidCallback? onLongPress,
     bool active = false,
     Color activeColor = FulColors.primary,
   }) {
@@ -1071,6 +1159,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: 46,
@@ -1087,8 +1176,8 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
           boxShadow: [
             BoxShadow(
               color: active
-                  ? activeColor.withOpacity(0.4)
-                  : Colors.black.withOpacity(0.15),
+                  ? activeColor.withValues(alpha: 0.4)
+                  : Colors.black.withValues(alpha: 0.15),
               offset: const Offset(0, 4),
               blurRadius: 12,
             ),
@@ -1134,14 +1223,14 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 22),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.94),
+        color: Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isError ? const Color(0xFFFECACA) : const Color(0xFFE5E7EB),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.10),
+            color: Colors.black.withValues(alpha: 0.10),
             offset: const Offset(0, 4),
             blurRadius: 12,
           ),
@@ -1207,12 +1296,12 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 18),
         padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827).withOpacity(0.96),
+          color: const Color(0xFF111827).withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFF10B981), width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.20),
+              color: Colors.black.withValues(alpha: 0.20),
               offset: const Offset(0, 8),
               blurRadius: 18,
             ),
@@ -1458,12 +1547,12 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.95),
+            color: Colors.white.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFE5E7EB)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.14),
+                color: Colors.black.withValues(alpha: 0.14),
                 offset: const Offset(0, 8),
                 blurRadius: 18,
               ),
@@ -1562,13 +1651,15 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
                 buildingsEnabled: false,
                 trafficEnabled: false,
                 markers: markers,
+                // L2: `setMapStyle` deprecate edildi. Stil artık widget
+                // parametresi; `_currentIsDark` değiştiğinde (sistem teması veya
+                // manuel geçiş) setState zaten yeniden inşa ettiği için stil
+                // kendiliğinden güncelleniyor — M4'ün ihtiyacı olan davranış bu.
+                style: _currentIsDark
+                    ? FulTheme.darkMapStyle
+                    : FulTheme.lightMapStyle,
                 onMapCreated: (controller) {
                   _mapController = controller;
-                  // Başlangıç harita stilini uygula
-                  final style = _currentIsDark
-                      ? FulTheme.darkMapStyle
-                      : FulTheme.lightMapStyle;
-                  controller.setMapStyle(style);
                 },
                 onCameraMove: (position) {
                   final previousBucket = _markerZoomBucket(_currentZoom);
@@ -1663,7 +1754,7 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
                       height: 3,
                       clipBehavior: Clip.hardEdge,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: const LinearProgressIndicator(
@@ -1690,13 +1781,18 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
                       ? Icons.light_mode_rounded
                       : Icons.dark_mode_rounded,
                   onTap: () {
-                    setState(() {
-                      _isDarkModeOverride = !_currentIsDark;
-                    });
-                    final style = _currentIsDark
-                        ? FulTheme.darkMapStyle
-                        : FulTheme.lightMapStyle;
-                    _mapController?.setMapStyle(style);
+                    unawaited(_setDarkModeOverride(!_currentIsDark));
+                  },
+                  onLongPress: () {
+                    // M4: Sisteme geri dönüş yolu. Override bir kez set edilince
+                    // eskiden asla null'a dönmüyordu.
+                    unawaited(_setDarkModeOverride(null));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Harita teması sistem ayarını takip ediyor'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
                   },
                   active: _currentIsDark,
                 ),
@@ -1883,15 +1979,15 @@ class _ModernMapScreenState extends State<ModernMapScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isDark
-            ? FulColors.darkSurface.withOpacity(0.92)
-            : Colors.white.withOpacity(0.92),
+            ? FulColors.darkSurface.withValues(alpha: 0.92)
+            : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDark ? FulColors.darkBorder : FulColors.lightBorder,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1944,13 +2040,13 @@ class _BrandFilterChip extends StatelessWidget {
           color: isSelected
               ? FulColors.primary
               : (isDark
-                  ? FulColors.darkSurface.withOpacity(0.94)
-                  : Colors.white.withOpacity(0.94)),
+                  ? FulColors.darkSurface.withValues(alpha: 0.94)
+                  : Colors.white.withValues(alpha: 0.94)),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: border, width: 1.1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
@@ -2507,7 +2603,7 @@ class _SearchResultTile extends StatelessWidget {
           border: Border.all(color: const Color(0xFFE5E7EB)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               offset: const Offset(0, 3),
               blurRadius: 8,
             ),

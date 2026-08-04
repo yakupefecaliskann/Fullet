@@ -220,11 +220,11 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
           child: Container(
             padding: EdgeInsets.only(bottom: bottomInset),
             decoration: BoxDecoration(
-              color: surface.withOpacity(isDark ? 0.92 : 0.97),
+              color: surface.withValues(alpha: isDark ? 0.92 : 0.97),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(28)),
               border: Border(
-                top: BorderSide(color: border.withOpacity(0.6), width: 1),
+                top: BorderSide(color: border.withValues(alpha: 0.6), width: 1),
               ),
             ),
             child: Column(
@@ -281,7 +281,7 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                               border: Border.all(color: border, width: 1),
                               boxShadow: [
                                 BoxShadow(
-                                  color: brandColor.withOpacity(0.15),
+                                  color: brandColor.withValues(alpha: 0.15),
                                   blurRadius: 10,
                                   offset: const Offset(0, 2),
                                 ),
@@ -364,12 +364,12 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                                   height: 38,
                                   decoration: BoxDecoration(
                                     color: widget.isFavorite
-                                        ? FulColors.danger.withOpacity(0.12)
+                                        ? FulColors.danger.withValues(alpha: 0.12)
                                         : cardBg,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: widget.isFavorite
-                                          ? FulColors.danger.withOpacity(0.4)
+                                          ? FulColors.danger.withValues(alpha: 0.4)
                                           : border,
                                     ),
                                   ),
@@ -468,7 +468,7 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: FulColors.primary.withOpacity(0.45),
+                                  color: FulColors.primary.withValues(alpha: 0.45),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),
@@ -702,7 +702,7 @@ class _PriceStatusBand extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
-      color: color.withOpacity(0.12),
+      color: color.withValues(alpha: 0.12),
       child: Row(
         children: [
           Icon(
@@ -844,9 +844,9 @@ class _SmartScoreCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.12 : 0.08),
+        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -860,7 +860,7 @@ class _SmartScoreCard extends StatelessWidget {
                 CircularProgressIndicator(
                   value: score.score / 100,
                   strokeWidth: 5,
-                  backgroundColor: color.withOpacity(0.2),
+                  backgroundColor: color.withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation(color),
                 ),
                 Text(
@@ -958,7 +958,7 @@ void _showSmartScoreInfoSheet(BuildContext context, {required bool isDark}) {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: mutedColor.withOpacity(0.4),
+                color: mutedColor.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1167,9 +1167,9 @@ class _GaragePromptCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: FulColors.primary.withOpacity(isDark ? 0.14 : 0.08),
+          color: FulColors.primary.withValues(alpha: isDark ? 0.14 : 0.08),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: FulColors.primary.withOpacity(0.34)),
+          border: Border.all(color: FulColors.primary.withValues(alpha: 0.34)),
         ),
         child: const Row(
           children: [

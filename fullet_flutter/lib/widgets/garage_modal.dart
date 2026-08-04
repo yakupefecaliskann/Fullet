@@ -113,7 +113,7 @@ class _GarageBottomSheetState extends State<GarageBottomSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: fuelColor.withOpacity(0.15),
+                  color: fuelColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Row(
@@ -151,8 +151,8 @@ class _GarageBottomSheetState extends State<GarageBottomSheet> {
                 gradient: hasCar
                     ? LinearGradient(
                         colors: [
-                          fuelColor.withOpacity(isDark ? 0.3 : 0.5),
-                          fuelColor.withOpacity(isDark ? 0.1 : 0.35),
+                          fuelColor.withValues(alpha: isDark ? 0.3 : 0.5),
+                          fuelColor.withValues(alpha: isDark ? 0.1 : 0.35),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -163,14 +163,14 @@ class _GarageBottomSheetState extends State<GarageBottomSheet> {
                 boxShadow: hasCar
                     ? [
                         BoxShadow(
-                          color: fuelColor.withOpacity(0.3),
+                          color: fuelColor.withValues(alpha: 0.3),
                           blurRadius: 24,
                           offset: const Offset(0, 10),
                         )
                       ]
                     : [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         )
@@ -204,7 +204,7 @@ class _GarageBottomSheetState extends State<GarageBottomSheet> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.delete_outline_rounded,
-                        size: 16, color: Colors.red.withOpacity(0.7)),
+                        size: 16, color: Colors.red.withValues(alpha: 0.7)),
                     const SizedBox(width: 6),
                     Text(
                       'Aracımı kaldır',
@@ -212,7 +212,7 @@ class _GarageBottomSheetState extends State<GarageBottomSheet> {
                         fontFamily: 'Outfit',
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.red.withOpacity(0.7),
+                        color: Colors.red.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
@@ -319,7 +319,7 @@ class _GarageBottomSheetState extends State<GarageBottomSheet> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: FulColors.primary.withOpacity(0.4),
+                    color: FulColors.primary.withValues(alpha: 0.4),
                     blurRadius: 18,
                     offset: const Offset(0, 6),
                   ),
@@ -605,7 +605,7 @@ class _CarInfo extends StatelessWidget {
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: const Center(
@@ -647,7 +647,7 @@ class _CarInfo extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.swap_horiz_rounded,
@@ -672,10 +672,10 @@ class _EmptyCarSlot extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: FulColors.primary.withOpacity(0.1),
+            color: FulColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: FulColors.primary.withOpacity(0.3),
+              color: FulColors.primary.withValues(alpha: 0.3),
               style: BorderStyle.solid,
             ),
           ),
@@ -757,7 +757,7 @@ class _FuelSelector extends StatelessWidget {
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                            color: f.$3.withOpacity(0.4),
+                            color: f.$3.withValues(alpha: 0.4),
                             blurRadius: 12,
                             offset: const Offset(0, 4))
                       ]
@@ -1055,7 +1055,7 @@ class _PickerTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? FulColors.primary.withOpacity(0.1) : cardBg,
+          color: isSelected ? FulColors.primary.withValues(alpha: 0.1) : cardBg,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? FulColors.primary : border,

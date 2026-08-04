@@ -67,10 +67,8 @@ List<StationSearchResult> rankStationSearchResults({
     }
     if (!station.isVisibleInApp) return false;
     if (normalizedQuery.isEmpty) return true;
-    final haystack = normalizeTurkish(
-      '${station.brand} ${station.displayName} ${station.city} ${station.district}',
-    );
-    return haystack.contains(normalizedQuery);
+    // M2: istasyon başına bir kez hesaplanıp saklanan normalize metin.
+    return station.searchHaystack.contains(normalizedQuery);
   }).toList();
 
   // Sorgu boşken liste "hızlı erişim" listesidir: yalnızca favoriler ve son
@@ -98,12 +96,13 @@ List<StationSearchResult> rankStationSearchResults({
 
   results.sort((a, b) {
     if (normalizedQuery.isNotEmpty) {
+      // M2: karşılaştırıcı her çağrıldığında yeniden normalize etmiyor.
       final aStarts =
-          normalizeTurkish(a.station.displayName).startsWith(normalizedQuery) ||
-              normalizeTurkish(a.station.brand).startsWith(normalizedQuery);
+          a.station.normalizedDisplayName.startsWith(normalizedQuery) ||
+              a.station.normalizedBrand.startsWith(normalizedQuery);
       final bStarts =
-          normalizeTurkish(b.station.displayName).startsWith(normalizedQuery) ||
-              normalizeTurkish(b.station.brand).startsWith(normalizedQuery);
+          b.station.normalizedDisplayName.startsWith(normalizedQuery) ||
+              b.station.normalizedBrand.startsWith(normalizedQuery);
       if (aStarts != bStarts) return aStarts ? -1 : 1;
     }
     final pinCompare =

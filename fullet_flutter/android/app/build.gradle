@@ -76,6 +76,13 @@ android {
 
     buildTypes {
         release {
+            // L4: R8 kod küçültme + kullanılmayan kaynak temizliği. Dart kodu
+            // AOT derlendiği için asıl uygulama mantığı zaten native tarafta;
+            // buradaki kazanç Java/Kotlin katmanında ve paket boyutunda.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                          'proguard-rules.pro'
             // key.properties YOKSA signingConfigs.release boş kalıyor ve AGP,
             // üç dakikalık bir derlemenin en sonunda `:app:signReleaseBundle`
             // adımında mesajsız bir NullPointerException fırlatıyordu. Koşulu

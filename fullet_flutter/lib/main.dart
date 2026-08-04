@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +46,13 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    // H4: `FlutterError.onError` yalnızca widget ağacı içindeki hataları yakalar.
+    // Future zincirlerinde ve platform kanallarında oluşan yakalanmamış async
+    // hatalar hiçbir zaman raporlanmıyordu — crash görünürlüğünde kör noktaydı.
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
     await AnalyticsService.logAppOpen();
   } catch (e) {
     appLog('Firebase init failed (missing config): $e');
@@ -76,7 +85,7 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: supabaseUrl,
-    anonKey: supabaseAnonKey,
+    publishableKey: supabaseAnonKey,
     // Firebase, Supabase'de "Third Party Auth" sağlayıcısı olarak kayıtlı
     // olduğunda bu callback, giriş yapmış kullanıcının Firebase ID token'ını
     // her PostgREST/RPC isteğine iliştirir; auth.jwt()->>'sub' gerçek
@@ -98,8 +107,18 @@ Future<void> main() async {
   );
 }
 
-class FulletApp extends StatelessWidget {
+/// L6: `future:` her `build()` çağrısında yeni bir Future üretmemeli — yeniden
+/// inşa edilen bir `FutureBuilder` baştan yükleme durumuna düşerdi. Future bir
+/// kez, State oluşturulurken üretiliyor.
+class FulletApp extends StatefulWidget {
   const FulletApp({super.key});
+
+  @override
+  State<FulletApp> createState() => _FulletAppState();
+}
+
+class _FulletAppState extends State<FulletApp> {
+  late final Future<Widget> _initialScreen = _getInitialScreen();
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +129,7 @@ class FulletApp extends StatelessWidget {
       darkTheme: FulTheme.dark(),
       themeMode: ThemeMode.system,
       home: FutureBuilder<Widget>(
-        future: _getInitialScreen(),
+        future: _initialScreen,
         builder: (context, snapshot) {
           if (snapshot.hasData) return snapshot.data!;
           return const _StartupSplash();

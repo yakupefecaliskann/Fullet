@@ -299,8 +299,8 @@ class MarkerIconFactory {
       ..lineTo(width / 2 + (compact ? 10 : 13) * scale, bubbleTop + bubbleHeight - 3 * scale)
       ..close();
 
-    canvas.drawShadow(bubblePath, Colors.black.withOpacity(isSelected ? 0.26 : 0.18), isSelected ? 10 : 6, true);
-    canvas.drawShadow(tipPath, Colors.black.withOpacity(0.22), 4, true);
+    canvas.drawShadow(bubblePath, Colors.black.withValues(alpha: isSelected ? 0.26 : 0.18), isSelected ? 10 : 6, true);
+    canvas.drawShadow(tipPath, Colors.black.withValues(alpha: 0.22), 4, true);
 
     final fillPaint = Paint()
       ..color = palette.background
@@ -325,7 +325,7 @@ class MarkerIconFactory {
     // White outer ring for selected state
     if (isSelected) {
       final ringPaint = Paint()
-        ..color = Colors.white.withOpacity(0.95)
+        ..color = Colors.white.withValues(alpha: 0.95)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5
         ..isAntiAlias = true;
@@ -360,7 +360,7 @@ class MarkerIconFactory {
     final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, width, height));
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.16)
+      ..color = Colors.black.withValues(alpha: 0.16)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawCircle(const Offset(width / 2, 29), 24, shadowPaint);
 

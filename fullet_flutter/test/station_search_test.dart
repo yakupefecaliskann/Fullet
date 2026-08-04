@@ -159,6 +159,29 @@ void main() {
       expect(results.first.station.id, 'izmit');
     });
 
+    test('M2: normalize edilmis arama metni istasyon basina BIR KEZ hesaplaniyor',
+        () {
+      // Eskiden her tus vurusunda ~6.000 istasyonun 4 alani birlestirilip
+      // normalizeTurkish() cagriliyordu (tus basina ~42.000 string islemi,
+      // UI thread'inde) ve siralama karsilastiricisi ayni stringleri
+      // O(n log n) kez yeniden normalize ediyordu. Deger artik saklaniyor:
+      // ayni String ORNEGI donmeli, esdeger bir kopya degil.
+      final station = _station(id: 'st-1', brand: 'Opet', name: 'İZMİT YOLU');
+
+      expect(identical(station.searchHaystack, station.searchHaystack), isTrue);
+      expect(identical(station.normalizedBrand, station.normalizedBrand), isTrue);
+      expect(
+          identical(
+              station.normalizedDisplayName, station.normalizedDisplayName),
+          isTrue);
+
+      // Icerik dogru olmali: dort alan da aranabilir kalmali.
+      expect(station.searchHaystack.contains('izmit'), isTrue);
+      expect(station.searchHaystack.contains('opet'), isTrue);
+      expect(station.searchHaystack.contains('istanbul'), isTrue);
+      expect(station.searchHaystack.contains('kadikoy'), isTrue);
+    });
+
     test('marka filtresi aramayi suzuyor', () {
       final stations = <Station>[
         _station(id: 'shell-1', brand: 'Shell'),
