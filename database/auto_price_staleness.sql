@@ -82,7 +82,16 @@ SELECT cron.schedule(
 -- Tek kural:  fiyatı yok  -> hidden        (5a)
 --             fiyatı var  -> visible       (5b, yalnızca gizliyken)
 --             pasif       -> daima hidden  (5c)
--- `low_priority` KASTEN korunur — o JOB 3'ün kararıdır (aşağı bak).
+--             low_priority + fiyatı var -> visible  (5d, 4 Ağustos 2026)
+--
+-- 5d NEDEN EKLENDİ (4 Ağustos 2026 sabah sağlık kontrolü):
+--   `low_priority` eskiden KASTEN korunuyordu ("o JOB 3'ün kararıdır"). Ama
+--   JOB 3 tek yönlüydü ve geri dönüş kolu yoktu: bir kez damgalanan istasyon
+--   fiyatı sonsuza kadar taze kalsa bile asla `visible`'a dönemiyordu.
+--   Canlıda 989 istasyon (aktiflerin %36,6'sı) bu kapanda sıkışmıştı ve
+--   HEPSİNİN gösterilebilir fiyatı vardı — Total'in %95'i dahil. Damgalar
+--   `database_writes.py`'nin eski koşulsuz yazımından kalmaydı; yazma
+--   durdurulmuş ama moloz temizlenmemişti.
 -- =============================================================================
 SELECT cron.schedule(
     'fullet-resolve-station-visibility',
@@ -113,6 +122,19 @@ SELECT cron.schedule(
     UPDATE public.istasyonlar
     SET visibility_status = 'hidden'
     WHERE aktif = FALSE AND visibility_status <> 'hidden';
+
+    -- 5d) GERİ DÖNÜŞ KOLU: fiyatı tazelenen `low_priority` istasyonu geri getir.
+    --     JOB 3 ile AYNI yükleme bağlıdır ("gösterilebilir fiyatı var mı?"),
+    --     bu yüzden salınım üretmez — JOB 3'ün başlığındaki nota bak.
+    UPDATE public.istasyonlar i
+    SET visibility_status = 'visible'
+    WHERE i.visibility_status = 'low_priority'
+      AND i.aktif = TRUE
+      AND EXISTS (
+          SELECT 1 FROM public.fiyatlar f
+          WHERE f.istasyon_id = i.id
+            AND f.price_status IN ('fresh', 'stale')
+      );
     $$
 );
 
@@ -124,23 +146,36 @@ SELECT cron.schedule(
 -- normal `visible` gibi gösteriyordu. Artık uygulamada gerçek karşılığı var
 -- (marker soluk, "en ucuz" yarışında yer almaz), dolayısıyla job anlamlı.
 --
--- JOB 5 ile çakışmaz: JOB 5 yalnızca hidden <-> visible geçişi yapar,
--- `low_priority`'ye dokunmaz.
+-- JOB 5d ile SİMETRİKTİR (4 Ağustos 2026) — ve simetri zorunludur:
+--
+--   JOB 3  düşürür:  ... AND gösterilebilir fiyatı YOK
+--   JOB 5d döndürür: ... AND gösterilebilir fiyatı VAR
+--
+-- Bir istasyon ikisini birden karşılayamaz, dolayısıyla visible <-> low_priority
+-- salınımı matematiksel olarak imkansızdır. Yükleme dokunmadan önce bunu oku.
+--
+-- 4 Ağustos'ta düzeltilen ikinci hata: eski yüklem `son_guncelleme` bakıyordu.
+-- scraper/freshness.py bunun yanlış kolon olduğunu belgeliyor —
+--   son_guncelleme = fiyatın son DEĞİŞTİĞİ an
+--   son_dogrulama  = fiyatı son DOĞRULADIĞIMIZ an
+-- Türkiye'de fiyat ayda birkaç kez değişir; her gün doğrulanan ama 7 gündür
+-- değişmeyen fiyat JOB 3'ün gözünde "bayat" görünüyordu. JOB 5/6 bu hata için
+-- düzeltilmiş, JOB 3 atlanmıştı. Artık ikisi de `price_status` üzerinden
+-- konuşuyor; tazelik eşiklerinin tek sahibi freshness.py.
 -- =============================================================================
 SELECT cron.schedule(
     'fullet-hide-stale-stations',
     '0 3 * * *',
     $$
-    UPDATE public.istasyonlar
+    UPDATE public.istasyonlar i
     SET visibility_status = 'low_priority'
-    WHERE visibility_status = 'visible'
-      AND aktif = TRUE
-      AND guncellenme_tarihi < NOW() - INTERVAL '7 days'
-      AND id NOT IN (
-          SELECT DISTINCT istasyon_id
-          FROM public.fiyatlar
-          WHERE price_status = 'fresh'
-            AND son_guncelleme > NOW() - INTERVAL '7 days'
+    WHERE i.visibility_status = 'visible'
+      AND i.aktif = TRUE
+      AND i.guncellenme_tarihi < NOW() - INTERVAL '7 days'
+      AND NOT EXISTS (
+          SELECT 1 FROM public.fiyatlar f
+          WHERE f.istasyon_id = i.id
+            AND f.price_status IN ('fresh', 'stale')
       );
     $$
 );

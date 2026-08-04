@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 import unittest
 
 import matching
@@ -173,6 +174,80 @@ class ProximityIdentityTest(unittest.TestCase):
         index = matching.StationProximityIndex()
         index.add("Shell", 39.90000, 32.80000, "bati")
         self.assertIsNone(index.find("Shell", 39.90100, 32.80000))  # ~111 m
+
+
+class LowPriorityTrapTest(unittest.TestCase):
+    """4 Ağustos 2026: `low_priority` tek yönlü bir kapandı.
+
+    Canlıda 989 aktif istasyon (aktiflerin %36,6'sı) `low_priority` damgalıydı
+    ve HEPSİNİN gösterilebilir fiyatı vardı — TotalEnergies'in %95'i dahil.
+    Damga `database_writes.py`'nin eski koşulsuz yazımından kalmaydı; yazma
+    3 Ağustos'ta durdurulmuş ama moloz temizlenmemişti.
+
+    Asıl arıza: `low_priority` -> `visible` geçişini yapan hiçbir mekanizma
+    yoktu. JOB 5 yalnızca hidden<->visible, JOB 3 yalnızca visible->low_priority.
+    Faz 3/madde 21 ile `low_priority` uygulamada gerçek etki kazanınca
+    (`smart_station_service.dart` bu istasyonları "en ucuz" motorundan atıyor)
+    989 istasyon sessizce fiyat karşılaştırmasından düştü.
+    """
+
+    SQL = (SCRAPER_DIR.parent / "database" / "auto_price_staleness.sql").read_text(
+        encoding="utf-8"
+    )
+
+    # JOB 5 ve JOB 3'ün ORTAK tazelik yüklemi. İkisi de bunu kullanmak
+    # ZORUNDA, yoksa istasyonlar visible <-> low_priority salınır.
+    SHOWABLE = "price_status IN ('fresh', 'stale')"
+
+    def _job_body(self, job_name):
+        """Adı verilen cron job'ın $$...$$ gövdesini döndürür.
+
+        Job adı dosyada yorumlarda da geçtiği için gövdeyi `cron.schedule`
+        çağrısına sabitliyoruz; düz arama yanlış bloğu yakalıyordu.
+        """
+        pattern = (
+            r"cron\.schedule\(\s*'" + re.escape(job_name) + r"'\s*,"
+            r"\s*'[^']*'\s*,\s*\$\$(.*?)\$\$"
+        )
+        match = re.search(pattern, self.SQL, re.DOTALL)
+        self.assertIsNotNone(
+            match, f"{job_name} için cron.schedule bloğu bulunamadı"
+        )
+        return match.group(1)
+
+    def test_return_lever_exists(self):
+        """5d: fiyatı tazelenen low_priority istasyon visible'a dönmeli."""
+        body = self._job_body("fullet-resolve-station-visibility")
+        self.assertIn(
+            "visibility_status = 'low_priority'", body,
+            "JOB 5'te geri dönüş kolu (5d) yok: low_priority damgası kalıcı "
+            "hale gelir ve istasyon fiyatı taze olsa bile 'en ucuz' "
+            "yarışına giremez.",
+        )
+
+    def test_return_lever_and_demotion_use_the_same_predicate(self):
+        """Simetri şart: aksi halde her gece düşüp her saat geri kalkarlar."""
+        for job in ("fullet-resolve-station-visibility", "fullet-hide-stale-stations"):
+            self.assertIn(
+                self.SHOWABLE, self._job_body(job),
+                f"{job} ortak tazelik yüklemini kullanmıyor. JOB 3 ve JOB 5d "
+                "farklı yüklem kullanırsa istasyonlar visible <-> low_priority "
+                "arasında salınır.",
+            )
+
+    def test_demotion_does_not_use_the_wrong_freshness_column(self):
+        """JOB 3 `son_guncelleme`'ye bakmamalı — freshness.py'nin uyarısı.
+
+        son_guncelleme = fiyatın son DEĞİŞTİĞİ an (Türkiye'de ayda birkaç kez)
+        son_dogrulama  = fiyatı son DOĞRULADIĞIMIZ an (her koşuda)
+        Eski yüklem yüzünden her gün doğrulanan fiyatlar "bayat" sanılıyordu.
+        """
+        body = self._job_body("fullet-hide-stale-stations")
+        self.assertNotIn(
+            "son_guncelleme", body,
+            "JOB 3 yine `son_guncelleme` üzerinden tazelik ölçüyor; bu, doğru "
+            "ama uzun süredir değişmemiş fiyatları bayat sayan hatadır.",
+        )
 
 
 if __name__ == "__main__":
