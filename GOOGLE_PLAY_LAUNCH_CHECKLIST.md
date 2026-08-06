@@ -1,6 +1,19 @@
 # Fullet — Google Play Yayın Checklist'i
 
-**Son güncelleme:** 4 Ağustos 2026
+> ## ⚠️ DURUM PANOSU BAYAT — 7 Ağustos 2026
+> **Uygulama Google Play'de canlıdır ve bu tarihten kısa süre önce yeni bir
+> güncelleme daha gönderilmiştir.** Aşağıdaki §0 tablosu ("Kalanlar", upload key
+> reset onayı beklemesi, closed testing) **4 Ağustos 2026 tarihli anlık görüntüdür
+> ve artık geçerli değildir.**
+>
+> §1'den itibaren gelen teknik referans bilgileri (paket adı, SDK sürümleri,
+> keystore SHA değerleri, Data Safety tablosu, imza doğrulama komutu) hâlâ
+> geçerlidir ve kullanılabilir.
+>
+> Bu belgeyi tekrar "tek doğruluk kaynağı" haline getirmek için §0'ın Play
+> Console'daki gerçek yayın durumuna göre yeniden yazılması gerekir.
+
+**Son güncelleme:** 4 Ağustos 2026 (§0 bayat — yukarıdaki nota bakınız)
 **Kapsam:** Bu dosya Play yayınıyla ilgili TEK doğruluk kaynağıdır. (Eski
 `PLAY_STORE_READINESS.md` buraya birleştirildi; Data Safety tablosu aşağıdadır.)
 
