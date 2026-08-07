@@ -821,9 +821,9 @@ Play sayfası olmalı.
 
 | Hafta | İş | Kanal | Çıktı | Metrik | Süre |
 |---|---|---|---|---|---|
-| **W1** | **Taban ölçüm raporu**: Play Console (kurulum, dönüşüm, arama terimleri, ülke/cihaz kırılımı) + Firebase (D1/D7, huni, garaj doluluk) mevcut değerleri tek sayfaya yazılır | — | `baseline.md` | Tüm metriklerin bugünkü değeri | 3 sa |
-| W1 | Sosyal hesapların açılması: X, Instagram, TikTok, YouTube — aynı kullanıcı adı, aynı bio, aynı görsel kimlik | Sosyal | 4 hesap canlı | — | 2 sa |
-| W1 | Fiyat kartı görsel şablonu (Canva/Figma): zam kartı, il karşılaştırma kartı, "en ucuz 5" kartı | Üretim | 3 şablon | — | 3 sa |
+| **W1** ✅ | **Taban ölçüm raporu**: Play Console (kurulum, dönüşüm, arama terimleri, ülke/cihaz kırılımı) + Firebase (D1/D7, huni, garaj doluluk) mevcut değerleri tek sayfaya yazılır | — | `baseline.md` — **tamamlandı (7 Ağustos 2026)** | Tüm metriklerin bugünkü değeri | 3 sa |
+| W1 ✅ | Sosyal hesapların açılması: X, Instagram, TikTok — aynı kullanıcı adı, aynı bio, aynı görsel kimlik. **YouTube kapsam dışı bırakıldı** (bkz. not) | Sosyal | 3 hesap canlı (`fullet_tr`) — **tamamlandı** | — | 2 sa |
+| W1 ✅ | Fiyat kartı görsel şablonu: zam kartı, il karşılaştırma kartı, "en ucuz 5" kartı | Üretim | 3 şablon, `play_store_assets/marketing/fiyat_kartlari/` — **tamamlandı** | — | 3 sa |
 | **W2** | **ASO güncellemesi**: yeni başlık, kısa açıklama, uzun açıklama ([Ek A](#ek-a--google-play-uzun-açıklama-metni)) yayına alınır | Play | Yeni store listing | Store conversion rate (7 gün sonra) | 2 sa |
 | W2 | Ekran görüntüsü caption'ları eklenir, sıralama §5.5'e göre değiştirilir | Play | 6 yeni görsel | Conversion rate | 3 sa |
 | W2 | X'te yayın başlar: günde 1 gönderi, ilk zam gecesi canlı yayın | X | 7+ gönderi | Erişim, takipçi | 3 sa |
@@ -834,8 +834,18 @@ Play sayfası olmalı.
 | W4 | 30 sn tanıtım videosu → Play listesine eklenir | Play | Video canlı | Conversion rate | 3 sa |
 | W4 | **Ay 1 değerlendirmesi**: taban ile karşılaştırma, ne işe yaradı | — | 1 sayfa rapor | Tüm KPI'lar | 1 sa |
 
-**Ay 1 çıkış kriterleri:** ☐ Taban metrikler yazılı ☐ ASO güncellendi ☐ 4 sosyal
-hesap düzenli yayında ☐ İlk video yayınlandı ☐ Play puanı ≥ 4,3
+**Ay 1 çıkış kriterleri:** ☑ Taban metrikler yazılı ☐ ASO güncellendi ☑ 3 sosyal
+hesap düzenli yayında *(YouTube kalıcı olarak kapsam dışı — bkz. not)* ☐ İlk video
+yayınlandı ☑ Play puanı ≥ 4,3 *(bugün: 5,0 — küçük örneklem, izlemeye devam)*
+
+> **W1 kapanış notu (7 Ağustos 2026):** W1'in üç görevi de tamamlandı. YouTube,
+> kullanıcının solo kapasite kararıyla **kalıcı olarak** plan dışı bırakıldı — bu,
+> planın kendi kanal önceliğiyle çelişmiyor çünkü YouTube zaten §6.2'de en düşük
+> öncelikli (★★) kanaldı; "Altın Üçlü" X/Instagram/TikTok'a odaklanma çıkış
+> kriterini karşılar. Baseline analizi ayrıca kritik bir aktivasyon bulgusu ortaya
+> çıkardı (onboarding "Atla" garaj adımını da atlıyor, `garage_vehicle_set` %18,3
+> ile kırmızı alarmda) — bilinçli olarak bu hafta koda dokunulmadı, bulgu
+> `URUN_TALEBI_ONBOARDING_GARAJ.md`'de backlog'a alındı. Detaylar: `baseline.md`.
 
 ---
 
