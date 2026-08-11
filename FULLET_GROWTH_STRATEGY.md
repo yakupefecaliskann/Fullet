@@ -824,7 +824,7 @@ Play sayfası olmalı.
 | **W1** ✅ | **Taban ölçüm raporu**: Play Console (kurulum, dönüşüm, arama terimleri, ülke/cihaz kırılımı) + Firebase (D1/D7, huni, garaj doluluk) mevcut değerleri tek sayfaya yazılır | — | `baseline.md` — **tamamlandı (7 Ağustos 2026)** | Tüm metriklerin bugünkü değeri | 3 sa |
 | W1 ✅ | Sosyal hesapların açılması: X, Instagram, TikTok — aynı kullanıcı adı, aynı bio, aynı görsel kimlik. **YouTube kapsam dışı bırakıldı** (bkz. not) | Sosyal | 3 hesap canlı (`fullet_tr`) — **tamamlandı** | — | 2 sa |
 | W1 ✅ | Fiyat kartı görsel şablonu: zam kartı, il karşılaştırma kartı, "en ucuz 5" kartı | Üretim | 3 şablon, `play_store_assets/marketing/fiyat_kartlari/` — **tamamlandı** | — | 3 sa |
-| **W2** | **ASO güncellemesi**: yeni başlık, kısa açıklama, uzun açıklama ([Ek A](#ek-a--google-play-uzun-açıklama-metni)) yayına alınır | Play | Yeni store listing | Store conversion rate (7 gün sonra) | 2 sa |
+| **W2** ⏳ | **ASO güncellemesi**: yeni başlık, kısa açıklama, uzun açıklama ([Ek A](#ek-a--google-play-uzun-açıklama-metni)) yayına alınır | Play | Yeni store listing | Store conversion rate (7 gün sonra) | 2 sa |
 | W2 | Ekran görüntüsü caption'ları eklenir, sıralama §5.5'e göre değiştirilir | Play | 6 yeni görsel | Conversion rate | 3 sa |
 | W2 | X'te yayın başlar: günde 1 gönderi, ilk zam gecesi canlı yayın | X | 7+ gönderi | Erişim, takipçi | 3 sa |
 | **W3** | **İlk viral deneme:** "3 km uzaktaki ucuz benzin tuzağı" videosu → TikTok + Reels + Shorts | Video | 1 video, 3 kanal | İzlenme, profil tıklaması, kurulum | 4 sa |
@@ -848,6 +848,16 @@ yayınlandı ☑ Play puanı ≥ 4,3 *(bugün: 5,0 — küçük örneklem, izlem
 > **11 Ağustos 2026:** §11.3 huni kuralı gereği (en zayıf basamak önce kapatılır)
 > bu düzeltme W2'nin ASO işinden önce koda alındı — henüz yayınlanmadı, sıradaki
 > sürümle Play'e gönderilecek. Detaylar: `baseline.md`.
+> **11 Ağustos 2026 (devam):** 1.0.4+7 (garaj düzeltmesi) Play Console'a
+> gönderildi, incelemede. Sıra W2'nin ASO işine geldi: başlık zaten önerilen
+> metinle uyumluydu (`Fullet: Akaryakıt Fiyatları`, 27/30), kısa açıklama ve
+> uzun açıklama (Ek A) Play Console'da güncellenip **taslak olarak kaydedildi**
+> ama **gönderilmedi** — aynı anda gönderilirse 1.0.4+7'nin devam eden
+> incelemesi iptal olup yeniden başlayacağı ve gecikeceği tespit edildi. Karar:
+> önce 1.0.4+7 onaylansın, ASO metni ondan hemen sonra gönderilecek. Ekran
+> görüntüsü caption'ları (W2'nin ikinci maddesi) ayrı — mevcut iki görsel
+> setinden hiçbiri §5.5'teki önerilen caption'ları taşımıyor, yeni görsel
+> üretimi gerektiriyor, henüz başlanmadı.
 
 ---
 

@@ -158,6 +158,14 @@ Kalan alt maddeler:
   vurgusu bulunmalı.
 - Sürüm notu metni: `RELEASE_NOTES.md`
 
+> **11 Ağustos 2026:** Başlık zaten `FULLET_GROWTH_STRATEGY.md` §5.2 önerisiyle
+> uyumluydu (`Fullet: Akaryakıt Fiyatları`). Kısa açıklama (§5.3) ve uzun
+> açıklama (Ek A) Play Console → Varsayılan mağaza girişi'nde güncellenip
+> **taslak olarak kaydedildi**, **incelemeye gönderilmedi** — 1.0.4+7'nin
+> devam eden Play incelemesini iptal edip yeniden başlatmamak için 1.0.4+7
+> onaylanana kadar bekletiliyor. Ekran görüntüsü caption'ları (§5.5) henüz
+> yapılmadı: yeni görsel üretimi gerekiyor.
+
 ### 2.5 Test süreci
 
 - İlk adım **Internal testing**, sonra **Closed testing**.
