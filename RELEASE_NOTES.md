@@ -1,5 +1,46 @@
 # Fullet — Sürüm Notları
 
+## 1.0.4 (versionCode 7) — Ağustos 2026
+
+---
+
+### 📋 Play Console "Yenilikler" alanına yapıştırılacak metin
+
+```text
+Küçük ama önemli bir düzeltme: tanıtım ekranını "Atla" ile geçenlerde de artık
+Garajım paneli açılıyor, aracını eklemek bir dokunuş uzağında. Akıllı öneri
+metnini de netleştirdik: LPG'li veya dizel aracın varsa sana en uygun
+istasyonu gösteririz.
+```
+
+### 🎯 Uzun sürüm (iç kullanım)
+
+W1 taban ölçüm raporunda (`baseline.md`) `garage_vehicle_set` %18,3 ile kırmızı
+alarm eşiğinin altında çıktı. Kök neden koddaydı: onboarding'te "Atla"ya
+basanlarda `openGarageOnStart` bayrağı hiç set edilmiyordu, bu yüzden Garajım
+paneli kimseye gösterilmiyordu. Onboarding'i bitirenlerin zaten **%75'i** araç
+giriyor — panel iyi çalışıyor, sorun ona hiç ulaşılamamasıydı.
+
+- `_skip()` artık haritaya `openGarageOnStart: true` ile geçiyor; Atla artık
+  yalnızca tanıtım sayfalarını atlıyor, garaj adımını atlamıyor.
+- 2. sayfadaki araç-değeri metni somut bir örnekle (LPG/dizel eşleşmesi)
+  güçlendirildi.
+
+Detay: `URUN_TALEBI_ONBOARDING_GARAJ.md`.
+
+### 🔧 Teknik not — AAB hedef platformları
+
+Bu derlemede `--target-platform android-arm,android-arm64` kullanıldı;
+**android-x64 hariç tutuldu**. Sebep: bu makinede Windows'un Uygulama Denetimi
+ilkesi, x64 AOT derleyicisini (`gen_snapshot.EXE`) çalıştırmayı reddetti.
+Gerçek Android telefonlarda x86_64 pratikte hiç kullanılmadığı için (yalnızca
+bazı emülatör/Chromebook senaryoları) bu dışlama üründe bir kayıp yaratmıyor,
+ama gelecekteki her sürümde aynı bloklamayla karşılaşılacaksa
+`scripts/release_check.ps1`'in build satırına da bu bayrak eklenmeli — ya da
+Windows tarafındaki ilke kalıcı olarak çözülmeli.
+
+---
+
 ## 1.0.3 (versionCode 6) — Ağustos 2026
 
 ---

@@ -56,7 +56,7 @@ duruyor.
 | Alan | Değer |
 |---|---|
 | Paket adı | `com.fullet.app` |
-| Sürüm | `1.0.3+6` (versionName 1.0.3, versionCode 6) |
+| Sürüm | `1.0.4+7` (versionName 1.0.4, versionCode 7) — 11 Ağustos 2026'da derlendi, henüz Play'e yüklenmedi. AAB `android-arm,android-arm64` hedefleriyle üretildi (android-x64 bu makinedeki Uygulama Denetimi ilkesi tarafından engellendiği için dışlandı — bkz. `RELEASE_NOTES.md`). |
 | minSdkVersion | **24** (Android 7.0) — 4 Ağu 2026'da 21'den yükseltildi, Android 5.x desteği bilinçli olarak bırakıldı |
 | targetSdkVersion | **36** (Android 16) — Play'in 31 Ağustos 2026 eşiğini karşılar |
 | compileSdkVersion | 36 |
