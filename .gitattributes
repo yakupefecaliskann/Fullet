@@ -1,0 +1,41 @@
+# Satır sonu normalizasyonu.
+#
+# Bu dosya olmadan davranış tamamen geliştiricinin yerel `core.autocrlf`
+# ayarına bağlıydı: Windows'ta yazılıp Linux CI'da (GitHub Actions) koşan bu
+# depoda her commit'te "LF will be replaced by CRLF" uyarısı çıkıyordu. Ayarı
+# farklı olan bir makine dosyayı baştan sona yeniden yazsaydı, diff'te tek
+# satırlık bir değişiklik yerine dosyanın tamamı "değişti" görünecekti.
+#
+# Kural: metin dosyaları depoda DAİMA LF ile saklanır, çalışma dizinine
+# platformun doğal biçiminde açılır (Windows'ta CRLF).
+* text=auto
+
+# ── Satır sonu kritik olanlar ───────────────────────────────────────────────
+# gradlew Linux CI'da çalıştırılıyor; CRLF'e dönerse `bad interpreter` ile kırılır.
+gradlew        text eol=lf
+*.sh           text eol=lf
+
+# Windows toplu iş dosyaları CRLF ister.
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+*.ps1          text eol=crlf
+
+# ── İkili dosyalar: git ASLA içeriğine dokunmasın ───────────────────────────
+# Bunlar işaretlenmezse `text=auto` sezgisi yanılıp bir PNG'yi bozabilir.
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.webp         binary
+*.ico          binary
+*.gif          binary
+*.pdf          binary
+*.jar          binary
+*.aab          binary
+*.apk          binary
+*.jks          binary
+*.keystore     binary
+*.p12          binary
+*.ttf          binary
+*.otf          binary
+*.woff         binary
+*.woff2        binary

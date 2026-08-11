@@ -107,6 +107,22 @@ python scraper\run_all_bots.py --mode news
 python scraper\run_all_bots.py --mode all
 ```
 
+## 6.1 Bakım Araçları (elle çalıştırılır, otomasyonda yoktur)
+
+Bu iki araç zamanlanmış workflow'un parçası **değildir** ve hiçbir yerden
+çağrılmaz — kodda referansları olmadığı için "ölü kod" sanılmaya açıktırlar,
+silmeyin. İkisi de varsayılan olarak DRY-RUN'dır; yazmak için
+`FULLET_ALLOW_DB_WRITE=1` gerekir.
+
+```powershell
+python scraper\purge_inactive_stations.py   # 30+ gündür dokunulmamış pasif istasyon kayıtlarını siler
+python scraper\merge_duplicate_stations.py  # aynı istasyonun yinelenen kayıtlarını birleştirir
+```
+
+`purge_inactive_stations.py` neden gerekli: envanter botu doğrulayamadığı
+istasyonu `aktif=False` ile yazar; kayıt bir daha hiç doğrulanmazsa sonsuza
+kadar birikir. 30 gün eşiği, haftalık envanter koşusunun dört turudur.
+
 ## 7. Kaynak Kuralı
 
 Fullet canlıya sahte fiyat veya tahmini istasyon basmaz. Fiyatlar resmi
