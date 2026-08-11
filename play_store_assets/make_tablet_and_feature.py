@@ -1,8 +1,10 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-SOURCE  = r'C:\Users\yefec\Desktop\Fullet\play_store_assets\source_screenshots'
-MKTG    = r'C:\Users\yefec\Desktop\Fullet\play_store_assets\marketing'
+# Yollar betiğin kendi konumuna göre çözülüyor — bkz. make_screenshots.py'deki not.
+BASE    = os.path.dirname(os.path.abspath(__file__))
+SOURCE  = os.path.join(BASE, 'source_screenshots')
+MKTG    = os.path.join(BASE, 'marketing')
 OUT7    = os.path.join(MKTG, 'tablet7')
 OUT10   = os.path.join(MKTG, 'tablet10')
 for d in [OUT7, OUT10]: os.makedirs(d, exist_ok=True)
@@ -163,7 +165,7 @@ def make_feature_graphic():
         img.paste(frame, (px, py))
 
     # ── Left side: icon + text ────────────────────────────────────────────
-    icon_path = r'C:\Users\yefec\Desktop\Fullet\play_store_assets\upload\app_icon_512.png'
+    icon_path = os.path.join(BASE, 'upload', 'app_icon_512.png')
     icon_x, icon_y, icon_size = 55, 55, 88
     if os.path.exists(icon_path):
         icon = Image.open(icon_path).convert('RGBA')

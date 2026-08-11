@@ -73,9 +73,9 @@ D7 geri dönüş             →  Veri Yetersiz   (hedef ≥ %15)
 ilk defa dolduruluyor olması nedeniyle bu hafta trend değil, yalnızca gün 0 fotoğrafı
 kaydedilmiş olacak.
 
-**Kök neden bulundu, backlog'a alındı:** Onboarding "Atla" butonu garaj adımını da
-atlıyor (kod kanıtı ve önerilen düzeltme: `URUN_TALEBI_ONBOARDING_GARAJ.md`). Bugün
-kod tarafına dokunulmadı — bir sonraki sürüm döngüsünde ele alınacak.
+**Kök neden bulundu ve kapatıldı:** Onboarding "Atla" butonu garaj adımını da
+atlıyordu. Düzeltme 11 Ağustos 2026'da 1.0.4+7 ile yayınlandı; kod kanıtı ve
+bilinçli test kapsamı kararı `RELEASE_NOTES.md` §1.0.4'e taşındı.
 
 **Açık kalan (küçük, W1 kapanışını engellemiyor):** Tablo A'da 3 hücre hâlâ boş —
 ilk 10 arama terimi, ülke/cihaz kırılımı, toplam yorum sayısı. Bunlar tamamlayıcı

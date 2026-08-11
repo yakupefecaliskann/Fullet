@@ -15,7 +15,7 @@ istasyonu gösteririz.
 
 ### 🎯 Uzun sürüm (iç kullanım)
 
-W1 taban ölçüm raporunda (`baseline.md`) `garage_vehicle_set` %18,3 ile kırmızı
+W1 taban ölçüm raporunda (`docs/baseline.md`) `garage_vehicle_set` %18,3 ile kırmızı
 alarm eşiğinin altında çıktı. Kök neden koddaydı: onboarding'te "Atla"ya
 basanlarda `openGarageOnStart` bayrağı hiç set edilmiyordu, bu yüzden Garajım
 paneli kimseye gösterilmiyordu. Onboarding'i bitirenlerin zaten **%75'i** araç
@@ -26,7 +26,36 @@ giriyor — panel iyi çalışıyor, sorun ona hiç ulaşılamamasıydı.
 - 2. sayfadaki araç-değeri metni somut bir örnekle (LPG/dizel eşleşmesi)
   güçlendirildi.
 
-Detay: `URUN_TALEBI_ONBOARDING_GARAJ.md`.
+#### Kök neden — kod kanıtı
+
+Bulgu 7 Ağustos 2026'da W1 huni analizinden çıktı; `onboarding_completed` %30,7
+ve `garage_vehicle_set` %18,3'ün **tek bir sorun** olduğu kod okumasıyla saptandı:
+
+- `onboarding_screen.dart` — "Atla" butonu 3 sayfanın hepsinde sağ üstte, en
+  görünür konumda duruyordu.
+- `_skip()` — Atla'ya basınca `openGarageOnStart` hiç `true` olmuyordu, garaj
+  bottom sheet'i hiç açılmıyordu. Atla, tanıtımı ve araç girme adımını aynı anda
+  iptal ediyordu.
+- `_complete()` — onboarding'i bitirenlerde `openGarageOnStart: true` ile harita
+  açılıyor, garaj modalı otomatik tetikleniyordu (`modern_map_screen.dart`).
+- Garaj adımı zaten tamamen opsiyonel bir bottom sheet (`garage_modal.dart`,
+  dışarı tıklayıp kapatılabiliyor) — zorunlu hale getirmeye gerek yoktu, sadece
+  gösterilmesi gerekiyordu.
+
+#### Test notu (bilinçli kapsam kararı)
+
+`flutter analyze` temiz, 45 unit testin tamamı geçiyor. Bu ekrana özgü otomatik
+**widget testi eklenmedi**: `AnalyticsService`, `FirebaseAnalytics.instance`
+üzerinden statik bir singleton'a bağlı ve repoda hiç widget-test altyapısı yok.
+Doğru Firebase mock'unu (Pigeon kanalı) kurmak, 2 satırlık bir yönlendirme
+düzeltmesine göre orantısız bir altyapı yatırımı olurdu. Değişiklik bunun yerine
+gerçek cihazda elle doğrulandı (Atla → garaj paneli açılıyor).
+
+#### Örneklem uyarısı
+
+Düzeltme yapıldığında n çok küçüktü (28 kurulum/30 gün, 12 onboarding tamamlama).
+Yön doğru görünüyor ama etkisi hakkında kesin sonuç çıkarmadan önce yayın
+sonrası en az bir hafta gözlemlenmeli.
 
 ### 🔧 Teknik not — AAB hedef platformları
 

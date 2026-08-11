@@ -320,8 +320,15 @@ Yapısal kurallar:
 
 ### 5.5 Görsel varlıklar
 
-Elde hazır: `play_store_assets/marketing/` altında 6 ekran görüntüsü ve feature
-graphic; `play_store_assets/screenshots/` altında telefon + tablet setleri.
+Elde hazır:
+
+| Klasör | İçerik | Durum |
+|---|---|---|
+| `YAYINA_HAZIR_FOTOLAR/` | 6 × 1080×1920 vitrin görseli (`play_final_*`) | **Play'de yayında / incelemede** — güncel set |
+| `YENI_EKRAN_GORUNTULERI/` | Yukarıdakilerin ham cihaz çekimleri (`yeni_*`) | Kaynak — caption'ı değiştirmek gerekirse buradan üretilir |
+| `play_store_assets/marketing/` | 6 telefon + 7"/10" tablet seti, feature graphic, fiyat kartı şablonları | Önceki nesil — arşiv/yedek |
+| `play_store_assets/upload/` | İlk yayında Play'e yüklenen set + 512×512 ikon | Arşiv (ne yüklendiğinin kaydı) |
+| `play_store_assets/source_screenshots/` | `marketing/` setini üreten 6 ham çekim | `make_screenshots.py` / `make_tablet_and_feature.py` girdisi |
 
 **Ekran görüntüsü sıralaması (dönüşümü belirleyen asıl faktör — ilk 3'ü kullanıcı
 kaydırmadan görür):**
@@ -821,7 +828,7 @@ Play sayfası olmalı.
 
 | Hafta | İş | Kanal | Çıktı | Metrik | Süre |
 |---|---|---|---|---|---|
-| **W1** ✅ | **Taban ölçüm raporu**: Play Console (kurulum, dönüşüm, arama terimleri, ülke/cihaz kırılımı) + Firebase (D1/D7, huni, garaj doluluk) mevcut değerleri tek sayfaya yazılır | — | `baseline.md` — **tamamlandı (7 Ağustos 2026)** | Tüm metriklerin bugünkü değeri | 3 sa |
+| **W1** ✅ | **Taban ölçüm raporu**: Play Console (kurulum, dönüşüm, arama terimleri, ülke/cihaz kırılımı) + Firebase (D1/D7, huni, garaj doluluk) mevcut değerleri tek sayfaya yazılır | — | `docs/baseline.md` — **tamamlandı (7 Ağustos 2026)** | Tüm metriklerin bugünkü değeri | 3 sa |
 | W1 ✅ | Sosyal hesapların açılması: X, Instagram, TikTok — aynı kullanıcı adı, aynı bio, aynı görsel kimlik. **YouTube kapsam dışı bırakıldı** (bkz. not) | Sosyal | 3 hesap canlı (`fullet_tr`) — **tamamlandı** | — | 2 sa |
 | W1 ✅ | Fiyat kartı görsel şablonu: zam kartı, il karşılaştırma kartı, "en ucuz 5" kartı | Üretim | 3 şablon, `play_store_assets/marketing/fiyat_kartlari/` — **tamamlandı** | — | 3 sa |
 | **W2** ✅ | **ASO güncellemesi**: yeni başlık, kısa açıklama, uzun açıklama ([Ek A](#ek-a--google-play-uzun-açıklama-metni)) yayına alınır | Play | Yeni store listing | Store conversion rate (7 gün sonra) | 2 sa |
@@ -844,10 +851,10 @@ yayınlandı ☑ Play puanı ≥ 4,3 *(bugün: 5,0 — küçük örneklem, izlem
 > öncelikli (★★) kanaldı; "Altın Üçlü" X/Instagram/TikTok'a odaklanma çıkış
 > kriterini karşılar. Baseline analizi ayrıca kritik bir aktivasyon bulgusu ortaya
 > çıkardı (onboarding "Atla" garaj adımını da atlıyor, `garage_vehicle_set` %18,3
-> ile kırmızı alarmda) — bulgu `URUN_TALEBI_ONBOARDING_GARAJ.md`'de kayıtlı.
+> ile kırmızı alarmda) — bulgu ve düzeltmesi `RELEASE_NOTES.md` §1.0.4'te kayıtlı.
 > **11 Ağustos 2026:** §11.3 huni kuralı gereği (en zayıf basamak önce kapatılır)
 > bu düzeltme W2'nin ASO işinden önce koda alındı — henüz yayınlanmadı, sıradaki
-> sürümle Play'e gönderilecek. Detaylar: `baseline.md`.
+> sürümle Play'e gönderilecek. Detaylar: `docs/baseline.md`.
 > **11 Ağustos 2026 (devam):** 1.0.4+7 (garaj düzeltmesi) Play Console'a
 > gönderildi, incelemede. Sıra W2'nin ASO işine geldi: başlık zaten önerilen
 > metinle uyumluydu (`Fullet: Akaryakıt Fiyatları`, 27/30), kısa açıklama ve

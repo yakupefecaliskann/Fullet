@@ -1,53 +1,38 @@
 # Fullet — Google Play Yayın Checklist'i
 
-> ## ⚠️ DURUM PANOSU BAYAT — 7 Ağustos 2026
-> **Uygulama Google Play'de canlıdır ve bu tarihten kısa süre önce yeni bir
-> güncelleme daha gönderilmiştir.** Aşağıdaki §0 tablosu ("Kalanlar", upload key
-> reset onayı beklemesi, closed testing) **4 Ağustos 2026 tarihli anlık görüntüdür
-> ve artık geçerli değildir.**
->
-> §1'den itibaren gelen teknik referans bilgileri (paket adı, SDK sürümleri,
-> keystore SHA değerleri, Data Safety tablosu, imza doğrulama komutu) hâlâ
-> geçerlidir ve kullanılabilir.
->
-> Bu belgeyi tekrar "tek doğruluk kaynağı" haline getirmek için §0'ın Play
-> Console'daki gerçek yayın durumuna göre yeniden yazılması gerekir.
-
-**Son güncelleme:** 4 Ağustos 2026 (§0 bayat — yukarıdaki nota bakınız)
+**Son güncelleme:** 11 Ağustos 2026
 **Kapsam:** Bu dosya Play yayınıyla ilgili TEK doğruluk kaynağıdır. (Eski
 `PLAY_STORE_READINESS.md` buraya birleştirildi; Data Safety tablosu aşağıdadır.)
 
 ---
 
-## 0. Durum Panosu — 4 Ağustos 2026
+## 0. Durum Panosu — 11 Ağustos 2026
 
-**Kod tarafı %100 bitti. Yayın süreci bitmedi.** Ayrım önemli: teknik borç sıfır
-ve paket hazır, ama uygulamanın Play'de yayına çıkması için aşağıdaki adımlar
-duruyor.
+**Uygulama Google Play'de CANLI.** İlk yayın süreci kapandı; aşağıdaki tablo artık
+"yayına çıkış" değil, **açık kalan operasyonel işleri** takip ediyor.
 
-### ✅ Tamamlananlar
+### ✅ Kapananlar
 
-| # | İş | Kanıt |
-|---|---|---|
-| Kod | Denetimdeki **tüm** bulgular (B1, B2, H1–H4, M1–M5, L1–L6) kapatıldı | `dart analyze` → *No issues found!* · `flutter test` → 45/45 |
-| Build | `targetSdk 36`, `minSdk 24`, AGP 8.11.1 / Gradle 8.14 / Kotlin 2.3.10 / NDK 27 | commit `ccd3bc7` |
-| Paket | İmzalı + obfuscated AAB (52,8 MB) ve APK üretildi | `verify_aab_signature.ps1` → `[OK]` |
-| Cihaz | Infinix X6528B (Android 13) üzerinde release derlemesi kuruldu ve test edildi | Crash yok; harita, fiyatlar, arama, alt panel, yakıt geçişi çalışıyor |
-| Konsol | Maps API anahtarı Android + upload SHA-1 ile kısıtlandı | §2.2 |
-| Konsol | Upload key reset talebi gönderildi | §2.1 — **onay bekleniyor** |
+| İş | Kanıt / tarih |
+|---|---|
+| Kod denetimi — tüm bulgular (B1, B2, H1–H4, M1–M5, L1–L6) | `dart analyze` → *No issues found!* · `flutter test` → 45/45 · `docs/KOD_DENETIM_ARSIVI.md` §A |
+| Build zinciri: `targetSdk 36`, `minSdk 24`, AGP 8.11.1 / Gradle 8.14 / Kotlin 2.3.10 / NDK 27 | commit `ccd3bc7` |
+| Upload key reset | Google onayladı; AAB kabul edildi (§2.1) |
+| İlk yayın | Uygulama Play'de yayınlandı |
+| **1.0.4+7 (garaj düzeltmesi)** | 11 Ağu 2026 — **onaylandı, Üretim'de Etkin** |
+| Data Safety formu | §3'teki tabloya göre dolduruldu |
+| W2 / ASO: başlık, kısa + uzun açıklama, 6 yeni vitrin görseli | 11 Ağu 2026 — tek seferde incelemeye gönderildi (§2.4) |
 
-### ⏳ Kalanlar (yayını açan sıra)
+### ⏳ Açık kalanlar
 
 | # | İş | Kim | Not |
 |---|---|---|---|
-| 1 | **Upload key reset onayı** | Google | Onay gelmeden AAB reddedilir. §2.1 |
-| 2 | AAB'yi Internal testing'e yükle | 👤 | Onaydan hemen sonra |
-| 3 | **App signing SHA-1'i Maps anahtarına ekle** | 👤 | 🔴 Atlanırsa Play'den kuran herkeste **harita boş açılır**. §2.2 |
-| 4 | Data Safety formu | 👤 | §3'teki tabloya göre |
-| 5 | Store listing (açıklama, görseller, kategori) | 👤 | §2.4 · metin `RELEASE_NOTES.md` |
-| 6 | Closed testing — 12 tester × 14 gün | 👤 | Hesap 13 Kas 2023 sonrasıysa **zorunlu**; takvimi bu belirler |
-| 7 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
-| 8 | `build/symbols/1.0.3+6` arşivle | 👤 | Yoksa bu sürümün crash raporları okunamaz |
+| 1 | **App signing SHA-1 Maps anahtarında mı?** | 👤 | 🔴 Eksikse Play'den kuran herkeste harita boş açılır. Uygulama canlı ve şikâyet yok — büyük olasılıkla eklendi, ama Cloud Console'dan **gözle doğrulanmalı**. §2.2 |
+| 2 | API restrictions → yalnızca **Maps SDK for Android** | 👤 | §2.2 |
+| 3 | Kota + bütçe uyarısı kur | 👤 | "Sıfır maliyet" hedefi için sürpriz fatura riski. §2.2 |
+| 4 | W2 ASO incelemesinin sonucu | Google | Gönderildi, sonuç bekleniyor. **Yeni bir değişiklik göndermek bekleyen incelemeyi sıfırlar** — önce sonucu gör |
+| 5 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
+| 6 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
 
 ---
 
@@ -56,7 +41,7 @@ duruyor.
 | Alan | Değer |
 |---|---|
 | Paket adı | `com.fullet.app` |
-| Sürüm | `1.0.4+7` (versionName 1.0.4, versionCode 7) — 11 Ağustos 2026'da derlendi, henüz Play'e yüklenmedi. AAB `android-arm,android-arm64` hedefleriyle üretildi (android-x64 bu makinedeki Uygulama Denetimi ilkesi tarafından engellendiği için dışlandı — bkz. `RELEASE_NOTES.md`). |
+| Sürüm | `1.0.4+7` (versionName 1.0.4, versionCode 7) — 11 Ağustos 2026'da **onaylandı, Üretim'de Etkin**. AAB `android-arm,android-arm64` hedefleriyle üretildi (android-x64 bu makinedeki Uygulama Denetimi ilkesi tarafından engellendiği için dışlandı — bkz. `RELEASE_NOTES.md`). |
 | minSdkVersion | **24** (Android 7.0) — 4 Ağu 2026'da 21'den yükseltildi, Android 5.x desteği bilinçli olarak bırakıldı |
 | targetSdkVersion | **36** (Android 16) — Play'in 31 Ağustos 2026 eşiğini karşılar |
 | compileSdkVersion | 36 |
@@ -73,7 +58,7 @@ ile açıkça edge-to-edge çalışıyor; alt panel, yan menü ve harita FAB'lar
 
 **Kod sağlığı:** `dart analyze` → *No issues found!* · `flutter test` → 45/45 ·
 R8 küçültme + `--obfuscate` açık. Denetim raporu kapatıldı
-(`FULLET_PRE_RELEASE_DENETIMI.md`).
+(`docs/KOD_DENETIM_ARSIVI.md` §A).
 
 ---
 
@@ -95,14 +80,12 @@ keystore üretildi.**
 | **SHA-256** | `60:EF:89:72:9C:88:DF:B9:2C:7C:65:2B:DE:F3:FE:AD:DB:37:CA:3C:C3:86:B3:DD:57:8C:4A:C2:75:96:B2:B7` |
 | Play'e verilecek sertifika | `fullet_flutter/android/upload_certificate.pem` |
 
-**Durum — 4 Ağustos 2026:** ✅ Talep **gönderildi** (Play Console → *Release* →
-*Setup* → *App integrity* → *App signing* → *Request upload key reset*,
-`upload_certificate.pem` yüklendi). ⏳ **Google onayı bekleniyor.**
+**Durum:** ✅ **KAPANDI.** Talep 4 Ağustos 2026'da gönderildi (Play Console →
+*Release* → *Setup* → *App integrity* → *App signing* → *Request upload key reset*,
+`upload_certificate.pem` yüklendi), Google onayladı ve sonraki AAB'ler kabul edildi.
 
-> 🔴 **Onay gelmeden AAB yüklenemez.** Google talebi onaylayana kadar (genelde
-> 1–2 iş günü) Play, yeni anahtarla imzalanmış paketi *"Your Android App Bundle
-> is signed with the wrong key"* hatasıyla reddeder. Onay e-postası geldikten
-> sonra yükleme yapılmalıdır; paket hazır ve imzası doğrulanmış durumda.
+Aşağıdaki keystore bilgileri **hâlâ geçerli referanstır** — her yayında bu
+anahtarla imzalanır.
 
 > ⚠️ Bu bir kerelik bir işlem değil, **geri alınamaz bir kayıp deneyimi.** Yeni keystore
 > ve parolası kaybolursa aynı süreç baştan gerekir. `key.properties` ve `.jks` git'e

@@ -1,8 +1,13 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-SOURCE = r'C:\Users\yefec\Desktop\Fullet\play_store_assets\source_screenshots'
-OUTPUT = r'C:\Users\yefec\Desktop\Fullet\play_store_assets\marketing'
+# Yollar betiğin kendi konumuna göre çözülüyor. Eskiden `C:\Users\yefec\Desktop\
+# Fullet\...` sabit yazılıydı; proje ASCII yol sorunu için `C:\Fullet`'e taşınınca
+# (denetim bulgusu B1) betik sessizce hiçbir kaynağı bulamaz olmuştu — kaynak
+# bulunamayınca çerçeve boş basılıyor, hata da vermiyor.
+BASE   = os.path.dirname(os.path.abspath(__file__))
+SOURCE = os.path.join(BASE, 'source_screenshots')
+OUTPUT = os.path.join(BASE, 'marketing')
 os.makedirs(OUTPUT, exist_ok=True)
 
 W, H = 1080, 1920

@@ -145,3 +145,41 @@ npm run dev
 
 Bot çalışmaları `bot_runs`, açık sorunlar `system_alerts`, anonim cihaz
 heartbeat kayıtları `app_heartbeats` tablosundan takip edilir.
+
+## 9. Kabul Edilmiş Güvenlik Uyarısı — `public.spatial_ref_sys`
+
+*(Son inceleme: 2026-05-09. Eskiden `docs/SUPABASE_SECURITY_ADVISOR_NOTES.md`.)*
+
+Supabase Security Advisor, `public.spatial_ref_sys` için `RLS Disabled in Public`
+uyarısı gösterebilir. Bu tablo PostGIS eklentisi tarafından oluşturulur ve
+koordinat sistemi meta verisi tutar — Fullet'in kullanıcı, istasyon, fiyat, admin
+veya token verisi **değildir**. Uyarı, Data API'ye açık tüm public şema
+tablolarında RLS istenmesi genel kuralından geliyor.
+
+Bu projede SQL Editor'den RLS açmayı denemek şu hatayla düşer:
+
+```text
+ERROR: 42501: must be owner of table spatial_ref_sys
+```
+
+Yani tablo PostGIS eklenti sahibine ait. **Bu uyarıyı gidermek için canlıda
+`DROP EXTENSION postgis CASCADE` ÇALIŞTIRMA** — PostGIS, istasyon konum kolonunu
+ve yakındaki-istasyon RPC'lerini besliyor.
+
+Güvenli teşhis:
+
+```text
+database/postgis_spatial_ref_sys_owner_check.sql
+```
+
+Uzun vadeli kalıcı çözüm:
+
+- Önce veritabanı yedeği al.
+- PostGIS'i `extensions`/`gis` gibi public olmayan bir şemaya taşı/yeniden kur
+  (Supabase'in PostGIS sorun giderme rehberine göre).
+- PostGIS 2.3+ normalde yeniden konumlandırılabilir olmadığı için Supabase ya
+  yedek/drop/recreate/restore akışını ya da taşımayı Supabase Support'un
+  yapmasını öneriyor.
+
+**Yayın kararı:** Bu uyarı Fullet'in yayınını engellemez. Planlı bir veritabanı
+bakım penceresine kadar *kabul edilmiş altyapı uyarısı* olarak kalır.
