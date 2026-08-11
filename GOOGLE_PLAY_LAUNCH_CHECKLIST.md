@@ -27,12 +27,14 @@
 
 | # | İş | Kim | Not |
 |---|---|---|---|
-| 1 | **App signing SHA-1 Maps anahtarında mı?** | 👤 | 🔴 Eksikse Play'den kuran herkeste harita boş açılır. Uygulama canlı ve şikâyet yok — büyük olasılıkla eklendi, ama Cloud Console'dan **gözle doğrulanmalı**. §2.2 |
-| 2 | API restrictions → yalnızca **Maps SDK for Android** | 👤 | §2.2 |
-| 3 | Kota + bütçe uyarısı kur | 👤 | "Sıfır maliyet" hedefi için sürpriz fatura riski. §2.2 |
-| 4 | W2 ASO incelemesinin sonucu | Google | Gönderildi, sonuç bekleniyor. **Yeni bir değişiklik göndermek bekleyen incelemeyi sıfırlar** — önce sonucu gör |
-| 5 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
-| 6 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
+| 1 | Kota + bütçe uyarısı kur | 👤 | "Sıfır maliyet" hedefi için sürpriz fatura riski. §2.2 |
+| 2 | W2 ASO incelemesinin sonucu | Google | Gönderildi, sonuç bekleniyor. **Yeni bir değişiklik göndermek bekleyen incelemeyi sıfırlar** — önce sonucu gör |
+| 3 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
+| 4 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
+
+> 🔥 **11 Ağustos 2026 — canlıda boş harita olayı çözüldü.** App signing SHA-1
+> Maps anahtarında eksikti, Play'den kuran herkeste harita boşdu. Eklendi; ayrıntı
+> ve alınan ders §2.2'de.
 
 ---
 
@@ -101,27 +103,42 @@ anahtarla imzalanır.
 
 ### 2.2 Google Maps API key kısıtlaması
 
-**Durum — 4 Ağustos 2026:** ✅ Anahtar *Android apps* olarak kısıtlandı;
-paket adı `com.fullet.app` + **yeni upload sertifikası SHA-1**
-(`49:7B:9C:C2:DF:7F:94:93:65:F6:B8:0A:35:CB:7F:94:44:CD:67:E2`) eklendi.
-Eski `40:9B:C1:...` değeri geçersizdir, kaldırılabilir.
+**Cloud projesi:** `Fullet` (`fullet-d59c7`) · **Hesap:** `fulletapp@gmail.com`
+**İlgili anahtar:** Credentials listesinde **"API key 3"** — `AIzaSyAyLf20…` ile
+başlar, `AndroidManifest.xml`'deki `com.google.android.geo.API_KEY` değeriyle
+eşleşir. (Firebase'in otomatik ürettiği `Android key` / `Browser key` **bu değil**;
+onlar `AIzaSyC4l4…` ile başlar.)
 
-> 🔴 **HENÜZ BİTMEDİ — App signing SHA-1 eksik.**
-> Play App Signing devrede olduğunda kullanıcıların telefonuna giden APK,
-> senin upload anahtarınla **değil**, Google'ın kendi *app signing* anahtarıyla
-> yeniden imzalanır. Maps anahtarında yalnızca upload SHA-1'i varsa,
-> **Play'den kuran her kullanıcıda harita boş/gri açılır** — senin cihazında
-> (yandan yükleme) sorunsuz göründüğü için bu hata kolayca gözden kaçar.
->
-> **İlk başarılı AAB yüklemesinden sonra:** Play Console → *App integrity* →
-> *App signing key certificate* → SHA-1'i kopyala → Cloud Console'da Maps
-> anahtarına **ikinci bir Android kısıtlaması** olarak ekle. İki SHA-1 de listede
-> kalmalı (upload = yerel testler, app signing = Play'den kuran kullanıcılar).
+Anahtarda **iki** Android kısıtlaması bulunmalı, ikisi de `com.fullet.app` için:
+
+| SHA-1 | Kim kullanır | Eklendi |
+|---|---|---|
+| `49:7B:9C:C2:DF:7F:94:93:65:F6:B8:0A:35:CB:7F:94:44:CD:67:E2` | **Upload key** — yerel derlemeler, yandan yükleme, `flutter run` | 4 Ağu 2026 |
+| `7C:4E:9E:04:8E:AB:2D:13:CE:A9:47:CA:18:AF:8C:B7:4B:B7:BB:E4` | **App signing key** — Play'den kuran gerçek kullanıcılar | 11 Ağu 2026 |
+
+> ⚠️ **İkisi de listede kalmalı.** Birini silmek ya senin yerel testlerini ya da
+> canlı kullanıcıları kırar. Eski `40:9B:C1:...` değeri geçersizdir.
+
+#### 🔥 Olay kaydı — 11 Ağustos 2026: canlıda boş harita
+
+App signing SHA-1 eksikti ve **Play'den kuran herkeste harita boş/beyaz açıldı.**
+
+Neden geç fark edildi: Play App Signing devredeyken kullanıcının telefonuna giden
+APK, senin upload anahtarınla **değil**, Google'ın app signing anahtarıyla yeniden
+imzalanır. Geliştirme cihazında (yandan yükleme) uygulama upload anahtarıyla imzalı
+olduğu için harita **sorunsuz** görünür — hata yalnızca Play'den kurulumda ortaya
+çıkar. Yayın öncesi cihaz testinin tamamı yandan yüklemeyle yapılmıştı.
+
+**Ders:** Her yayından sonra doğrulama, mutlaka **Play'den kurulan** bir kopyayla
+yapılmalı. Yandan yüklenmiş APK bu sınıf hataları yapısal olarak gösteremez.
+
+**Çözüm:** Yukarıdaki app signing SHA-1 anahtara eklendi. Sunucu tarafı bir ayar
+olduğu için yeni sürüm yayınlamak gerekmedi; değişiklik ~5 dakikada yayıldı.
 
 Kalan alt maddeler:
 
-- [ ] **App signing SHA-1** eklendi (yukarıdaki uyarı — ilk yüklemeden sonra)
-- [ ] API restrictions → yalnızca **Maps SDK for Android**
+- [x] **App signing SHA-1** eklendi — 11 Ağu 2026
+- [x] API restrictions → yalnızca **Maps SDK for Android** (konsolda "1 API" olarak görünüyor)
 - [ ] Kota + bütçe uyarısı ("sıfır maliyet" hedefi için sürpriz fatura riski)
 
 ### 2.3 Gizlilik politikası

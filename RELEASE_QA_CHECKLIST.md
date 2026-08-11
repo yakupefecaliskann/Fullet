@@ -65,3 +65,19 @@ doğru raporlamıyor. Hem **jest navigasyonu** hem **3 düğmeli navigasyon** il
 - Store screenshots gerçek cihazdan alındı.
 - Store açıklamasında fiyatların resmi kaynaklardan geldiği ve tahmini/sahte fiyat gösterilmediği yazıldı.
 - Play icon kaynağı hazır: `fullet_flutter\assets\brand\fullet_play_icon_512.png`
+
+## Yayın SONRASI doğrulama (yandan yükleme ile YAPILAMAZ)
+
+> **Neden ayrı bir blok:** 11 Ağustos 2026'da Play'den kuran herkeste harita boş
+> açıldı, çünkü Maps API anahtarında app signing SHA-1 eksikti. Yayın öncesi tüm
+> cihaz testi yandan yüklemeyle yapılmıştı ve o yolda hata **yapısal olarak
+> görünmez** — sideload edilen APK senin upload anahtarınla imzalıdır, Play'den
+> gelen ise Google'ın app signing anahtarıyla. Detay: `GOOGLE_PLAY_LAUNCH_CHECKLIST.md` §2.2
+
+Yayın canlıya çıktıktan sonra, uygulamayı cihazdan **tamamen kaldır** ve
+**Play Store'dan indir**; ardından:
+
+- Harita karoları geliyor (boş/gri/beyaz değil) — *app signing SHA-1 kontrolü*
+- Google ile giriş çalışıyor — *OAuth istemcisi app signing SHA-1'iyle eşleşiyor mu*
+- İstasyon ve fiyat verisi yükleniyor
+- Yol tarifi butonu harici harita uygulamasını açıyor
