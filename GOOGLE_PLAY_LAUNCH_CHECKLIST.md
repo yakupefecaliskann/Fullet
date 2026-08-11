@@ -165,6 +165,11 @@ Kalan alt maddeler:
 > devam eden Play incelemesini iptal edip yeniden başlatmamak için 1.0.4+7
 > onaylanana kadar bekletiliyor. Ekran görüntüsü caption'ları (§5.5) henüz
 > yapılmadı: yeni görsel üretimi gerekiyor.
+> **11 Ağustos 2026 (kapanış):** 1.0.4+7 onaylandı, Üretim'de Etkin. Cihazdan
+> alınan 6 taze ekran görüntüsü Canva'da §5.5 caption'larıyla 1080×1920
+> vitrin görseline dönüştürüldü, eski 6 görsel silindi, doğru sırayla
+> yüklendi. Kısa/uzun açıklama + 6 ekran görüntüsü tek seferde Google
+> incelemesine gönderildi (1.0.4+7 zaten onaylı olduğu için risksiz).
 
 ### 2.5 Test süreci
 
