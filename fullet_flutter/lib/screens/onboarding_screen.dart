@@ -28,7 +28,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.psychology_rounded,
       title: 'Sana özel akıllı seçim',
       description:
-          'Aracını ekle, Fullet sadece ucuzu değil en mantıklı durağı da bulsun.',
+          'Aracının yakıt tipini gir: LPG\'liysen LPG satan, dizelse dizel '
+          'bulunan en yakın istasyonu önerelim — genel liste yerine sana özel.',
     ),
     _OnboardingPage(
       icon: Icons.verified_rounded,
@@ -62,7 +63,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await AnalyticsService.logOnboardingSkipped(_currentPage);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const ModernMapScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => const ModernMapScreen(openGarageOnStart: true),
+      ),
     );
   }
 

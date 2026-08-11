@@ -1,8 +1,8 @@
 # Ürün Talebi — Onboarding "Atla" garaj adımını da atlıyor
 
 **Tarih:** 2026-08-07 · **Kaynak:** W1 taban ölçüm raporu (`baseline.md`) huni analizi
-**Durum:** Backlog — bir sonraki sürüm döngüsünde ele alınacak (bugün kod tarafına
-dokunulmadı, karar verildi).
+**Durum:** ✅ Kodda uygulandı (2026-08-11) — `onboarding_screen.dart`. Henüz
+**yayınlanmadı**; bir sonraki sürüm döngüsünde derlenip Play'e gönderilmeli.
 
 ## Bulgu
 
@@ -34,6 +34,22 @@ gösterdi:
    garaj adımını görmeye devam etsin.
 2. 2. sayfadaki copy'yi güçlendir — tek cümle yerine somut fayda ("LPG'li aracın
    varsa farklı istasyon önerebiliriz" gibi segment bazlı bir örnek).
+
+## Uygulanan değişiklik (2026-08-11)
+
+1. `_skip()` artık `ModernMapScreen(openGarageOnStart: true)` ile push ediyor
+   (önceden `const ModernMapScreen()` — bayrak hiç set edilmiyordu). Atla artık
+   yalnızca tanıtım sayfalarını geçiyor, garaj adımını atlamıyor.
+2. 2. sayfa copy'si güçlendirildi: tek cümlelik genel ifade yerine somut,
+   segment bazlı fayda örneği (LPG/dizel eşleşmesi).
+
+**Test notu:** `flutter analyze` temiz, mevcut 45 unit testin tamamı geçiyor.
+Bu ekrana özgü otomatik widget testi eklenmedi — `AnalyticsService`,
+`FirebaseAnalytics.instance` üzerinden statik bir singleton'a bağlı ve repoda
+hiç widget-test altyapısı yok; doğru Firebase mock'u (Pigeon kanalı) kurmak bu
+2 satırlık yönlendirme düzeltmesine göre orantısız bir altyapı yatırımı
+olurdu. Bunun yerine değişiklik `flutter analyze` + emülatörde elle
+doğrulanmalı (Atla'ya basıp garaj panelinin açıldığını gözle teyit et).
 
 ## Örneklem uyarısı
 

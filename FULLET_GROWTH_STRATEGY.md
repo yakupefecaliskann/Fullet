@@ -844,8 +844,10 @@ yayınlandı ☑ Play puanı ≥ 4,3 *(bugün: 5,0 — küçük örneklem, izlem
 > öncelikli (★★) kanaldı; "Altın Üçlü" X/Instagram/TikTok'a odaklanma çıkış
 > kriterini karşılar. Baseline analizi ayrıca kritik bir aktivasyon bulgusu ortaya
 > çıkardı (onboarding "Atla" garaj adımını da atlıyor, `garage_vehicle_set` %18,3
-> ile kırmızı alarmda) — bilinçli olarak bu hafta koda dokunulmadı, bulgu
-> `URUN_TALEBI_ONBOARDING_GARAJ.md`'de backlog'a alındı. Detaylar: `baseline.md`.
+> ile kırmızı alarmda) — bulgu `URUN_TALEBI_ONBOARDING_GARAJ.md`'de kayıtlı.
+> **11 Ağustos 2026:** §11.3 huni kuralı gereği (en zayıf basamak önce kapatılır)
+> bu düzeltme W2'nin ASO işinden önce koda alındı — henüz yayınlanmadı, sıradaki
+> sürümle Play'e gönderilecek. Detaylar: `baseline.md`.
 
 ---
 
