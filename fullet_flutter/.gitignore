@@ -45,3 +45,8 @@ app.*.map.json
 # Local QA screenshots
 device_*.png
 fullet_*.png
+
+# Secrets and credentials
+google-services.json
+GoogleService-Info.plist
+key.properties

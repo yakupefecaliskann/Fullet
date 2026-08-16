@@ -49,12 +49,18 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
+    def mapsApiKey = localProperties.getProperty('MAPS_API_KEY')
+    if (mapsApiKey == null) {
+        mapsApiKey = ''
+    }
+
     defaultConfig {
         applicationId "com.fullet.app"
         minSdkVersion 24
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        manifestPlaceholders = [ MAPS_API_KEY: mapsApiKey ]
     }
 
     def keystorePropertiesFile = rootProject.file("key.properties")

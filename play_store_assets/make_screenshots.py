@@ -1,8 +1,8 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-# Yollar betiğin kendi konumuna göre çözülüyor. Eskiden `C:\Users\yefec\Desktop\
-# Fullet\...` sabit yazılıydı; proje ASCII yol sorunu için `C:\Fullet`'e taşınınca
+# Yollar betiğin kendi konumuna göre çözülüyor. Eskiden eski proje dizini
+# sabit yazılıydı; proje ASCII yol sorunu için `C:\Fullet`'e taşınınca
 # (denetim bulgusu B1) betik sessizce hiçbir kaynağı bulamaz olmuştu — kaynak
 # bulunamayınca çerçeve boş basılıyor, hata da vermiyor.
 BASE   = os.path.dirname(os.path.abspath(__file__))

@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "supabase@claude-plugins-official": true,
+    "dart-flutter@dart-flutter": true
+  }
+}

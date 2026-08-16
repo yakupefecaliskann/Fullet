@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const iconB64 = fs.readFileSync(
-  'C:/Users/yefec/AppData/Local/Temp/claude/C--Fullet/11934d7d-72d9-4778-a6bc-9f50fa0452d6/scratchpad/icon_b64.txt',
+  path.join(__dirname, 'icon_b64.txt'),
   'utf8'
 ).trim();
 
