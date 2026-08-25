@@ -1,3 +1,4 @@
+import datetime
 import unittest
 import unittest.mock
 
@@ -94,7 +95,7 @@ class ShellTargetCoverageTest(unittest.TestCase):
 
         calls = []
 
-        def fake_scrape_target(page, city, district, column_map, state):
+        def fake_scrape_target(page, city, district, column_map, state, report_date=None):
             calls.append((city, district))
             result = outcomes[(city, district)].pop(0)
             if isinstance(result, Exception):
@@ -105,7 +106,7 @@ class ShellTargetCoverageTest(unittest.TestCase):
         with unittest.mock.patch.object(shell_bot, "_scrape_target", fake_scrape_target), \
                 unittest.mock.patch.object(shell_bot, "sync_playwright", _FakePlaywright), \
                 unittest.mock.patch.object(shell_bot, "_limited_targets", lambda t: t), \
-                unittest.mock.patch.object(shell_bot, "_settle", lambda page: None):
+                unittest.mock.patch.object(shell_bot, "_settle", lambda *a, **k: None):
             data, stats = shell_bot.scrape_shell_data(targets)
         return data, stats, calls
 
@@ -626,7 +627,7 @@ class ProvinceStatePoisoningTest(unittest.TestCase):
 
         seen = []
 
-        def fake_scrape_target(page, city, district, column_map, state):
+        def fake_scrape_target(page, city, district, column_map, state, report_date=None):
             seen.append((city, district, state.get("city")))
             raise RuntimeError("boom")
 
@@ -724,3 +725,74 @@ class CapacityArithmeticTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShellReportDateTest(unittest.TestCase):
+    """Izgara bir TARİH ARALIĞI döndürür; yalnızca tek gün yazılmalı.
+
+    Regresyon: bot tarih kolonunu (cols[0]) hiç okumuyordu. Aynı ilçe için
+    7 kayıt üretiliyor, hepsi aynı anahtara yazıldığı için son yazan
+    kazanıyordu — fiyat günler arasında salınıyordu. Üstelik varsayılan
+    aralık BUGÜNÜ kapsamadığı için zam günlerinde Shell eski fiyatta kalıyordu
+    (25 Ağu 2026 canlı kanıt: kaynak 74,13 derken kayıt 71,31'di).
+    """
+
+    @staticmethod
+    def _row(date, price):
+        return [date, "ISTANBUL", "KADIKOY"] + [price] * 10
+
+    def test_only_the_requested_day_is_kept(self):
+        rows = [
+            self._row("23.08.2026", "71,310"),
+            self._row("24.08.2026", "72,000"),
+            self._row("25.08.2026", "74,130"),
+        ]
+        kept = shell_bot._rows_for_report_date(
+            rows, "25.08.2026", "ISTANBUL", "KADIKOY"
+        )
+        self.assertEqual([r[0] for r in kept], ["25.08.2026"])
+
+    def test_falls_back_to_newest_day_when_requested_day_absent(self):
+        """Tarih atanamadıysa (JS API değişti vb.) en yeni gün seçilir —
+        eski davranışta olduğu gibi rastgele bir güne düşülmez."""
+        rows = [
+            self._row("18.08.2026", "71,310"),
+            self._row("24.08.2026", "72,490"),
+            self._row("19.08.2026", "71,310"),
+        ]
+        kept = shell_bot._rows_for_report_date(
+            rows, "25.08.2026", "ISTANBUL", "KADIKOY"
+        )
+        self.assertEqual([r[0] for r in kept], ["24.08.2026"])
+
+    def test_newest_day_used_when_no_report_date_requested(self):
+        rows = [
+            self._row("18.08.2026", "71,310"),
+            self._row("24.08.2026", "82,490"),
+        ]
+        kept = shell_bot._rows_for_report_date(rows, None, "ISTANBUL", "KADIKOY")
+        self.assertEqual([r[0] for r in kept], ["24.08.2026"])
+
+    def test_unparsable_date_column_disables_filtering(self):
+        """Kaynak kolon düzenini değiştirirse sessizce YANLIŞ satır yazmaktansa
+        süzme kapatılır; kapsama telemetride görünür kalır."""
+        rows = [
+            self._row("Tarih", "71,310"),
+            self._row("24.08.2026", "72,490"),
+        ]
+        kept = shell_bot._rows_for_report_date(
+            rows, "25.08.2026", "ISTANBUL", "KADIKOY"
+        )
+        self.assertEqual(kept, rows)
+
+    def test_empty_input_is_passed_through(self):
+        self.assertEqual(
+            shell_bot._rows_for_report_date([], "25.08.2026", "IL", "ILCE"), []
+        )
+
+    def test_report_date_uses_turkey_time_not_utc(self):
+        """00:20 TRT koşusu UTC'de hâlâ dündür; tarayıcı saat dilimine
+        (CI'da UTC) güvenilemez."""
+        self.assertEqual(shell_bot.TURKEY_TZ.utcoffset(None), datetime.timedelta(hours=3))
+        today = shell_bot._today_tr()
+        self.assertEqual(today.tzinfo.utcoffset(None), datetime.timedelta(hours=3))

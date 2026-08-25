@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from playwright.sync_api import sync_playwright
 
@@ -28,7 +28,17 @@ TARGET_LOCATIONS = [
 #   run_all_bots shell timeout = 2100 sn (bütçe sonrası kaydetme payı ~400 sn)
 # Bütçe dolarsa kapsama DÜŞER (targets_total=planned) ve koşu `degraded`
 # olur — bu kasıtlı: eksik veri görünür kalmalı.
-DEFAULT_MAX_TARGETS_PER_RUN = 250
+#
+# 25 Ağu 2026 — 280'e çıkarıldı. Ölçülen canlı envanter 443 hedef (92
+# öncelikli + 351 diğer). 250'de diğerlere koşu başına 158 slot düşüyordu →
+# tam tur 3 koşu = **18 saat**, yani FRESH_MAX_HOURS (12) aşılıyor ve
+# öncelikli olmayan ilçeler tasarım gereği bayatlıyordu. Canlı kanıt:
+# bayat/bilinmeyen 695 fiyat satırının TAMAMI Shell'di.
+#   280'de: 92 öncelikli + 188 slot → ceil(351/188) = 2 koşu = 12 saat.
+#   Süre: 280 × 4,75 ≈ 1330 sn < 1700 sn bütçe (pay ~370 sn).
+# Ayrıca rapor tarihi düzeltmesiyle hedef başına 7 değil 1 satır yazılıyor,
+# yani kaydetme yükü ~7 kat düştü — bu bütçeyi ek olarak rahatlatıyor.
+DEFAULT_MAX_TARGETS_PER_RUN = 280
 
 LOCATION_FIXES = {
     ("BUYUKKARISTIRAN", "LULEBURGAZ"): ("KIRKLARELI", "LULEBURGAZ"),
@@ -409,6 +419,119 @@ def _select_verified(page, combo, button_selector, list_selector, value):
     )
 
 
+# --- Rapor tarihi -----------------------------------------------------------
+#
+# History.aspx bir GEÇMİŞ sorgu ekranıdır: varsayılan olarak "son 7 gün, bitiş
+# DÜN" aralığına açılır (canlı ölçüm 25.08.2026: bdate=18.08, edate=24.08).
+# Eski kod bu aralığı hiç değiştirmiyor ve dönen satırların TARİH KOLONUNU
+# (cols[0]) hiç okumuyordu. Sonuçları:
+#
+#   1. Her ilçe için 7 ayrı kayıt üretiliyordu; hepsi aynı (marka, il, ilçe)
+#      anahtarına yazıldığı için SON YAZAN KAZANIYOR — yani fiyat, kaynağın
+#      satır sırasına göre günler arasında salınıyordu.
+#   2. Aralık BUGÜNÜ hiç kapsamadığı için zam günlerinde Shell tek başına
+#      eski fiyatta kalıyordu. Canlı kanıt (25.08.2026): diğer tüm markalar
+#      24.08 21:49'da ~2,7 TL zam aldı; Shell'in kaydı 71,31'de kaldı, oysa
+#      kaynağın 25.08 satırı 74,13 diyordu. Fullet Shell'i her yerde "en ucuz"
+#      göstermeye başladı — kullanıcı şikayetlerinin doğrudan sebebi budur.
+#
+# Çözüm iki katmanlı: (a) tarih aralığını BUGÜNE çek, (b) buna rağmen dönen
+# satırlar arasından yalnızca beklenen günü yaz. (b) tek başına da salınımı
+# durdurur — (a) çalışmasa bile bot en güncel satırı seçer.
+TURKEY_TZ = timezone(timedelta(hours=3))
+REPORT_DATE_FIELDS = ("cb_all_de_bdate", "cb_all_de_edate")
+_DATE_FMT = "%d.%m.%Y"
+
+_JS_SET_REPORT_DATE = """(p) => {
+    const d = new Date(p.year, p.month - 1, p.day);
+    const out = {};
+    for (const id of p.ids) {
+        const c = window.ASPxClientControl.GetControlCollection().GetByName(id);
+        if (!c) { out[id] = null; continue; }
+        c.SetDate(d);
+        out[id] = c.GetText();
+    }
+    return out;
+}"""
+
+
+def _today_tr():
+    """Kaynak site Türkiye yerel tarihine göre raporlar. Tarayıcının (CI'da
+    UTC) saat dilimine güvenilemez: 00:20 TRT koşusu UTC'de hâlâ dünüdür."""
+    return datetime.now(TURKEY_TZ)
+
+
+def _set_report_date(page, when=None):
+    """Rapor aralığını tek bir güne (bugüne) sabitler.
+
+    Döner: başarıyla oturan "dd.mm.yyyy" metni, ya da None. None dönmesi
+    ölümcül değildir — satır süzgeci (`_rows_for_report_date`) yine de en
+    güncel günü seçer, yalnızca bir gün geriden gelinir.
+    """
+    when = when or _today_tr()
+    target = when.strftime(_DATE_FMT)
+    try:
+        page.evaluate(
+            _JS_SET_REPORT_DATE,
+            {
+                "ids": list(REPORT_DATE_FIELDS),
+                "year": when.year,
+                "month": when.month,
+                "day": when.day,
+            },
+        )
+    except Exception as exc:
+        print(f"[WARN] Shell rapor tarihi ayarlanamadı ({exc}); varsayılan aralık kullanılacak.")
+        return None
+
+    for field in REPORT_DATE_FIELDS:
+        try:
+            value = page.locator(f"#{field}_I").input_value()
+        except Exception as exc:
+            print(f"[WARN] Shell {field} okunamadı ({exc}).")
+            return None
+        if value != target:
+            print(f"[WARN] Shell {field} {value!r} kaldı, beklenen {target!r}.")
+            return None
+    print(f"[INFO] Shell rapor tarihi {target} olarak sabitlendi.")
+    return target
+
+
+def _parse_grid_date(value):
+    try:
+        return datetime.strptime((value or "").strip(), _DATE_FMT)
+    except ValueError:
+        return None
+
+
+def _rows_for_report_date(rows, report_date, city, district):
+    """Izgaradan yalnızca TEK bir güne ait satırları döner.
+
+    Beklenen gün varsa o, yoksa ızgaradaki EN YENİ gün seçilir. Tarihi
+    okunamayan satır varsa (kaynak kolon düzenini değiştirmiştir) süzme
+    yapılmaz — sessizce yanlış satır yazmaktansa eski davranışa düşülür.
+    """
+    if not rows:
+        return rows
+    dated = [(row, _parse_grid_date(row[0])) for row in rows]
+    if any(parsed is None for _row, parsed in dated):
+        print(f"[WARN] Shell {city}/{district}: tarih kolonu okunamadı, süzme atlandı.")
+        return rows
+
+    if report_date:
+        exact = [row for row, parsed in dated if row[0].strip() == report_date]
+        if exact:
+            return exact
+
+    newest = max(parsed for _row, parsed in dated)
+    if report_date:
+        print(
+            f"[WARN] Shell {city}/{district}: {report_date} satırı yok; "
+            f"en yeni {newest.strftime(_DATE_FMT)} kullanılıyor."
+        )
+    return [row for row, parsed in dated if parsed == newest]
+
+
 GRID_ROW_SELECTOR = "#cb_all_grdPrices_DXMainTable tr.dxgvDataRow"
 
 _JS_GRID_FIRST_CITY = """(selector) => {
@@ -458,7 +581,7 @@ def _wait_county_cascade(page, previous_items, timeout=COUNTY_CASCADE_TIMEOUT_MS
     return False
 
 
-def _scrape_target(page, city, district, column_map, state):
+def _scrape_target(page, city, district, column_map, state, report_date=None):
     """Tek bir il/ilçe hedefini okur. Döner: (satırlar, column_map).
 
     `state` çağıran tarafından tutulan mutable sözlüktür: {"city": <seçili il>}.
@@ -521,12 +644,20 @@ def _scrape_target(page, city, district, column_map, state):
 
     rows = page.locator(GRID_ROW_SELECTOR).all()
     print(f"[INFO] {len(rows)} Shell rows found.")
+    # Izgara bir TARİH ARALIĞI döndürür. Tek güne indirgemeden yazmak, aynı
+    # (marka, il, ilçe) anahtarına 7 kez yazıp "son yazan kazanır" durumu
+    # yaratıyordu (bkz. REPORT_DATE_FIELDS başlığındaki not).
+    all_cols = [row.locator("td").all_inner_texts() for row in rows]
+    all_cols = [cols for cols in all_cols if len(cols) >= 13]
+    dropped_dates = len(all_cols)
+    all_cols = _rows_for_report_date(all_cols, report_date, city, district)
+    dropped_dates -= len(all_cols)
+    if dropped_dates:
+        print(f"[INFO] {city}/{district}: {dropped_dates} eski tarihli satır atlandı.")
+
     scraped = []
     mismatched = 0
-    for row in rows:
-        cols = row.locator("td").all_inner_texts()
-        if len(cols) < 13:
-            continue
+    for cols in all_cols:
         # GÜVENLİK AĞI: grid'in kendi İl kolonunu (cols[1]) seçtiğimiz ille
         # doğrula. Cascade gecikirse yanlış ilin satırları döner ve eskiden
         # bunlar BİZİM etiketimizle ("il": city) yazılıyordu — sessiz veri
@@ -588,6 +719,8 @@ def scrape_shell_data(target_locations=None):
         page = browser.new_page(viewport={"width": 1280, "height": 1600})
         try:
             page.goto("https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000)
+            _settle(page, timeout=GRID_TIMEOUT_MS)
+            report_date = _set_report_date(page)
             for loc in target_locations:
                 if time.monotonic() >= deadline:
                     stats["budget_exhausted"] = True
@@ -605,7 +738,7 @@ def scrape_shell_data(target_locations=None):
                 for attempt in range(TARGET_MAX_ATTEMPTS):
                     try:
                         rows, column_map = _scrape_target(
-                            page, city, district, column_map, state
+                            page, city, district, column_map, state, report_date
                         )
                         scraped_data.extend(rows)
                         stats["ok"] += 1
