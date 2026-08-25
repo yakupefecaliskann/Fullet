@@ -40,11 +40,20 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    # shell_bot tek başına 2100 sn'ye (35 dk) kadar sürebilir (250 hedef,
+    # shell_bot tek başına 2100 sn'ye (35 dk) kadar sürebilir (280 hedef,
     # bkz. shell_bot.DEFAULT_MAX_TARGETS_PER_RUN). Diğer fiyat botları API
     # tabanlı ve toplamda birkaç dakika. 45 dk bu senaryoda çok dardı —
     # job timeout'u bota çarparsa telemetri hiç yazılamaz.
-    timeout-minutes: 55
+    #
+    # 25 Ağu 2026 — 55'ten 75'e çıkarıldı. 55 dk, shell_bot BAŞARISIZ olup
+    # yeniden denendiğinde yetmiyordu: run_all_bots BOT_MAX_RETRIES=1 ile
+    # ikinci bir tam kazıma başlatıyor, 2 x 1700 sn bütçe + backoff toplamı
+    # 55 dk'yı aşıyor ve job timeout'u ORKESTRATÖRÜ ÖLDÜRÜYOR. Sonuç en kötü
+    # senaryo: ikinci denemenin bot_runs kaydı hiç yazılmıyor, koşu
+    # "cancelled" görünüyor ve başarısızlığın sebebi telemetride kayboluyor
+    # (canlı örnek: run 32838169049). Timeout, retry'lı en kötü hâli
+    # kapsamalı - yoksa yalnızca en çok bilgiye ihtiyaç duyulan anda susar.
+    timeout-minutes: 75
     steps:
       - name: Checkout
         uses: actions/checkout@v4

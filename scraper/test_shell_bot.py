@@ -796,3 +796,74 @@ class ShellReportDateTest(unittest.TestCase):
         self.assertEqual(shell_bot.TURKEY_TZ.utcoffset(None), datetime.timedelta(hours=3))
         today = shell_bot._today_tr()
         self.assertEqual(today.tzinfo.utcoffset(None), datetime.timedelta(hours=3))
+
+
+class ShellReportWindowTest(unittest.TestCase):
+    """Aralık sorgulanmalı, tek gün DEĞİL.
+
+    Regresyon: tarih tek güne sabitlenince (bdate=edate=bugün) kaynak o günü
+    döndürmediğinde ızgara tamamen boş kalıyor ve geri düşecek satır olmuyor.
+    25 Ağu 2026 canlı koşusunda CI'da 280 hedefin hepsinde "0 Shell rows
+    found", scraped=0, ardından retry ve 55 dakikalık job timeout'u.
+    Aralık sorgulamak hem bugünü yakalar hem de kaynak bugünü vermediğinde
+    en güncel satırla devam eder.
+    """
+
+    class _FakeLocator:
+        def __init__(self, value):
+            self._value = value
+
+        def input_value(self):
+            return self._value
+
+    class _FakePage:
+        def __init__(self, reject_end=False):
+            self.payload = None
+            self.values = {}
+            # Kontrolün değeri kabul ETMEMESİ senaryosu (site tarihi geri
+            # alırsa gerçekte olan budur).
+            self.reject_end = reject_end
+
+        def evaluate(self, _script, payload):
+            self.payload = payload
+            begin = datetime.date(payload["by"], payload["bm"], payload["bd"])
+            end = datetime.date(payload["ey"], payload["em"], payload["ed"])
+            self.values[f"#{payload['beginId']}_I"] = begin.strftime("%d.%m.%Y")
+            self.values[f"#{payload['endId']}_I"] = (
+                (end - datetime.timedelta(days=1)).strftime("%d.%m.%Y")
+                if self.reject_end
+                else end.strftime("%d.%m.%Y")
+            )
+            return None
+
+        def locator(self, selector):
+            return ShellReportWindowTest._FakeLocator(self.values[selector])
+
+    def test_window_ends_today_and_begins_earlier(self):
+        page = self._FakePage()
+        when = datetime.datetime(2026, 8, 25, 13, 0, tzinfo=shell_bot.TURKEY_TZ)
+        result = shell_bot._set_report_window(page, when=when)
+
+        self.assertEqual(result, "25.08.2026")
+        begin = datetime.date(page.payload["by"], page.payload["bm"], page.payload["bd"])
+        end = datetime.date(page.payload["ey"], page.payload["em"], page.payload["ed"])
+        self.assertEqual(end, datetime.date(2026, 8, 25), "bitiş BUGÜN olmalı")
+        self.assertLess(begin, end, "tek gün değil, aralık sorgulanmalı")
+        self.assertEqual((end - begin).days, shell_bot.REPORT_WINDOW_DAYS)
+
+    def test_window_is_never_a_single_day(self):
+        """Bu kural bir kez ihlal edildi ve üretimde sıfır kayda yol açtı."""
+        self.assertGreater(shell_bot.REPORT_WINDOW_DAYS, 0)
+
+    def test_returns_none_when_control_does_not_take_the_value(self):
+        """Tarih oturmadıysa None dönmeli; süzgeç o zaman en yeni güne düşer."""
+        page = self._FakePage(reject_end=True)
+        when = datetime.datetime(2026, 8, 25, tzinfo=shell_bot.TURKEY_TZ)
+        self.assertIsNone(shell_bot._set_report_window(page, when=when))
+
+    def test_month_boundary_does_not_produce_invalid_date(self):
+        page = self._FakePage()
+        when = datetime.datetime(2026, 3, 3, tzinfo=shell_bot.TURKEY_TZ)
+        self.assertEqual(shell_bot._set_report_window(page, when=when), "03.03.2026")
+        begin = datetime.date(page.payload["by"], page.payload["bm"], page.payload["bd"])
+        self.assertEqual(begin, datetime.date(2026, 2, 25))
