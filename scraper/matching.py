@@ -294,15 +294,24 @@ def station_coordinates(item: dict[str, Any]) -> tuple[float, float] | None:
 
 def _existing_station_inventory_indexes(
     brands: Iterable[str],
-) -> tuple[dict[tuple[str, str, str, str], str], StationProximityIndex]:
-    """(isim tabanlı indeks, konum tabanlı yakınlık indeksi).
+) -> tuple[
+    dict[tuple[str, str, str, str], str],
+    StationProximityIndex,
+    dict[str, tuple[str, str]],
+]:
+    """(isim tabanlı indeks, konum tabanlı yakınlık indeksi, id -> (il, ilçe)).
 
     İkincisi eskiden `round(coord, 4)` kovalı bir dict'ti; 11 m'lik kova aynı
     istasyonun 12 m farklı iki kaydını ayrı sanıyordu ve canlıda 100 kopya
     çifti üretmişti (bkz. StationProximityIndex).
+
+    Üçüncüsü yazma yolunun "boş değerle üzerine yazma" korumasını besler:
+    envanter beslemesi ilçeyi çözemediğinde bilinen ilçe SİLİNMEMELİ
+    (bkz. _bulk_write_station_inventory).
     """
     assert supabase is not None
     existing_by_key: dict[tuple[str, str, str, str], str] = {}
+    existing_location: dict[str, tuple[str, str]] = {}
     proximity = StationProximityIndex()
     for brand in sorted(set(brands)):
         start = 0
@@ -325,13 +334,17 @@ def _existing_station_inventory_indexes(
                     normalize_city(row.get("ilce")),
                 )
                 existing_by_key.setdefault(key, row["id"])
+                existing_location[row["id"]] = (
+                    clean_text(row.get("il")),
+                    clean_text(row.get("ilce")),
+                )
                 coordinates = station_coordinates(row)
                 if coordinates is not None:
                     proximity.add(row.get("marka"), coordinates[0], coordinates[1], row["id"])
             if len(rows) < 1000:
                 break
             start += 1000
-    return existing_by_key, proximity
+    return existing_by_key, proximity, existing_location
 
 def _regional_targets_from_loaded(
     item: dict[str, Any],

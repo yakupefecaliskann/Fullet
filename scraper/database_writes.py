@@ -207,7 +207,7 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
         deduped[dedupe_key] = item
 
     now = datetime.now(timezone.utc).isoformat()
-    existing_by_key, existing_proximity = _existing_station_inventory_indexes(
+    existing_by_key, existing_proximity, existing_location = _existing_station_inventory_indexes(
         item["marka"] for item in deduped.values()
     )
     updates: list[dict[str, Any]] = []
@@ -246,6 +246,18 @@ def _bulk_write_station_inventory(items: list[dict[str, Any]]) -> int:
                 item["marka"], coordinates[0], coordinates[1]
             )
         if station_id:
+            # BOŞ DEĞER BİLİNENİ SİLMEZ. Envanter beslemesi il/ilçeyi her
+            # istasyon için çözemiyor: Shell'in merkez ilçe adresleri yalnızca
+            # il adını taşıyor ("..., 02000, ADIYAMAN, TR"). Bu satırları
+            # koşulsuz yazmak, fiyat botunun doğru yazdığı ilçeyi siler ve
+            # istasyon ilçe bazlı fiyat eşleşmesinden düşer (canlıda 4 kayıt,
+            # 25.08.2026). Yazma yolu ekleme/güncelleme yapar, ALAN SİLMEZ.
+            mevcut_il, mevcut_ilce = existing_location.get(station_id, ("", ""))
+            if not clean_text(payload["il"]) and mevcut_il:
+                payload["il"] = mevcut_il
+            if not clean_text(payload["ilce"]) and mevcut_ilce:
+                payload["ilce"] = mevcut_ilce
+
             # `visibility_status` KASTEN yazılmıyor. Eskiden burada koşulsuz
             # "low_priority" vardı ve envanter botu her koştuğunda dokunduğu
             # her istasyonu — fiyatı taze olsa bile — `visible`'dan düşürüyordu

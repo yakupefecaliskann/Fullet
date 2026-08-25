@@ -326,6 +326,66 @@ class BackendUtilsTest(unittest.TestCase):
         self.assertNotIn("visibility_status", updated_row)
         self.assertTrue(updated_row["aktif"])
 
+    @unittest.mock.patch('matching.supabase')
+    @unittest.mock.patch('database_writes.supabase')
+    def test_bos_ilce_bilinen_ilceyi_silmez(self, mock_dbw, mock_match):
+        """Envanter beslemesi ilçeyi çözemezse bilinen ilçe KORUNUR.
+
+        Shell'in merkez ilçe adresleri yalnızca il adını taşıyor
+        ("..., 02000, ADIYAMAN, TR"). Bu satırı koşulsuz yazmak, fiyat botunun
+        doğru yazdığı ilçeyi siler ve istasyon ilçe bazlı fiyat eşleşmesinden
+        düşer. Canlıda 4 kayıt bu durumdaydı (25.08.2026).
+
+        Yazma yolu ekler ve günceller — ALAN SİLMEZ.
+        """
+        from database_writes import _bulk_write_station_inventory
+
+        mock_table = unittest.mock.MagicMock()
+        mock_dbw.table.return_value = mock_table
+        mock_match.table.return_value.select.return_value.eq.return_value \
+            .order.return_value.range.return_value.execute.return_value.data = [{
+                "id": "mevcut-id", "marka": "Shell", "isim": "Test",
+                "il": "MALATYA", "ilce": "YESILYURT", "enlem": 38.35, "boylam": 38.30,
+            }]
+
+        _bulk_write_station_inventory([{
+            "marka": "Shell", "isim": "Test", "il": "MALATYA", "ilce": "",
+            "enlem": 38.35, "boylam": 38.30, "veri_kaynagi": "test",
+        }])
+
+        mock_table.upsert.assert_called_once()
+        updated_row = mock_table.upsert.call_args[0][0][0]
+        self.assertEqual(updated_row["ilce"], "YESILYURT")
+        self.assertEqual(updated_row["il"], "MALATYA")
+
+    @unittest.mock.patch('matching.supabase')
+    @unittest.mock.patch('database_writes.supabase')
+    def test_dolu_ilce_yanlis_ilceyi_DUZELTIR(self, mock_dbw, mock_match):
+        """Koruma yalnızca BOŞ değere karşıdır; düzeltmeyi engellemez.
+
+        Canlıda 42 Shell istasyonu yanlış ildeydi; bu yazma yolu onları
+        düzeltebilmeli, yoksa hata kalıcı olurdu.
+        """
+        from database_writes import _bulk_write_station_inventory
+
+        mock_table = unittest.mock.MagicMock()
+        mock_dbw.table.return_value = mock_table
+        mock_match.table.return_value.select.return_value.eq.return_value \
+            .order.return_value.range.return_value.execute.return_value.data = [{
+                "id": "mevcut-id", "marka": "Shell", "isim": "Test",
+                "il": "ANKARA", "ilce": "", "enlem": 40.9, "boylam": 29.2,
+            }]
+
+        _bulk_write_station_inventory([{
+            "marka": "Shell", "isim": "Test", "il": "ISTANBUL", "ilce": "KARTAL",
+            "enlem": 40.9, "boylam": 29.2, "veri_kaynagi": "test",
+        }])
+
+        mock_table.upsert.assert_called_once()
+        updated_row = mock_table.upsert.call_args[0][0][0]
+        self.assertEqual(updated_row["il"], "ISTANBUL")
+        self.assertEqual(updated_row["ilce"], "KARTAL")
+
 
 class ProvinceSplitTest(unittest.TestCase):
     """`il` kolonu "İLÇE/İL" birleşik yazılmış 20 istasyon vardı ve
