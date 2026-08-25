@@ -1,9 +1,15 @@
 # Fullet — Kod Denetimi Arşivi (KAPALI)
 
-Bu dosya iki **kapatılmış** denetim raporunun birleşimidir. İkisi de tarihsel
+Bu dosya üç **kapatılmış** denetim raporunun birleşimidir. Üçü de tarihsel
 kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır. Aktif bir
 iş listesi değildir — güncel yayın durumu için `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`,
 her sürümde tekrarlanan kontroller için `RELEASE_QA_CHECKLIST.md`.
+
+> **Bölüm C'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır hatayla
+> kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını buldu.
+> Sebebi bir regresyon değil, **denetim yönteminin kör noktasıydı**: kaynak
+> sitenin hangi *dönemi* döndürdüğü hiç sorgulanmamıştı. C bölümünün sonundaki
+> kontrol maddesi bu yüzden var.
 
 **Neden siliniyor değil de saklanıyor:** kararların *gerekçesi* burada. Örneğin
 `win32` bağımlılığının neden ölü olmadığı, `_fetchStationsLegacy` /
@@ -15,9 +21,11 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 |---|---|---|---|
 | **A** | `FULLET_PRE_RELEASE_DENETIMI.md` | Yayın öncesi kod denetimi — 22 bulgu (B1, B2, H1–H4, M1–M5, L1–L6) | 4 Ağustos 2026 |
 | **B** | `FULLET_KOD_SAGLIGI_YOL_HARITASI.md` | Tam kod sağlığı yol haritası — Faz 0–3 | 3 Ağustos 2026 |
+| **C** | *(doğrudan bu dosyaya yazıldı)* | Uçtan uca denetim — "fiyatlar yanlış" şikâyetlerinin kök nedeni (K1–K2, Y1, O1–O3, D1–D3) | 25 Ağustos 2026 |
 
-> Her iki bölümün metni kaynak dosyalardan **birebir** taşınmıştır; özetlenmemiş
-> veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi bırakılmıştır.
+> A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
+> özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
+> bırakılmıştır. C bölümü doğrudan bu dosyaya yazılmıştır.
 
 ---
 ---
@@ -1724,3 +1732,226 @@ Testler: **129 Python** (CI koşumu) + **27 Flutter**, hepsi yeşil.
    kararına uyuldu, dokunulmadı.
 4. **`_yedek_20260803_*` tabloları.** Silinen her şey geri alınabilir olsun
    diye duruyor. Bir süre sonra düşürülebilir.
+
+---
+---
+
+# ═══ BÖLÜM C ═══ Uçtan Uca Denetim — "Fiyatlar yanlış" şikâyetleri
+
+**Tarih:** 25 Ağustos 2026
+**Tetikleyici:** Kullanıcılardan gelen "fiyatlar yanlış / güncellenmiyor" şikâyetleri
+**Kapsam:** `scraper/` · `fullet_flutter/` · `.github/workflows/` · Supabase (canlı) · `admin_panel/`
+**Denetim anındaki sürüm:** 1.0.4+7 (11 Ağustos'ta yayınlandı)
+**Önceki denetim:** 4 Ağustos 2026 (Bölüm A/B) — sıfır açık bulguyla kapanmıştı
+
+---
+
+## HÜKÜM: Kök neden bulundu ve düzeltildi
+
+Şikâyetlerin sebebi bir regresyon **değildi**. Depo 16 Ağustos'tan beri hiç
+değişmedi ve o commit (`7b8e862`) yalnızca sırları temizledi. Hata baştan beri
+oradaydı; Ağustos'taki sık zamlar onu görünür yaptı.
+
+**`shell_bot.py`, Shell'in `History.aspx` sayfasını sitenin VARSAYILAN tarih
+aralığıyla okuyordu: son 7 gün, bitiş DÜN.** Bot bu aralığı hiç ayarlamıyor ve
+dönen satırların **tarih kolonunu (`cols[0]`) hiç okumuyordu.**
+
+---
+
+## Kök neden — C-K1
+
+### Nasıl ortaya çıktı
+
+Ölçüm (25.08.2026, canlı sayfa): `bdate=18.08.2026`, `edate=24.08.2026`.
+Bugün hiç kapsanmıyor. Izgara her ilçe için 7 satır döndürüyor.
+
+Bunun iki ayrı sonucu vardı:
+
+1. **Yedi satırın yedisi de yazılıyordu.** Hepsi aynı `(marka, il, ilçe)`
+   anahtarına gittiği için **son yazan kazanıyordu** — fiyat, kaynağın satır
+   sırasına göre günler arasında salınıyordu. Kadıköy'de motorin pencere içinde
+   79,57'den 82,49'a çıkmıştı; hangisinin kalacağı yazma sırasına kalmıştı.
+2. **Zam günlerinde Shell donuyordu.** 24.08 21:49'da bütün markalar zam aldı
+   (PO 72,79→75,51 · Opet 72,77→75,49 · Aytemiz 72,76→75,48 · TP 73,20→76,06 ·
+   BP 72,24→74,96). Shell almadı, çünkü pencere 25.08'i içermiyordu.
+
+### Kesin kanıt
+
+Gerçek tarayıcı oturumunda tarih bugüne çekildiğinde kaynak **tek satır**
+döndürdü:
+
+| İlçe | Veritabanında yazan | Kaynağın 25.08 satırı | Fark |
+|---|---|---|---|
+| İSTANBUL / KADIKÖY | 71,31 | **74,13** | 2,82 ₺/lt |
+| ANKARA / ÇANKAYA | 72,43 | **75,25** | 2,82 ₺/lt |
+
+Doğrulayıcı sinyal — `fresh` kayıtlarda Kurşunsuz 95 dağılımı:
+
+| Marka | min | medyan | maks |
+|---|---|---|---|
+| **Shell** | **71,31** | **72,81** | **74,05** |
+| BP | 74,11 | 74,96 | 76,85 |
+| Opet | 74,11 | 75,83 | 76,84 |
+| TotalEnergies | 74,13 | 75,84 | 76,89 |
+| Petrol Ofisi | 74,11 | 75,90 | 76,92 |
+| Türkiye Petrolleri | 74,09 | 75,92 | 76,90 |
+| Aytemiz | 74,10 | 75,95 | 76,80 |
+
+**Shell'in en yükseği (74,05) diğer altı markanın en düşüğünün (74,09) altında —
+örtüşme sıfır.** Gerçek bir fiyat farkı böyle görünmez; bu, farklı bir günün
+fiyatıdır.
+
+### Neden önyüz yakalayamadı
+
+Kayıt `price_status='fresh'` damgalı yazıldığı için bayatlık uyarısı hiç
+tetiklenmiyor. `smart_station_service` önce fiyata bakıyor, tazeliği yalnızca
+**eşitlik** durumunda tie-breaker olarak kullanıyor. Yani Flutter doğru
+çalışırken yanlış veriyi sadakatle gösteriyordu ve Fullet Shell'i neredeyse her
+yerde "en ucuz" işaretliyordu. **Önyüzde çözülebilecek bir sorun değildi.**
+
+### Düzeltme
+
+- `_set_report_date()` — rapor aralığını DevExpress istemci API'siyle bugüne
+  sabitler. Tarih **Türkiye saatinden** üretilir; tarayıcının (CI'da UTC) saat
+  dilimine güvenilemez, 00:20 TRT koşusu UTC'de hâlâ dündür.
+- `_rows_for_report_date()` — ızgaradan yalnızca tek günü geçirir. Beklenen gün
+  yoksa **en yeni** güne düşer; tarih kolonu okunamazsa süzme kapatılır
+  (sessizce yanlış satır yazmaktansa eski davranış).
+
+İkinci katman tek başına da salınımı durdurur: birincisi çalışmasa bile bot en
+güncel satırı seçer. 6 regresyon testi: `test_shell_bot.ShellReportDateTest`.
+
+---
+
+## Diğer bulgular
+
+| # | Önem | Bulgu | Durum |
+|---|---|---|---|
+| **C-K1** | Kritik | Shell rapor tarihi ayarlanmıyor, tarih kolonu okunmuyor | ✅ Düzeltildi |
+| **C-K2** | Kritik | Silinen Maps + Firebase anahtarları public git geçmişinden geri alınabiliyor | ⚠️ Konsol denetimi bekliyor |
+| **C-Y1** | Yüksek | Shell rotasyonu 18 saat, tazelik eşiği 12 saat | ✅ Düzeltildi |
+| **C-O1** | Orta | Eski LPG kolon hatasından kalan 413 fosil satır | ✅ Temizlendi |
+| **C-O2** | Orta | Maps anahtarı yoksa release sessizce boş haritayla derleniyor | ✅ Düzeltildi |
+| **C-O3** | Orta | `firebase_options.dart` anahtarı hâlâ gömülü | ⚠️ Kısıt doğrulaması bekliyor |
+| **C-D1** | Düşük | Bölgesel botlarda döngü ortası hata kısmi veriyi başarı gösteriyor | 📋 Açık |
+| **C-D2** | Düşük | BP kaynağı 302 ile yeni adrese taşınmış | 📋 Açık |
+| **C-D3** | Düşük | Denetim arşivinde tarih/dönem kör noktası | ✅ Kontrol maddesi eklendi |
+
+### C-Y1 — Rotasyon aritmetiği
+
+Bölüm B "Shell hedef kapsaması hâlâ eksik" diye açık bırakmıştı; sayısı buydu:
+443 hedefin 92'si öncelikli, koşu başına 250 hedefle diğerlerine 158 slot →
+tam tur **3 koşu = 18 saat**. `FRESH_MAX_HOURS` 12 olduğu için öncelikli olmayan
+ilçeler **tasarım gereği** bayatlıyordu. Canlı kanıt: bayat/bilinmeyen 695 fiyat
+satırının **tamamı Shell'di.**
+
+`DEFAULT_MAX_TARGETS_PER_RUN` 250 → **280**: 92 + 188 slot → `ceil(351/188)` =
+**2 koşu = 12 saat**. Süre 280 × 4,75 ≈ 1330 sn < 1700 sn bütçe. Tarih
+düzeltmesi hedef başına yazılan satırı 7'den 1'e indirdiği için kaydetme yükü
+ayrıca ~7 kat düştü.
+
+### C-O1 — Fosil LPG satırları
+
+S1-1'de fuel oil (TL/kg) fiyatı LPG (TL/lt) diye yazılmıştı. Kazıyıcı
+düzeltilmiş ama **yazılmış satırlar temizlenmemişti**: 413 Shell LPG satırı
+`unknown` durumunda, 37,41–44,81 ₺ (piyasa LPG medyanı 34,04), en eskisi 16
+Mayıs. Tazelenmiyorlardı çünkü kaynakta o ilçelerin Otogaz kolonu `-`.
+Kullanıcıya görünmüyorlardı (`FuelPrice.isDisplayable` `unknown`'ı gizler) ama
+admin panel ve analitik sayılarını kirletiyorlardı.
+Temizleyici: `scraper/repair_shell_lpg_fossils.py` (varsayılan kuru çalıştırma).
+
+### C-K2 / C-O3 — Anahtar sızıntısı, doğru okuması
+
+`7b8e862` anahtarları HEAD'den kaldırdı ama depo **public**;
+`git show 7b8e862^:…` ile hem Maps anahtarı hem `google-services.json` içeriği
+hâlâ okunuyor. Sonraki commit'te silmek yayımlanmış bir sırrı geri almaz.
+
+**Ama panik rotasyonu yanlış hamle:**
+
+- **Maps anahtarı** sırla değil **kısıtlamayla** korunur: her istekte paket adı
+  + imza sertifikası SHA-1'i gider. `8a80921` ("Canlida bos harita olayi") tam
+  da bu kısıtlamayı yapılandırmış. Kısıt yerindeyse sızıntı düşük risklidir.
+- **Firebase istemci anahtarları Google tarafından tasarımı gereği açıktır** —
+  sır değil, tanımlayıcıdır; zaten her APK'dan çıkarılabilir. Firebase'i koruyan
+  Security Rules ve App Check'tir. **Döndürmek risk azaltmaz, sadece kırar.**
+
+**Kritik operasyon notu:** Canlıdaki 1.0.4+7, Maps anahtarını manifest'inde
+**gömülü** taşıyor (`6bea46c` doğrulandı). Anahtar sunucuda iptal edilirse
+güncellemeyen her kullanıcının haritası **anında** bozulur. Rotasyon gerekirse
+sıra şudur ve tersi asla yapılmaz:
+
+> yeni anahtar → yeni release Play'de → benimseme beklenir (2–4 hafta) →
+> **ancak ondan sonra** eski anahtar silinir
+
+---
+
+## Şikâyetin kaynağı OLMAYANLAR (canlıya karşı ölçüldü)
+
+Teşhisin yarısı, nerede olmadığını bilmektir:
+
+| Alan | Ölçüm |
+|---|---|
+| Altı fiyat botu | Opet 82, PO 82, BP 82, Aytemiz 82, Total 944, TP 907 kayıt — **DOM kırılması yok** |
+| GitHub Actions | Cron'lar 6 saatte bir dönüyor, secret doğrulaması ve `service_role` yazma sağlam |
+| Veri kapsaması | **6820 / 6820** istasyonda fiyat var; 17.443 satırın **%96'sı taze** |
+| Flutter | 5 dk istasyon önbelleği, `dispose`'lar dengeli, `dart analyze` **temiz** |
+| Sır taraması (HEAD) | `.env` takip edilmiyor, `.gitignore` doğru, lokal yol sızıntısı **yok** |
+| Tazelik zinciri | `freshness.py` tek kaynak; `quarantine_old_prices` her fiyat koşusunda dönüyor |
+
+Testler: **167 Python**, hepsi yeşil. Bu paket denetim sırasında yazılan
+temizlik scriptindeki gerçek bir hatayı da yakaladı (sayfalamada `.order()`
+eksikti → satır kaybı riski).
+
+---
+
+## 🔴 Kör nokta — C-D3 (bu denetimin en önemli çıktısı)
+
+**4 Ağustos denetimi sıfır hatayla kapandı, ama üretim iki haftadır yanlış fiyat
+yayınlıyordu.** Sebep şudur:
+
+Bölüm A/B, Shell için **kolon** seçimini (S1-1, birim kapısı, premium fallback)
+titizlikle denetledi. **Satır** seçimini hiç sorgulamadı. `History.aspx`'in tarih
+alanları (`bdate`/`edate`) arşivde **tek kez bile geçmiyor.**
+
+Denetim "hangi kolonu okuyoruz?" diye sordu, "**hangi zamanı okuyoruz?**" diye
+sormadı.
+
+### Kontrol listesine eklenen madde
+
+> **Kaynak bir tarih/dönem seçimi sunuyorsa, botun hangi dönemi okuduğu
+> doğrulandı mı?**
+>
+> Yalnızca "veri geliyor mu" yetmez. Kontrol edilecekler:
+> 1. Kaynağın **varsayılan** dönemi nedir? (Fullet'te "son 7 gün, bitiş dün"dü.)
+> 2. Bot bu dönemi **açıkça ayarlıyor mu**, yoksa varsayılana mı güveniyor?
+> 3. Kaynak birden fazla döneme ait satır dönüyorsa, bot **hangisini yazıyor**?
+>    Hepsini yazıp "son yazan kazanıyor" mu?
+> 4. Yazılan değer, **aynı gün diğer markalarla aynı aralıkta mı?**
+>    Bir markanın dağılımı diğerlerinin tamamıyla örtüşmüyorsa bu bir veri
+>    hatasıdır, gerçek bir fiyat farkı değil.
+
+Dördüncü madde tek başına bu hatayı yakalardı ve ucuz bir sorgudur. Marka bazında
+min/medyan/maks karşılaştırması periyodik bir sağlık kontrolü hâline getirilmeye
+değer.
+
+### Genelleştirilebilir ders
+
+Telemetri "bot başarılı, 1284 kayıt yazdı" diyordu ve **doğruyu söylüyordu**.
+Kazıyıcı sağlığı ile **veri doğruluğu** ayrı şeylerdir. Fullet'in alarm altyapısı
+botun ölmesini ölçüyor, yanlış olmasını değil. `bot_runs`'ta yeşil olan bir hat,
+iki haftadır litrede 2,82 ₺ hatalı fiyat yayınlayabiliyordu.
+
+---
+
+## Bilerek açık bırakılanlar
+
+1. **C-D1 — bölgesel botlarda kısmi kazıma.** `except Exception` döngüyü
+   sarmalıyor; 81 ilin 40'ında patlayan bir koşu 40 kayıtla `success` döner.
+   Shell'deki `targets_ok/targets_total` kapsama ölçüsünün bölgesel botlarda
+   karşılığı yok. Bugün canlıda tetiklenmiyor (altısı da tam sayı döndürüyor),
+   bu yüzden yapısal iş olarak bırakıldı.
+2. **C-D2 — BP kaynak adresi.** `/akaryakit-fiyatlari-bp` artık
+   `/istasyonlar/akaryakit-fiyatlari-bp`'ye 302 veriyor. `requests`
+   yönlendirmeyi takip ettiği için veri geliyor; yönlendirme bir gün kalkabilir.
+3. **C-K2 / C-O3 — anahtar kısıtları.** Google Cloud Console denetimi gerektirir;
+   kod tarafında yapılacak bir şey kalmadı.
