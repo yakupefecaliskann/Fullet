@@ -24,6 +24,25 @@ RLS_PATH = ROOT / "database" / "rls_policies.sql"
 LIVE_FIX_PATH = ROOT / "database" / "live_public_schema_fix.sql"
 NEWS_STALE_WARN_HOURS = 24
 NEWS_STALE_FAIL_HOURS = 48
+
+# --- Bot sessizlik eşikleri (saat) -----------------------------------------
+#
+# `shell_station_bot.py` 09.08.2026'da kırıldı ve 25.08'e kadar KİMSE fark
+# etmedi. Telemetri görevini yaptı: koşu `failed` yazıldı, `system_alerts`'e
+# iki kayıt düştü. Eksik olan, bu sağlık kontrolünün her fiyat koşusunda
+# (günde 4 kez) sorması gereken soruydu: "hangi bot ne zamandır BAŞARILI
+# olmadı?" Kontrol istasyon sayısına, koordinat kalitesine ve fiyat
+# dağılımına bakıyordu — üçü de kırık bot altında SAĞLIKLI görünür, çünkü
+# eski veri olduğu yerde durur.
+#
+# Eşikler kadansın iki katına yakın: bir koşuyu kaçırmak uyarır, ikincisi
+# kırar. Haftalık bir botun 10 gündür başarısız olması tek bir kaçırılmış
+# pazardır ve o gün görülmelidir.
+BOT_SILENCE_HOURS = {
+    "price": (12, 24),      # kadans 6 saat
+    "station": (8 * 24, 10 * 24),  # kadans 7 gün
+    "news": (NEWS_STALE_WARN_HOURS, NEWS_STALE_FAIL_HOURS),  # kadans 12 saat
+}
 load_dotenv(ROOT / "scraper" / ".env")
 load_dotenv(ROOT / "fullet_flutter" / ".env")
 
@@ -349,6 +368,49 @@ def main() -> int:
         if inserted_id:
             service.table("istasyonlar").delete().eq("id", inserted_id).execute()
             _warn("anon write cleanup", inserted_id)
+
+    # --- Sessiz bot taraması --------------------------------------------
+    # Bot listesi `run_all_bots`'tan gelir; tek doğruluk kaynağı odur.
+    # Burada ikinci bir liste tutmak, yeni bir bot eklendiğinde onu sessizce
+    # denetim dışı bırakırdı.
+    try:
+        from run_all_bots import PRICE_BOTS, STATION_BOTS
+
+        gruplar = [(bot, "price") for bot in PRICE_BOTS]
+        gruplar += [(bot, "station") for bot in STATION_BOTS]
+        gruplar += [("news_bot.py", "news")]
+
+        now = datetime.now(timezone.utc)
+        for bot_name, grup in gruplar:
+            warn_hours, fail_hours = BOT_SILENCE_HOURS[grup]
+            rows = (
+                service.table("bot_runs")
+                .select("started_at,status")
+                .eq("bot_name", bot_name)
+                .eq("status", "success")
+                .order("started_at", desc=True)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            son_basari = _parse_datetime(rows[0]["started_at"]) if rows else None
+            if son_basari is None:
+                _fail(f"bot silence {bot_name}", "hiç başarılı koşu kaydı yok")
+                failed = True
+                continue
+            yas = (now - son_basari).total_seconds() / 3600
+            detay = f"son başarı {yas:.0f} saat önce ({son_basari.date()})"
+            if yas > fail_hours:
+                _fail(f"bot silence {bot_name}", f"{detay}; eşik {fail_hours} saat")
+                failed = True
+            elif yas > warn_hours:
+                _warn(f"bot silence {bot_name}", f"{detay}; eşik {warn_hours} saat")
+            else:
+                _ok(f"bot silence {bot_name}", detay)
+    except Exception as exc:
+        _fail("bot silence check", str(exc))
+        failed = True
 
     if failed:
         _fail("backend health", "not perfect yet")

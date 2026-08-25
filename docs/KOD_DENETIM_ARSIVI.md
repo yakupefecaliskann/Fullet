@@ -1,15 +1,20 @@
 # Fullet — Kod Denetimi Arşivi (KAPALI)
 
-Bu dosya üç **kapatılmış** denetim raporunun birleşimidir. Üçü de tarihsel
+Bu dosya dört **kapatılmış** denetim raporunun birleşimidir. Dördü de tarihsel
 kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır. Aktif bir
 iş listesi değildir — güncel yayın durumu için `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`,
 her sürümde tekrarlanan kontroller için `RELEASE_QA_CHECKLIST.md`.
 
-> **Bölüm C'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır hatayla
-> kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını buldu.
-> Sebebi bir regresyon değil, **denetim yönteminin kör noktasıydı**: kaynak
-> sitenin hangi *dönemi* döndürdüğü hiç sorgulanmamıştı. C bölümünün sonundaki
-> kontrol maddesi bu yüzden var.
+> **Bölüm C ve D'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır
+> hatayla kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını
+> buldu. Sebebi bir regresyon değil, **denetim yönteminin kör noktasıydı**:
+> kaynak sitenin hangi *dönemi* döndürdüğü hiç sorgulanmamıştı. C bölümünün
+> sonundaki kontrol maddesi bu yüzden var.
+>
+> D bölümü aynı günün ikinci yarısıdır ve dersin aynadaki hâlini yazar:
+> C'de **yeşil telemetri yanlış veriyi gizliyordu**; D'de **kırmızı telemetri
+> 16 gün boyunca kimseye ulaşmadı**. Alarmın açılması ile görülmesi ayrı
+> şeylerdir.
 
 **Neden siliniyor değil de saklanıyor:** kararların *gerekçesi* burada. Örneğin
 `win32` bağımlılığının neden ölü olmadığı, `_fetchStationsLegacy` /
@@ -22,10 +27,11 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 | **A** | `FULLET_PRE_RELEASE_DENETIMI.md` | Yayın öncesi kod denetimi — 22 bulgu (B1, B2, H1–H4, M1–M5, L1–L6) | 4 Ağustos 2026 |
 | **B** | `FULLET_KOD_SAGLIGI_YOL_HARITASI.md` | Tam kod sağlığı yol haritası — Faz 0–3 | 3 Ağustos 2026 |
 | **C** | *(doğrudan bu dosyaya yazıldı)* | Uçtan uca denetim — "fiyatlar yanlış" şikâyetlerinin kök nedeni (K1–K2, Y1, O1–O3, D1–D3) | 25 Ağustos 2026 |
+| **D** | *(doğrudan bu dosyaya yazıldı)* | Envanter denetimi — 16 gündür sessiz kalan `shell_station_bot.py` (D-K1, D-K2, D-Y1) | 25 Ağustos 2026 |
 
 > A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
 > özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
-> bırakılmıştır. C bölümü doğrudan bu dosyaya yazılmıştır.
+> bırakılmıştır. C ve D bölümleri doğrudan bu dosyaya yazılmıştır.
 
 ---
 ---
@@ -1955,3 +1961,261 @@ iki haftadır litrede 2,82 ₺ hatalı fiyat yayınlayabiliyordu.
    yönlendirmeyi takip ettiği için veri geliyor; yönlendirme bir gün kalkabilir.
 3. **C-K2 / C-O3 — anahtar kısıtları.** Google Cloud Console denetimi gerektirir;
    kod tarafında yapılacak bir şey kalmadı.
+
+---
+---
+
+# ═══ BÖLÜM D ═══ Envanter Denetimi ve Sessiz Bot Arızası
+
+*(doğrudan bu dosyaya yazıldı — 25 Ağustos 2026, C bölümünden hemen sonra)*
+
+**Tarih:** 25 Ağustos 2026
+**Tetikleyici:** C bölümü kapandıktan sonra, `system_alerts`'te 9 Ağustos'tan
+beri açık duran iki alarmın incelenmesi.
+**Kapsam:** `shell_station_bot.py`, envanter yazma yolu, sağlık kontrolü.
+
+---
+
+## Özet
+
+C bölümü Shell'in **fiyatlarını** düzeltti. Bu bölüm Shell'in **istasyon
+envanterini** düzeltir. İkisi ayrı hattır ve ikisi de aynı anda kırıktı.
+
+Üç ayrı arıza bulundu, üçü de canlı veride ölçüldü:
+
+| # | Bulgu | Etki | Durum |
+|---|---|---|---|
+| **D-K1** | `shell_station_bot.py` kaynağın biçim değişikliğinde sessizce boş dönüyordu | 3 haftadır 0 kayıt; **125 Shell istasyonu uygulamada yok** | ✅ düzeltildi |
+| **D-K2** | Adresten il çıkarımı cadde adlarını il sanıyordu | **42 istasyon yanlış ilde**, yanlış ilin fiyatını alıyor | ✅ düzeltildi |
+| **D-Y1** | Sağlık kontrolü "hangi bot ne zamandır başarısız?" sorusunu hiç sormuyordu | Arıza 16 gün görünmez kaldı | ✅ düzeltildi |
+
+---
+
+## D-K1 — Kaynağın biçimi değişti, bot sessizce boş döndü
+
+### Kök neden
+
+`find.shell.com` Ağustos 2026 başında **Inertia.js'e geçti**. Sayfa proplarının
+taşındığı kabuk değişti:
+
+```
+ESKİ:  <div data-react-props="{&quot;geographicListProps&quot;:...}">
+YENİ:  <script data-page="app" type="application/json">
+           {"component":..., "props":{"geographicListProps":...}}
+       </script>
+```
+
+Prop sözlüğünün **içi aynı kaldı** — `geographicListProps.locations`,
+`stationListProps.locations`, `location.lat/lng` alanlarının hepsi yerinde.
+Kırılan yalnızca dış kabuktu.
+
+### Neden 16 gün görünmedi
+
+Eski `_react_props` tanımadığı biçimde **sessizce boş sözlük** dönüyordu:
+
+```python
+def _react_props(text):
+    match = re.search(r'data-react-props="([^"]+)"', text)
+    if not match:
+        return {}          # <-- arızanın tamamı bu satırda
+    ...
+```
+
+Boş sözlük boş istasyon listesine, o da "0 kayıt" sonucuna gidiyordu.
+`finish_bot_run` bunu doğru şekilde `failed` yazdı, `system_alerts` iki kayıt
+açtı — telemetri görevini yaptı. Eksik olan **sebepti**: günlükte "kaynağın
+biçimi değişti" diyen tek satır yoktu, dolayısıyla arıza bir ağ sorunundan
+ayırt edilemiyordu.
+
+### Kanıt
+
+`bot_runs` kayıtları arızanın 2 Ağustos ile 9 Ağustos arasında başladığını
+gösteriyor:
+
+| Tarih | Durum | Süre |
+|---|---|---|
+| 26.07.2026 | success | 3,5 sn |
+| 02.08.2026 | success | 4,6 sn |
+| **09.08.2026** | **failed** | 1,0 sn |
+| **16.08.2026** | **failed** | 1,5 sn |
+| **23.08.2026** | **failed** | 2,9 sn |
+
+> **Not — 2 Ağustos'taki "success" de sahteydi.** Onarılmış bot 516 bölge
+> sayfası + 1.289 detay sayfası çekiyor ve **188 saniye** sürüyor. 3-4 saniyede
+> biten bir koşu hiçbir zaman veri getirmemişti. Bot `finish_bot_run`'ın
+> "0 kayıt = başarısız" kuralı eklenmeden önce de boş dönüyordu; o kural
+> yalnızca arızayı **görünür** yaptı. Bu, Faz 0'ın (S0-1) canlıda ölçülmüş ilk
+> geri dönüşüdür.
+
+### Etki
+
+Kaynak bugün 1.289 istasyon listeliyor; veritabanında 1.167 Shell kaydı var ve
+hiçbiri `find.shell.com` kaynaklı görünmüyor (hepsinin `veri_kaynagi` alanını
+fiyat botu ezmiş). Onarılmış bot çalıştırıldığında:
+
+* **1.147** mevcut kayıt güncellenir,
+* **125** istasyon **yeni eklenir** — bunlar bugün uygulamada hiç yok,
+* 17 kayıt güvenlik süzgeçlerine takılır (8 bozuk il + 9 karantina).
+
+### Düzeltme
+
+`_page_props` iki biçimi de tanır ve **hiçbirini bulamazsa hata fırlatır**:
+
+```python
+raise SayfaBicimiDegisti(
+    "Sayfada prop bloğu yok (ne data-react-props özniteliği ne de "
+    "<script type=\"application/json\">) — kaynağın biçimi değişmiş."
+)
+```
+
+Script gövdesine `html.unescape` **uygulanmaz** — öznitelik biçimi HTML
+kaçışlıdır ama script gövdesi ham JSON'dur; aynı işlemi ona uygulamak veri
+içindeki düz bir `&amp;` dizisini `&` yapıp adresi bozardı. Bu ayrım teste
+bağlandı.
+
+Ayrıca **dizin kapsaması eşiği** eklendi (`MIN_INDEX_COVERAGE = 0.70`): bölge
+sayfalarından beklenen istasyonun %70'inden azı toplanabildiyse bot yazmaz,
+hata verir. Yarım envanter yazmak silmekten beterdir — eksik istasyonlar
+`aktif` kalır ama koordinatları güncellenmez ve hangi koşunun eksik olduğu bir
+daha anlaşılmaz.
+
+Bot ayrıca `station_inventory_common`'daki **F4 güvenlik süzgeçlerine** bağlandı
+(il doğrulaması, 75 m–1 km karantina bandı, parti içi tekilleştirme). Diğer beş
+envanter botu bunları kullanıyordu; Shell tek istisnaydı.
+
+---
+
+## D-K2 — Adresten il çıkarımı cadde adlarını il sanıyordu
+
+### Kök neden
+
+Shell adresleri şu kalıpta: `<cadde>, <posta kodu>, <İLÇE İL>, TR`. İl adı **son
+anlamlı segmentin sonunda** durur.
+
+Eski `_city_district_from_text` bunun tersini yapıyordu: adresin **tamamını** tek
+parça olarak tarayıp **en uzun** il adını nerede geçerse kabul ediyordu.
+Türkiye'de caddeler komşu illerin adını taşır:
+
+| Adres | Eski sonuç | Doğrusu |
+|---|---|---|
+| `ANKARA ASFALTİ YANYOL 21, 34860, KARTAL İSTANBUL, TR` | **ANKARA** | İSTANBUL / KARTAL |
+| `SIVAS CAD. 13/B, 66300, AKDAĞMADENİ YOZGAT, TR` | **SIVAS** | YOZGAT / AKDAĞMADENİ |
+| `İZMİR ÇANAKKALE YOLU BLV. 335, 10280, AYVALIK BALIKESİR, TR` | **ÇANAKKALE** | BALIKESİR / AYVALIK |
+| `SİLİFKE-ANTALYA CADDESİ 191/A, 33500, BOZYAZI MERSİN, TR` | **ANTALYA** | MERSİN / BOZYAZI |
+
+`ANKARA` (6 harf) `İZMİR`den (5) uzun olduğu için sıralamada önce geliyor ve
+cadde adındaki geçiş kazanıyordu.
+
+### Etki — ve neden fiyatı da bozuyor
+
+Canlıda **42 Shell istasyonu yanlış ilde** duruyordu. Fiyatlar `(marka, il,
+ilçe)` üzerinden eşleştiği için bu istasyonlar **kendi ilinin değil, cadde
+adındaki ilin fiyatını** alıyordu. Kartal'daki iki Shell istasyonu Ankara
+fiyatını gösteriyordu.
+
+### Bağımsız doğrulama
+
+Canlı veri referans olarak kullanılamaz — bozuk olan zaten odur. Bunun yerine
+her anlaşmazlık, istasyonun **15 km içindeki en yakın rakip marka
+istasyonunun** iliyle çözüldü:
+
+```
+CANLI dogru:  0
+YENI  dogru: 42
+belirsiz   :  0
+```
+
+42'sinin de 42'si yeni ayrıştırıcıyı doğruluyor; medyan mesafe 1 km'nin altında.
+
+### Düzeltme
+
+Yeni algoritma segmentleri **sondan başa** tarar ve önce **il adıyla biten**
+segmenti arar; ilçe o segmentin önündeki metindir. Kalıp tutmazsa ikinci geçiş
+devreye girer ve segment içindeki **en sondaki** il geçişini alır
+(`İZMİR ... KEMALPAŞA İZMİR` → doğru olan ikincisidir).
+
+Merkez ilçelerde adres yalnızca il adını taşıdığı için (`..., 02000, ADIYAMAN,
+TR`) ilçe boş kalır. Bu durumda **bölge sayfasının adı** ikinci kaynak olur —
+`MERKEZ ADIYAMAN`, `19 MAYIS SAMSUN` gibi zaten `<İLÇE> <İL>` kalıbındadır ve
+Shell'in kendi dizininden gelir. İl uyuşmuyorsa dokunulmaz: bölge, istasyonun il
+sınırının ötesine bağlanmış olabilir ve başka bir ilin ilçesini yapıştırmak
+istasyonu var olmayan bir `(il, ilçe)` çiftine sokup **fiyatsız** bırakırdı.
+
+### Yan bulgu — boş değer bilineni siliyordu
+
+Envanter yazma yolu (`_bulk_write_station_inventory`) güncelleme yaparken
+`il`/`ilce` alanlarını **koşulsuz** eziyordu. Merkez ilçelerde ilçe boş
+geldiği için bu, fiyat botunun doğru yazdığı ilçeyi **silerdi** — canlıda 4
+kayıt bu durumdaydı.
+
+Kural netleştirildi ve teste bağlandı: **yazma yolu ekler ve günceller, ALAN
+SİLMEZ.** Boş bir değer dolu bir değerin üzerine yazılmaz. Koruma yalnızca boşa
+karşıdır; dolu bir değerin *düzeltilmesini* engellemez — yoksa yukarıdaki 42
+hata kalıcı olurdu.
+
+---
+
+## D-Y1 — Sağlık kontrolü "bot ne zamandır sessiz?" sorusunu sormuyordu
+
+### Kök neden
+
+`backend_health_check.py` her fiyat koşusunda (günde 4 kez) çalışıyor ve çok şey
+kontrol ediyor: tablo sayıları, anahtar rolleri, RLS, koordinat kalitesi, fiyat
+aralıkları, kopya anahtarlar, RPC imzaları, haber tazeliği. Sormadığı tek soru
+şuydu: **"hangi bot ne zamandır başarılı olmadı?"**
+
+Kontrol ettiği her şey kırık bot altında **sağlıklı görünür**, çünkü eski veri
+olduğu yerde durur. 1.167 Shell istasyonu hâlâ oradaydı, koordinatları geçerliydi,
+fiyatları tazeydi. Yalnızca **16 gündür hiç güncellenmemişlerdi.**
+
+### Düzeltme
+
+Sessiz bot taraması eklendi. Bot listesi `run_all_bots`'tan gelir — tek doğruluk
+kaynağı odur; burada ikinci bir liste tutmak yeni bir botu sessizce denetim
+dışı bırakırdı.
+
+| Grup | Kadans | Uyarı | Kırar |
+|---|---|---|---|
+| Fiyat botları | 6 saat | 12 saat | 24 saat |
+| Envanter botları | 7 gün | 8 gün | 10 gün |
+| Haber botu | 12 saat | 24 saat | 48 saat |
+
+Eşikler kadansın iki katına yakın: bir koşuyu kaçırmak uyarır, ikincisi kırar.
+Haftalık bir botun 10 gündür başarısız olması tek bir kaçırılmış pazardır ve o
+gün görülmelidir. Hiç başarılı koşusu olmayan bot da kırar.
+
+Ölçüldü — kontrol arızayı doğru yakalıyor:
+
+```
+[FAIL] bot silence shell_station_bot.py: son başarı 561 saat önce (2026-08-02); eşik 240 saat
+```
+
+---
+
+## Kontrol listesine eklenen madde
+
+> **Bir bot "başarısız" yazıyorsa, kaç koşudur öyle?**
+>
+> C bölümündeki ders "yeşil telemetri yanlış veriyi gizleyebilir"di. D
+> bölümünün dersi bunun aynadaki hâlidir: **kırmızı telemetri de kimse bakmazsa
+> hiçbir şey ifade etmez.** Alarm 9 Ağustos'ta açıldı, doğru açıldı ve 16 gün
+> açık kaldı.
+>
+> Kontrol edilecekler:
+> 1. Botun **son BAŞARILI** koşusu ne zaman? (Son koşusu değil.)
+> 2. Bu süre botun kadansının iki katını aştı mı?
+> 3. Bot "success" diyorsa, **süresi makul mü?** 1.289 sayfa çeken bir bot 3
+>    saniyede bitemez. Anormal kısa süre, sessiz boş dönüşün imzasıdır.
+> 4. Ayrıştırıcı, tanımadığı bir biçimle karşılaşınca **hata mı fırlatıyor,
+>    yoksa boş mu dönüyor?** Boş dönen her ayrıştırıcı bu arızanın adayıdır.
+
+Üçüncü madde ucuzdur ve `bot_runs.duration_seconds` zaten kayıtlıdır. Bot bazında
+"beklenen süre bandı" periyodik bir sağlık kontrolü hâline getirilmeye değer.
+
+### Genelleştirilebilir ders
+
+C bölümü **veri doğruluğunun** kazıyıcı sağlığından ayrı olduğunu gösterdi.
+D bölümü üçüncü bir ekseni ekliyor: **alarmın görülmesi**, alarmın açılmasından
+ayrı bir şeydir. Fullet'in alarm altyapısı doğru çalıştı; hiç kimseye
+ulaşmadığı için işe yaramadı. Sessiz bot taraması alarmı, zaten her gün
+bakılan bir yüzeye — pipeline'ın kırmızısına — bağlar.
