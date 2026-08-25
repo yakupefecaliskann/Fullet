@@ -442,16 +442,22 @@ TURKEY_TZ = timezone(timedelta(hours=3))
 REPORT_DATE_FIELDS = ("cb_all_de_bdate", "cb_all_de_edate")
 _DATE_FMT = "%d.%m.%Y"
 
-_JS_SET_REPORT_DATE = """(p) => {
-    const d = new Date(p.year, p.month - 1, p.day);
-    const out = {};
-    for (const id of p.ids) {
-        const c = window.ASPxClientControl.GetControlCollection().GetByName(id);
-        if (!c) { out[id] = null; continue; }
-        c.SetDate(d);
-        out[id] = c.GetText();
-    }
-    return out;
+# Pencere GENİŞLİĞİ. Tek güne sabitlemek kırılgandı: kaynak herhangi bir
+# sebeple o günü döndürmezse ızgara boş kalır ve geri düşecek satır olmaz.
+# 25 Ağu 2026 canlı koşusu tam olarak böyle patladı — CI'da 280 hedefin
+# hepsinde "0 Shell rows found", scraped=0, ardından retry ve 55 dakikalık
+# job timeout'u. Aralık sorgulayıp EN YENİ satırı almak hem bugünü yakalar
+# hem de kaynak bugünü vermediğinde en güncel veriyle devam eder.
+REPORT_WINDOW_DAYS = 6
+
+_JS_SET_REPORT_WINDOW = """(p) => {
+    const col = window.ASPxClientControl.GetControlCollection();
+    const begin = col.GetByName(p.beginId);
+    const end = col.GetByName(p.endId);
+    if (!begin || !end) return null;
+    begin.SetDate(new Date(p.by, p.bm - 1, p.bd));
+    end.SetDate(new Date(p.ey, p.em - 1, p.ed));
+    return { begin: begin.GetText(), end: end.GetText() };
 }"""
 
 
@@ -461,39 +467,46 @@ def _today_tr():
     return datetime.now(TURKEY_TZ)
 
 
-def _set_report_date(page, when=None):
-    """Rapor aralığını tek bir güne (bugüne) sabitler.
+def _set_report_window(page, when=None):
+    """Rapor aralığını [bugün - REPORT_WINDOW_DAYS, bugün] olarak ayarlar.
 
-    Döner: başarıyla oturan "dd.mm.yyyy" metni, ya da None. None dönmesi
-    ölümcül değildir — satır süzgeci (`_rows_for_report_date`) yine de en
-    güncel günü seçer, yalnızca bir gün geriden gelinir.
+    Kaynağın varsayılanı "son 7 gün, bitiş DÜN"dür; bitişi bugüne çekmek
+    zam günlerinde eksik kalan günü kapatır. Başlangıcı geride bırakmak
+    kasıtlıdır: kaynak bugüne ait satır yayınlamamışsa ızgara boş kalmasın,
+    `_rows_for_report_date` en yeni güne düşebilsin.
+
+    Döner: tercih edilecek "dd.mm.yyyy" (bugün) ya da None. None ölümcül
+    değildir — süzgeç yine en güncel günü seçer.
     """
     when = when or _today_tr()
+    begin = when - timedelta(days=REPORT_WINDOW_DAYS)
     target = when.strftime(_DATE_FMT)
+    begin_text = begin.strftime(_DATE_FMT)
     try:
         page.evaluate(
-            _JS_SET_REPORT_DATE,
+            _JS_SET_REPORT_WINDOW,
             {
-                "ids": list(REPORT_DATE_FIELDS),
-                "year": when.year,
-                "month": when.month,
-                "day": when.day,
+                "beginId": REPORT_DATE_FIELDS[0],
+                "endId": REPORT_DATE_FIELDS[1],
+                "by": begin.year, "bm": begin.month, "bd": begin.day,
+                "ey": when.year, "em": when.month, "ed": when.day,
             },
         )
     except Exception as exc:
-        print(f"[WARN] Shell rapor tarihi ayarlanamadı ({exc}); varsayılan aralık kullanılacak.")
+        print(f"[WARN] Shell rapor aralığı ayarlanamadı ({exc}); varsayılan aralık kullanılacak.")
         return None
 
-    for field in REPORT_DATE_FIELDS:
+    expected = (begin_text, target)
+    for field, want in zip(REPORT_DATE_FIELDS, expected):
         try:
             value = page.locator(f"#{field}_I").input_value()
         except Exception as exc:
             print(f"[WARN] Shell {field} okunamadı ({exc}).")
             return None
-        if value != target:
-            print(f"[WARN] Shell {field} {value!r} kaldı, beklenen {target!r}.")
+        if value != want:
+            print(f"[WARN] Shell {field} {value!r} kaldı, beklenen {want!r}.")
             return None
-    print(f"[INFO] Shell rapor tarihi {target} olarak sabitlendi.")
+    print(f"[INFO] Shell rapor aralığı {begin_text} - {target} olarak ayarlandı.")
     return target
 
 
@@ -720,7 +733,7 @@ def scrape_shell_data(target_locations=None):
         try:
             page.goto("https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000)
             _settle(page, timeout=GRID_TIMEOUT_MS)
-            report_date = _set_report_date(page)
+            report_date = _set_report_window(page)
             for loc in target_locations:
                 if time.monotonic() >= deadline:
                     stats["budget_exhausted"] = True
