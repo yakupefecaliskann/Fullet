@@ -37,3 +37,7 @@ Thumbs.db
 # Local QA screenshots / generated artifacts
 device_*.png
 fullet_*.png
+
+# Bakim araclarinin ürettigi yerel yedekler (repair_*.py --apply)
+# Silinen satirlarin ham kopyasini tasir; depoya girmemeli.
+backup_*.json
