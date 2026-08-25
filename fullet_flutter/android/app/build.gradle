@@ -49,8 +49,30 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
+    // MAPS_API_KEY yoksa BOŞ STRING ile devam etmek, haritanın canlıda
+    // sessizce gri/boş açılmasına yol açar — bu olay bir kez yaşandı
+    // (bkz. commit 8a80921 "Canlida bos harita olayi"). Derleme zamanında
+    // patlamak, kullanıcıya bozuk harita göstermekten iyidir.
+    // Debug derlemelerinde uyarıyla geçilir; RELEASE'te derleme kırılır.
+    // Anahtar android/local.properties içine yazılır (git'e girmez);
+    // CI için ORG_GRADLE_PROJECT_MAPS_API_KEY / MAPS_API_KEY ortam
+    // değişkeni de okunur.
     def mapsApiKey = localProperties.getProperty('MAPS_API_KEY')
-    if (mapsApiKey == null) {
+    if (mapsApiKey == null || mapsApiKey.trim().isEmpty()) {
+        mapsApiKey = project.findProperty('MAPS_API_KEY') ?: System.getenv('MAPS_API_KEY')
+    }
+    if (mapsApiKey == null || mapsApiKey.trim().isEmpty()) {
+        def isRelease = gradle.startParameter.taskNames.any {
+            it.toLowerCase().contains('release')
+        }
+        if (isRelease) {
+            throw new GradleException(
+                "MAPS_API_KEY tanimli degil. Release derlemesi bos harita ile " +
+                "yayinlanmasin diye durduruldu. android/local.properties icine " +
+                "MAPS_API_KEY=... ekleyin ya da MAPS_API_KEY ortam degiskenini verin."
+            )
+        }
+        logger.warn("UYARI: MAPS_API_KEY yok - harita bu debug derlemesinde bos gorunecek.")
         mapsApiKey = ''
     }
 
