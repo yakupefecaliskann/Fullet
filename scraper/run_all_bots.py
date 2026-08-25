@@ -42,11 +42,16 @@ PRICE_BOTS = [
 ]
 
 BOT_TIMEOUTS_SECONDS = {
-    "shell_station_bot.py": 600,
+    # 25 Ağu 2026 — 600'den 900'e. Bot 09.08-25.08 arasında KIRIKTI ve saniyeler
+    # içinde 0 kayıtla dönüyordu; 600 sn o hâlin ölçüsüydü, çalışan hâlin değil.
+    # Onarılmış bot 516 bölge sayfası + 1.289 detay sayfası çekiyor ve yerelde
+    # 188 sn sürüyor. CI runner'ı ve kaynak yavaşladığında 600'e çarpmak,
+    # tamamlanmak üzere olan bir kazımayı öldürürdü.
+    "shell_station_bot.py": 900,
     # shell_bot kendi RUN_BUDGET_SECONDS'ında (1700) temiz çıkar; buradaki
     # timeout ondan BELİRGİN ölçüde büyük olmalı, yoksa süreç kazıma bitmiş
     # ama kaydetme sürerken öldürülür ve hem veri hem kapsama raporu kaybolur.
-    # 250 hedef kararı için bkz. shell_bot.DEFAULT_MAX_TARGETS_PER_RUN.
+    # 280 hedef kararı için bkz. shell_bot.DEFAULT_MAX_TARGETS_PER_RUN.
     "shell_bot.py": 2100,
     "news_bot.py": 90,
 }
