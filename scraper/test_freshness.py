@@ -1,6 +1,8 @@
+import re
 import unittest
 import unittest.mock
 from datetime import timedelta
+from pathlib import Path
 
 from freshness import (
     FRESH_MAX_HOURS,
@@ -131,6 +133,51 @@ class BulkUpsertVerificationTest(unittest.TestCase):
         self.assertEqual(touched, 1)
         table.update.assert_called_once()
         self.assertEqual(table.update.call_args[0][0]["price_status"], "fresh")
+
+
+class SqlThresholdsMatchPythonTest(unittest.TestCase):
+    """pg_cron eşikleri freshness.py ile aynı sayıyı kullanmalı.
+
+    Tazeliğin İKİ yazıcısı var ve ikisi ayrı dosyada tanımlı:
+
+        quarantine_old_prices.py  -> FRESH_MAX_HOURS (her orkestratör koşusu)
+        pg_cron fullet-mark-*     -> INTERVAL 'N hours' (saatlik, üretimde)
+
+    Biri değişip diğeri kalırsa agresif olan kazanır ve değişiklik sessizce
+    etkisiz olur — S0-4'te ops_report'un atlanmasıyla aynı sınıf hata
+    (bkz. test_ops_report.py). Bu test iki dosyayı birbirine bağlar.
+    """
+
+    SQL_PATH = Path(__file__).resolve().parent.parent / "database" / "add_price_verification.sql"
+
+    def _interval_for(self, jobname: str) -> int:
+        """cron.schedule(...) gövdesindeki INTERVAL saatini döndürür.
+
+        Blok, `cron.schedule(` parçalarından seçilir: iş adı dosyada ayrıca
+        `cron.unschedule` WHERE listesinde de geçiyor ve oradan sayıldığında
+        yanlış işin gövdesi okunuyordu.
+        """
+        sql = self.SQL_PATH.read_text(encoding="utf-8")
+        blocks = [b for b in sql.split("cron.schedule(")[1:] if f"'{jobname}'" in b]
+        self.assertEqual(len(blocks), 1, f"{jobname} icin tek cron.schedule blogu bekleniyor")
+        match = re.search(r"INTERVAL '(\d+) hours'", blocks[0])
+        self.assertIsNotNone(match, f"{jobname} icin INTERVAL bulunamadi")
+        return int(match.group(1))
+
+    def test_stale_job_matches_fresh_max_hours(self):
+        self.assertEqual(
+            self._interval_for("fullet-mark-stale-prices"),
+            FRESH_MAX_HOURS,
+            "pg_cron fresh->stale esigi freshness.FRESH_MAX_HOURS ile ayni olmali; "
+            "birini degistirirken digerini de degistir.",
+        )
+
+    def test_unknown_job_matches_stale_max_hours(self):
+        self.assertEqual(
+            self._interval_for("fullet-mark-unknown-prices"),
+            STALE_MAX_HOURS,
+            "pg_cron stale->unknown esigi freshness.STALE_MAX_HOURS ile ayni olmali.",
+        )
 
 
 if __name__ == "__main__":

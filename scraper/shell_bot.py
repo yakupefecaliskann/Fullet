@@ -31,7 +31,7 @@ TARGET_LOCATIONS = [
 #
 # 25 Ağu 2026 — 280'e çıkarıldı. Ölçülen canlı envanter 443 hedef (92
 # öncelikli + 351 diğer). 250'de diğerlere koşu başına 158 slot düşüyordu →
-# tam tur 3 koşu = **18 saat**, yani FRESH_MAX_HOURS (12) aşılıyor ve
+# tam tur 3 koşu = **18 saat**, yani o günkü FRESH_MAX_HOURS (12) aşılıyor ve
 # öncelikli olmayan ilçeler tasarım gereği bayatlıyordu. Canlı kanıt:
 # bayat/bilinmeyen 695 fiyat satırının TAMAMI Shell'di.
 #   280'de: 92 öncelikli + 188 slot → ceil(351/188) = 2 koşu = 12 saat.
