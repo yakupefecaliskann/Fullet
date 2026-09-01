@@ -42,9 +42,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 # Kaynak siteler günde birkaç kez güncelleniyor, botlar 6 saatte bir koşuyor.
-# 12 saat = iki koşu kaçırılmış demektir; bu noktada fiyat "doğrulanmış"
-# sayılmaz.
-FRESH_MAX_HOURS = 12
+#
+# 1 Eyl 2026 — 12'den 18'e çıkarıldı. 12 saat "iki koşu kaçırıldı" varsayımına
+# dayanıyordu ama bu, cron'un DAKİKASINDA tetiklendiğini kabul ediyor. GitHub
+# zamanlanmış işleri yoğunlukta erteliyor; 15 Ağu - 1 Eyl 2026 arası 60 fiyat
+# koşusunun ölçümü:
+#
+#     planlanan yuvaya göre gecikme : medyan 1,2 sa — en kötü 6,0 sa
+#     ardışık DOĞRULAMA aralığı     : medyan 6,0 sa — en kötü 15,0 sa
+#     12 saati aşan aralık          : 3 / 59
+#
+# Yani eşik 17 günde üç kez sırf gecikmeden aşıldı: fiyat doğruyken "bayat"
+# işaretlendi ve kullanıcı ⚠️ rozeti gördü. 16 saat en kötü ölçümün (15,0)
+# tam sınırında kalırdı; 18 saat bir koşunun tamamen kaçmasını da tolere eder.
+# Daha yükseği STALE_MAX_HOURS'a (48) gereksiz yaklaşır.
+FRESH_MAX_HOURS = 18
 
 # 48 saat sonrasında fiyat gösterilmeye değmez; "bilinmiyor"a düşer.
 STALE_MAX_HOURS = 48

@@ -23,7 +23,7 @@
 --   Tazelik işleri son_dogrulama'ya bakar.
 --
 -- Eşikler scraper/freshness.py ile AYNI olmalı (birlikte değiştirilir):
---   FRESH_MAX_HOURS = 12   |   STALE_MAX_HOURS = 48
+--   FRESH_MAX_HOURS = 18   |   STALE_MAX_HOURS = 48
 -- =============================================================================
 
 -- 1. Kolon + geriye dönük doldurma ---------------------------------------------
@@ -51,7 +51,8 @@ SELECT cron.unschedule(jobid)
 FROM cron.job
 WHERE jobname IN ('fullet-mark-stale-prices', 'fullet-mark-unknown-prices');
 
--- fresh -> stale : 12 saattir doğrulanmamış
+-- fresh -> stale : 18 saattir doğrulanmamış (cron gecikmesi payı dahil,
+--                  gerekçe scraper/freshness.py)
 SELECT cron.schedule(
     'fullet-mark-stale-prices',
     '5 * * * *',
@@ -59,7 +60,7 @@ SELECT cron.schedule(
     UPDATE public.fiyatlar
     SET price_status = 'stale'
     WHERE price_status = 'fresh'
-      AND COALESCE(son_dogrulama, son_guncelleme) < NOW() - INTERVAL '12 hours';
+      AND COALESCE(son_dogrulama, son_guncelleme) < NOW() - INTERVAL '18 hours';
     $$
 );
 
