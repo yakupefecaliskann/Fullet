@@ -90,7 +90,7 @@ def _select_prices(station_ids):
     for batch in _chunks(station_ids):
         prices.extend(
             supabase.table("fiyatlar")
-            .select("istasyon_id,yakit_tipi,fiyat,son_guncelleme")
+            .select("istasyon_id,yakit_tipi,fiyat,son_guncelleme,son_dogrulama")
             .in_("istasyon_id", batch)
             .execute()
             .data
@@ -153,8 +153,18 @@ def main() -> int:
         active = [row for row in stations if row.get("aktif") is True]
         prices = _select_prices([row["id"] for row in active])
         fuels = Counter(row.get("yakit_tipi") for row in prices)
+        # Tazelik `son_dogrulama`'ya bakar, `son_guncelleme`'ye DEĞİL:
+        # birincisi her başarılı kazımada, ikincisi yalnızca fiyat
+        # değiştiğinde ilerler (bkz. freshness.py). Bu ayrım S0-4'te
+        # getirildi ama burası atlanmıştı; zam gelmeyen her 48 saatte
+        # rapor sahte "stale price data" alarmı üretiyordu.
+        # `or` geri düşüşü: doğrulama izi olmayan eski satırlar için.
         latest = max(
-            [row.get("son_guncelleme") for row in prices if row.get("son_guncelleme")],
+            [
+                row.get("son_dogrulama") or row.get("son_guncelleme")
+                for row in prices
+                if row.get("son_dogrulama") or row.get("son_guncelleme")
+            ],
             default=None,
         )
         active_cities = len({row.get("il") for row in active if row.get("il")})
