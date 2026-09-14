@@ -118,7 +118,7 @@ class ShellTargetCoverageTest(unittest.TestCase):
         self.assertEqual(
             stats,
             {"planned": 1, "attempted": 1, "ok": 1, "missing": 0, "failed": 0,
-             "budget_exhausted": False},
+             "budget_exhausted": False, "source_dead": False},
         )
         self.assertEqual(len(calls), 2)
 
@@ -644,14 +644,34 @@ class ProvinceStatePoisoningTest(unittest.TestCase):
         self.assertTrue(all(previous is None for _, _, previous in seen), seen)
 
 
+class _FakeResponse:
+    def __init__(self, status=200):
+        self.status = status
+
+
 class _FakePage:
+    """Varsayılan olarak AYAKTA bir kaynağı taklit eder: HTTP 200 ve il
+    seçim kutusu yerinde. `status` / `has_province_button` ile ölü kaynak
+    senaryoları kurulur (bkz. KaynakDogrulamaTest)."""
+
+    status = 200
+    has_province_button = True
+
     def goto(self, *args, **kwargs):
+        return _FakeResponse(self.status)
+
+    def wait_for_selector(self, selector, **kwargs):
+        if selector == shell_bot.PROVINCE_BUTTON and not self.has_province_button:
+            raise TimeoutError(f"Timeout exceeded waiting for {selector}")
         return None
 
 
 class _FakeBrowser:
+    page_factory = _FakePage
+
     def new_page(self, **kwargs):
-        return _FakePage()
+        # `self.page_factory`: launch() örnek üzerinde geçersiz kılar.
+        return self.page_factory()
 
     def close(self):
         return None
@@ -669,8 +689,77 @@ class _FakePlaywright:
     def __exit__(self, *exc):
         return False
 
+    page_factory = _FakePage
+
     def launch(self, **kwargs):
-        return _FakeBrowser()
+        browser = _FakeBrowser()
+        browser.page_factory = type(self).page_factory
+        return browser
+
+
+class KaynakDogrulamaTest(unittest.TestCase):
+    """Ölü kaynak SANİYELER içinde ve adıyla anlaşılmalı.
+
+    14 Eyl 2026 canlı olayı: Shell `/pompatest/` uygulamasını emekliye ayırdı,
+    adres 404 dönmeye başladı. `page.goto` bir 404'te de BAŞARILI olduğu için
+    bot bunu fark etmedi; 280 hedefin her birini denedi, her biri combobox'ı
+    15 sn bekleyip düştü ve 1700 sn'lik bütçe 57 hedefte doldu. Koşu başına
+    58 dakika, günde 4 koşu — ve günlükte gerçek sebebi söyleyen tek satır
+    yoktu, yalnızca 57 adet "Timeout 15000ms exceeded".
+    """
+
+    def _run(self, page_cls):
+        targets = [{"il": "ANKARA", "ilce": "CANKAYA"},
+                   {"il": "ISTANBUL", "ilce": "KADIKOY"}]
+        calls = []
+
+        def fake_scrape_target(*args, **kwargs):
+            calls.append(args[1:3])
+            return [{"marka": "Shell"}], {"Motorin": [5]}
+
+        playwright = type("_P", (_FakePlaywright,), {"page_factory": page_cls})
+        with unittest.mock.patch.object(shell_bot, "_scrape_target", fake_scrape_target), \
+                unittest.mock.patch.object(shell_bot, "sync_playwright", playwright), \
+                unittest.mock.patch.object(shell_bot, "_limited_targets", lambda t: t), \
+                unittest.mock.patch.object(shell_bot, "_settle", lambda *a, **k: None):
+            data, stats = shell_bot.scrape_shell_data(targets)
+        return data, stats, calls
+
+    def test_http_404_aborts_before_any_target_is_attempted(self):
+        page_cls = type("_P404", (_FakePage,), {"status": 404})
+        data, stats, calls = self._run(page_cls)
+
+        self.assertTrue(stats["source_dead"])
+        self.assertEqual(calls, [], "404'te tek bir hedef bile denenmemeli")
+        self.assertEqual(stats["attempted"], 0)
+        self.assertEqual(data, [])
+
+    def test_missing_province_combobox_aborts_even_on_http_200(self):
+        """Kaynak 200 dönüp BAŞKA bir sayfa servis edebilir (yönlendirme,
+        bakım sayfası). Durum kodu tek başına yeterli kanıt değil."""
+        page_cls = type("_PBos", (_FakePage,), {"has_province_button": False})
+        _, stats, calls = self._run(page_cls)
+
+        self.assertTrue(stats["source_dead"])
+        self.assertEqual(calls, [])
+
+    def test_dead_source_keeps_planned_so_coverage_reads_zero(self):
+        """Kapsama `ok/planned`. `planned` sıfırlansaydı 0/0 çıkar ve
+        "Shell'in hiçbiri tazelenmedi" gerçeği görünmez olurdu."""
+        page_cls = type("_P404", (_FakePage,), {"status": 404})
+        _, stats, _ = self._run(page_cls)
+
+        self.assertEqual(stats["planned"], 2)
+        self.assertEqual(stats["ok"], 0)
+        self.assertEqual(stats["ok"] / stats["planned"], 0.0)
+
+    def test_healthy_source_still_scrapes_every_target(self):
+        """Doğrulama, ayakta bir kaynağı ASLA engellememeli."""
+        _, stats, calls = self._run(_FakePage)
+
+        self.assertFalse(stats["source_dead"])
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(stats["ok"], 2)
 
 
 class CapacityArithmeticTest(unittest.TestCase):
