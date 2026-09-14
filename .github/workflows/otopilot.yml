@@ -98,8 +98,15 @@ jobs:
             MODE="stations"
             DRY_RUN="0"
           else
-            MODE="prices"
-            DRY_RUN="1"
+            # SESSİZ DRY-RUN YOK. Eskiden bu dal MODE=prices/DRY_RUN=1'e
+            # düşüyordu ve mod çözümü yukarıdaki cron DİZELERİNE birebir
+            # bağlı olduğu için şu tuzağı kuruyordu: cron zamanı düzenlenip
+            # bu karşılaştırmalar güncellenmezse her koşu sessizce dry-run'a
+            # geçer, Supabase'e HİÇBİR ŞEY yazılmaz ve workflow yine YEŞİL
+            # görünürdü. Veri saatlerce bayatlarken tek bir alarm çalmazdı.
+            # Bilinmeyen tetikleyicide yazmak yerine GÜRÜLTÜYLE durulur.
+            echo "::error::Tanınmayan zamanlama: '${{ github.event.schedule }}'. Cron ifadesi değiştiyse bu adımdaki karşılaştırmalar da güncellenmeli."
+            exit 1
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN" >> "$GITHUB_OUTPUT"

@@ -287,6 +287,51 @@ PROVINCE_LIST_SELECTOR = "#cb_all_cb_province_DDD_L_LBT"
 COUNTY_BUTTON = "#cb_all_cb_county_B-1Img"
 COUNTY_LIST_SELECTOR = "#cb_all_cb_county_DDD_L_LBT"
 
+# Fiyat kaynağının adresi. Sabit olarak duruyor ki kaynak taşındığında
+# değiştirilecek TEK yer olsun.
+SHELL_PRICE_URL = "https://www.turkiyeshell.com/pompatest/History.aspx"
+
+# Kaynağın AYAKTA olduğunu doğrulama süresi. `page.goto` bir 404'te de
+# BAŞARILI olur — sunucunun hata sayfası da bir sayfadır. Bu yüzden HTTP
+# durumuna ve uygulamanın kendi DOM çapasına ayrıca bakılır.
+SOURCE_PROBE_TIMEOUT_MS = 20000
+
+
+class KaynakYok(RuntimeError):
+    """Fiyat kaynağı erişilemiyor ya da artık tanınmıyor.
+
+    Bu durumda hedefleri tek tek denemenin hiçbir değeri yoktur: hepsi aynı
+    sebeple düşer. Ayrı bir tip olmasının sebebi, koşuyu hedef döngüsüne hiç
+    girmeden kesebilmek.
+    """
+
+
+def _verify_source(page, response):
+    """Açılan sayfanın GERÇEKTEN fiyat uygulaması olduğunu doğrular.
+
+    14 Eyl 2026 — bu kontrolün yokluğu 4 gün boyunca koşu başına 28 dakika
+    yaktı. Shell `/pompatest/` uygulamasını emekliye ayırdı ve adres 404
+    dönmeye başladı; `page.goto` yine de "başarılı" oldu, ASP.NET hata
+    sayfası yüklendi. Bot bunu fark etmeden 280 hedefin her birini denedi ve
+    her biri combobox'ı 15 sn bekleyip (×2 deneme) düştü. 1700 sn'lik bütçe
+    57 hedefte doldu, koşu 58 dakika sürdü ve günlükte gerçek sebep —
+    "kaynak 404" — hiçbir yerde yazmıyordu; yalnızca 57 satır "Timeout
+    15000ms exceeded" vardı. Kaynağın ölümü saniyeler içinde ve adıyla
+    anlaşılmalı.
+    """
+    status = response.status if response is not None else None
+    if status is not None and status >= 400:
+        raise KaynakYok(f"{SHELL_PRICE_URL} HTTP {status} döndü")
+    try:
+        page.wait_for_selector(
+            PROVINCE_BUTTON, state="attached", timeout=SOURCE_PROBE_TIMEOUT_MS
+        )
+    except Exception:
+        raise KaynakYok(
+            f"{SHELL_PRICE_URL} açıldı (HTTP {status}) ama il seçim kutusu "
+            f"({PROVINCE_BUTTON}) sayfada yok — kaynağın biçimi değişmiş."
+        ) from None
+
 _JS_COMBO_TEXT = "(name) => window[name] ? window[name].GetText() : null"
 _JS_COMBO_ITEMS = """(name) => {
     const combo = window[name];
@@ -721,6 +766,7 @@ def scrape_shell_data(target_locations=None):
         "planned": len(target_locations),
         "attempted": 0, "ok": 0, "missing": 0, "failed": 0,
         "budget_exhausted": False,
+        "source_dead": False,
     }
     deadline = time.monotonic() + RUN_BUDGET_SECONDS
 
@@ -731,7 +777,8 @@ def scrape_shell_data(target_locations=None):
         # geliyor — kırılganlığı bedavaya azaltmanın en ucuz yolu.
         page = browser.new_page(viewport={"width": 1280, "height": 1600})
         try:
-            page.goto("https://www.turkiyeshell.com/pompatest/History.aspx", timeout=60000)
+            response = page.goto(SHELL_PRICE_URL, timeout=60000)
+            _verify_source(page, response)
             _settle(page, timeout=GRID_TIMEOUT_MS)
             report_date = _set_report_window(page)
             for loc in target_locations:
@@ -777,6 +824,15 @@ def scrape_shell_data(target_locations=None):
                 if last_error is not None:
                     print(f"[WARN] Shell scrape {city}/{district}: {last_error}")
                     stats["failed"] += 1
+        except KaynakYok as exc:
+            # Hedef döngüsüne HİÇ girilmedi; `planned` olduğu gibi kalır ki
+            # kapsama oranı dürüst kalsın (0/280, "hiçbiri tazelenmedi").
+            stats["source_dead"] = True
+            print(f"[KAYNAK-YOK] Shell fiyat kaynağı kullanılamıyor: {exc}")
+            print(
+                "[KAYNAK-YOK] Hedefler denenmedi — hepsi aynı sebeple düşerdi. "
+                "Yeni bir fiyat kaynağı tanımlanana kadar Shell tazelenemez."
+            )
         except Exception as exc:
             print(f"[WARN] Shell scrape failed: {exc}")
         finally:
@@ -787,6 +843,7 @@ def scrape_shell_data(target_locations=None):
         f"listede-yok={stats['missing']} hata={stats['failed']} "
         f"denenen={stats['attempted']} planlanan={stats['planned']}"
         + (" (BÜTÇE DOLDU)" if stats["budget_exhausted"] else "")
+        + (" (KAYNAK YOK)" if stats["source_dead"] else "")
     )
     return scraped_data, stats
 
