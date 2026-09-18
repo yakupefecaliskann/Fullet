@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import unittest
 import unittest.mock
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
+import known_outages
 import ops_report
 
 VERIFIED_SOURCE = "api.opet.com.tr/api/fuelprices/allprices"
@@ -113,6 +114,65 @@ class OpsReportFreshnessTest(unittest.TestCase):
 
         self.assertEqual(code, 0, f"temiz rapor beklendi, alarmlar: {alerts}")
         self.assertEqual(alerts, [])
+
+    def test_known_outage_brand_warns_without_blocking(self):
+        """Kaynağı ölmüş markanın bayatlığı RAPORLANIR ama tek başına kırmızı
+        yapmaz — rapor her 6 saatte bir kırmızı dönerse kırmızı anlamını
+        yitirir ve bir sonraki GERÇEK arıza görünmez olur."""
+        outage = known_outages.KnownOutage(
+            bot="dummy_bot.py", brand=TEST_BRAND,
+            url="https://example.invalid/prices", reason="kaynak emekliye ayrıldı",
+            since=date(2026, 9, 9), review_by=date(2026, 10, 31),
+        )
+        with unittest.mock.patch.object(
+            ops_report, "active_outage_for_brand",
+            side_effect=lambda brand, today=None: outage if brand == TEST_BRAND else None,
+        ):
+            code, alerts = self._run_main(
+                [_price(changed_hours_ago=120, verified_hours_ago=120)]
+            )
+
+        self.assertEqual(code, 0, f"bloklamaması beklendi, alarmlar: {alerts}")
+        # Susturulmadı: alarm hâlâ açılıyor, sadece çıkış kodunu belirlemiyor.
+        self.assertTrue(any("stale price data" in a["message"] for a in alerts))
+        self.assertTrue(any(a["metadata"].get("known_outage") for a in alerts))
+
+    def test_expired_outage_blocks_again(self):
+        """Gözden geçirme tarihi geçmiş kayıt ayrıcalığını KAYBEDER."""
+        with unittest.mock.patch.object(
+            ops_report, "active_outage_for_brand", return_value=None
+        ):
+            code, alerts = self._run_main(
+                [_price(changed_hours_ago=120, verified_hours_ago=120)]
+            )
+        self.assertEqual(code, 1)
+
+    def test_unrelated_brand_failure_still_blocks_alongside_an_outage(self):
+        """Bilinen arıza, BAŞKA bir markanın gerçek arızasını yutmamalı —
+        mekanizmanın tek gerçek riski budur."""
+        outage = known_outages.KnownOutage(
+            bot="dummy_bot.py", brand="DeadBrand",
+            url="https://example.invalid/prices", reason="kaynak emekliye ayrıldı",
+            since=date(2026, 9, 9), review_by=date(2026, 10, 31),
+        )
+        alerts: list[dict] = []
+        with unittest.mock.patch.object(ops_report, "supabase", unittest.mock.MagicMock()), \
+             unittest.mock.patch.object(ops_report, "BRANDS", ["DeadBrand", TEST_BRAND]), \
+             unittest.mock.patch.object(
+                 ops_report, "_select_brand_stations", return_value=[_station()]), \
+             unittest.mock.patch.object(
+                 ops_report, "_select_prices",
+                 return_value=[_price(changed_hours_ago=120, verified_hours_ago=120)]), \
+             unittest.mock.patch.object(ops_report, "resolve_system_alerts"), \
+             unittest.mock.patch.object(
+                 ops_report, "active_outage_for_brand",
+                 side_effect=lambda brand, today=None: outage if brand == "DeadBrand" else None), \
+             unittest.mock.patch.object(
+                 ops_report, "create_system_alert",
+                 side_effect=lambda **kw: alerts.append(kw)):
+            code = ops_report.main()
+
+        self.assertEqual(code, 1, "sağlıklı markanın bayatlığı hâlâ bloklamalı")
 
     def test_price_query_requests_verification_column(self):
         """_select_prices son_dogrulama kolonunu gerçekten istemeli.

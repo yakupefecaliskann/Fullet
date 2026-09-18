@@ -848,12 +848,19 @@ def scrape_shell_data(target_locations=None):
     return scraped_data, stats
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """Koşunun tamamı — çıkış kodunu DÖNER, kendisi çıkmaz.
+
+    Ayrı bir fonksiyon olmasının sebebi: `stats["source_dead"]` ile
+    `finish_bot_run(source_gone=...)` arasındaki bağ, ölü kaynağın
+    "parser kırık" sanılmamasını sağlayan TEK kablo. `__main__` bloğunda
+    kaldığı sürece test edilemezdi ve sessizce kopabilirdi.
+    """
     start_time = datetime.now()
     data, stats = scrape_shell_data()
     summary = save_regional_prices_to_supabase(data, default_brand="Shell")
     print(f"[OK] Shell finished in {(datetime.now() - start_time).total_seconds():.1f}s.")
-    raise SystemExit(
+    return (
         finish_bot_run(
             "shell_bot.py",
             scraped=len(data),
@@ -861,5 +868,14 @@ if __name__ == "__main__":
             targets_ok=stats["ok"],
             # planned, attempted değil: bütçe kesintisi kapsamayı DÜŞÜRMELİ.
             targets_total=stats["planned"],
+            # `_verify_source` kaynağın ayakta OLMADIĞINI kanıtladıysa çıkış
+            # kodu 1 değil EXIT_SOURCE_GONE olur. Aradaki fark, orkestratörün
+            # "parser kırıldı" ile "gidilecek yer kalmadı"yı ayırt edebilmesi
+            # için tek kanıt (bkz. known_outages.py).
+            source_gone=stats["source_dead"],
         )
     )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

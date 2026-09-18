@@ -55,6 +55,7 @@ def record_bot_run(
     records_written: int | None = None,
     targets_ok: int | None = None,
     targets_total: int | None = None,
+    escalate_failures: bool = True,
 ) -> None:
     if not supabase:
         return
@@ -64,9 +65,16 @@ def record_bot_run(
     # eklenir. Eskiden insert SONRASI çağrılıyordu ve mevcut koşu hem
     # sorgudan hem elle ekten gelip iki kez sayılıyordu — tek hata
     # "2 ardışık hata" görünüp ilk denemede critical alarm patlatıyordu.
-    if status not in NON_FAILURE_STATUSES:
+    #
+    # `escalate_failures=False` yalnızca kaynağı KABUL EDİLMİŞ biçimde ölmüş
+    # botlar için gelir (bkz. known_outages.py). Orada ardışık hata saymak,
+    # her koşuda tazelenen kalıcı bir `critical` alarm üretir ve tam olarak
+    # görmemiz gereken şeyi — GERÇEK bir ardışık hatayı — gürültüye gömer.
+    # Koşu yine de `bot_runs`'a yazılır: telemetri susturulmuyor, SADECE
+    # tırmandırma susturuluyor.
+    if status not in NON_FAILURE_STATUSES and escalate_failures:
         _check_consecutive_failures(bot_name, current_status=status)
-    else:
+    elif status in NON_FAILURE_STATUSES:
         # Bot çalıştı ve veri yazdı — ardışık hata alarmını kapat.
         # 'degraded' de buraya girer: kapsama düşük olsa bile bot ÖLÜ DEĞİL.
         # Kapsama sorunu run_all_bots'un ayrı `warning` alarmıyla (farklı

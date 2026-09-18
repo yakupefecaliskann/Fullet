@@ -10,6 +10,7 @@ from typing import Any, Iterable
 # "kullanılmıyor" sanır.
 from telemetry import record_bot_run, create_system_alert, resolve_system_alerts
 from models import SaveSummary
+from known_outages import EXIT_SOURCE_GONE
 
 # Export config & utilities
 from config import supabase, is_dry_run, is_write_allowed, CANONICAL_FUELS, OFFICIAL_REGIONAL_SOURCES, allow_inferred_data, OFFICIAL_STATION_SOURCES
@@ -78,6 +79,7 @@ def finish_bot_run(
     summary: SaveSummary | None = None,
     targets_ok: int | None = None,
     targets_total: int | None = None,
+    source_gone: bool = False,
 ) -> int:
     """Botun makine-okur kayıt satırını basar ve dürüst çıkış kodunu döner.
 
@@ -102,6 +104,15 @@ def finish_bot_run(
     dönmek 9 dakikalık kazımayı yeniden denetip aynı sonucu üretir ve
     pipeline'ı kalıcı kırmızıya boyar. 'degraded', "veri yazıldı ama eksik"
     durumunun kendi adıdır — 'success' yalanı ile 'failed' abartısı arasında.
+
+    --- `source_gone`: "kırık" ile "yok" arasındaki fark ----------------------
+
+    `scraped == 0` iki çok farklı şeyin ortak belirtisidir: parser kırılmıştır
+    (KOD sorunu, acil) ya da kaynak ortadan kalkmıştır (ÜRÜN sorunu, kodda
+    yapılacak bir şey yok). Bot ikisini ayırt edebiliyorsa — shell_bot
+    `_verify_source` ile ayırt ediyor — çıkış kodu da ayırt etmeli. Yalnızca
+    çalışma anında DOĞRULANMIŞ ikinci durum `EXIT_SOURCE_GONE` döner ve ancak
+    `known_outages.py`'de kaydı varsa hoş görülür.
     """
     stations = summary.stations_touched if summary else 0
     prices = summary.prices_touched if summary else 0
@@ -109,6 +120,16 @@ def finish_bot_run(
     if targets_total:
         records_line += f" targets_ok={targets_ok or 0} targets_total={targets_total}"
     print(records_line)
+
+    if source_gone:
+        # Kapsama satırı (0/280) BİLEREK basılır: "hiçbiri tazelenmedi"
+        # bilgisi kaynağın ölü olmasından bağımsız olarak doğrudur ve
+        # telemetride görünmeye devam etmeli.
+        print(
+            f"[KAYNAK-YOK] {bot_name}: kaynağın ayakta olmadığı DOĞRULANDI — "
+            "hedefler denenmedi. Bu bir parser hatası değil."
+        )
+        return EXIT_SOURCE_GONE
 
     if scraped == 0:
         print(

@@ -13,6 +13,7 @@ from db_utils import (
     supabase,
 )
 from freshness import STALE_MAX_HOURS
+from known_outages import active_outage_for_brand
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -212,9 +213,31 @@ def main() -> int:
     print(f"Total active stations: {total_active}")
     print(f"Total active prices: {total_prices}")
 
+    # --- Kabul edilmiş kaynak arızaları --------------------------------------
+    # Kaynağı ölmüş bir markanın verisi elbette bayatlar; bunu her 6 saatte bir
+    # kırmızıya çevirmek yeni bir bilgi taşımaz, sadece raporun kırmızısını
+    # anlamsızlaştırır. Uyarı BASILIR ve alarmı AÇIK KALIR — yalnızca çıkış
+    # kodunu tek başına belirlemez. Kaydın süresi dolduğunda (known_outages.py)
+    # bu ayrıcalık kendiliğinden biter ve marka yeniden bloklayıcı olur.
+    acknowledged = []
+    blocking = []
+    for warning in warnings:
+        brand = warning.split(":", 1)[0]
+        outage = active_outage_for_brand(brand)
+        (acknowledged if outage else blocking).append((warning, outage))
+
+    # Uyarısı OLMAYAN markaların eski alarmlarını kapat. Eskiden burada
+    # koşulsuz `resolve_system_alerts(source="ops_report")` vardı ve yalnızca
+    # HİÇ uyarı yokken çalışıyordu; tek bir kalıcı uyarı, düzelmiş bütün
+    # markaların alarmlarını sonsuza dek açık bırakıyordu.
+    warned_titles = {warning.split(":", 1)[0] for warning in warnings}
+    for brand in BRANDS:
+        if brand not in warned_titles:
+            resolve_system_alerts(source="ops_report", title=brand)
+
     if warnings:
         print("\nWarnings")
-        for warning in warnings:
+        for warning, outage in blocking:
             print(f"[WARN] {warning}")
             create_system_alert(
                 severity="warning",
@@ -223,7 +246,26 @@ def main() -> int:
                 message=warning,
                 metadata={"report": "live_data"},
             )
-        return 1
+        for warning, outage in acknowledged:
+            print(f"[BILINEN-ARIZA] {warning} — {outage.describe()}")
+            create_system_alert(
+                severity="warning",
+                source="ops_report",
+                title=warning.split(":", 1)[0],
+                message=f"{warning} ({outage.describe()}; {outage.url})",
+                metadata={
+                    "report": "live_data",
+                    "known_outage": True,
+                    "review_by": outage.review_by.isoformat(),
+                },
+            )
+        if blocking:
+            return 1
+        print(
+            "\n[OK] Bloklayıcı uyarı yok; kalanların tamamı known_outages.py'de "
+            "kayıtlı ve gözden geçirme tarihi henüz gelmedi."
+        )
+        return 0
 
     resolve_system_alerts(source="ops_report")
     # NOT: bot:* kaynaklı alarmlar burada KAPATILMAZ. Rapor istasyon/fiyat

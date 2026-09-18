@@ -1,9 +1,11 @@
 # Fullet — Kod Denetimi Arşivi (KAPALI)
 
-Bu dosya dört **kapatılmış** denetim raporunun birleşimidir. Dördü de tarihsel
-kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır. Aktif bir
-iş listesi değildir — güncel yayın durumu için `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`,
-her sürümde tekrarlanan kontroller için `RELEASE_QA_CHECKLIST.md`.
+Bu dosya beş **kapatılmış** denetim raporunun birleşimidir. Beşi de tarihsel
+kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır — tek
+istisna E bölümündeki iki DDL bulgusudur (E-G1, E-G2), bunlar açıkça "rapor
+edildi, uygulanmadı" olarak işaretlidir. Aktif bir iş listesi değildir — güncel
+yayın durumu için `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan
+kontroller için `RELEASE_QA_CHECKLIST.md`.
 
 > **Bölüm C ve D'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır
 > hatayla kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını
@@ -15,6 +17,12 @@ her sürümde tekrarlanan kontroller için `RELEASE_QA_CHECKLIST.md`.
 > C'de **yeşil telemetri yanlış veriyi gizliyordu**; D'de **kırmızı telemetri
 > 16 gün boyunca kimseye ulaşmadı**. Alarmın açılması ile görülmesi ayrı
 > şeylerdir.
+>
+> E bölümü (18 Eylül 2026) üçlemeyi kapatır: D'nin çözümü alarmı pipeline'ın
+> kırmızısına bağlamıştı; E, **o kırmızının 9 gün boyunca sabit kalınca sinyal
+> olmaktan çıktığını** ölçer. Düzeltilemeyen bir arıza bulduğunuzda sorulacak
+> soru "bunu nasıl susturayım?" değil, "bu, geri kalan her şeyi hâlâ
+> görebilmemi sağlıyor mu?"dur.
 
 **Neden siliniyor değil de saklanıyor:** kararların *gerekçesi* burada. Örneğin
 `win32` bağımlılığının neden ölü olmadığı, `_fetchStationsLegacy` /
@@ -28,6 +36,7 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 | **B** | `FULLET_KOD_SAGLIGI_YOL_HARITASI.md` | Tam kod sağlığı yol haritası — Faz 0–3 | 3 Ağustos 2026 |
 | **C** | *(doğrudan bu dosyaya yazıldı)* | Uçtan uca denetim — "fiyatlar yanlış" şikâyetlerinin kök nedeni (K1–K2, Y1, O1–O3, D1–D3) | 25 Ağustos 2026 |
 | **D** | *(doğrudan bu dosyaya yazıldı)* | Envanter denetimi — 16 gündür sessiz kalan `shell_station_bot.py` (D-K1, D-K2, D-Y1) | 25 Ağustos 2026 |
+| **E** | *(doğrudan bu dosyaya yazıldı)* | Kalıcı kırmızı — ölü Shell kaynağının alarm sistemini körleştirmesi (E-Y1–Y3, E-G1, E-G2) | 18 Eylül 2026 |
 
 > A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
 > özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
@@ -2219,3 +2228,163 @@ D bölümü üçüncü bir ekseni ekliyor: **alarmın görülmesi**, alarmın a�
 ayrı bir şeydir. Fullet'in alarm altyapısı doğru çalıştı; hiç kimseye
 ulaşmadığı için işe yaramadı. Sessiz bot taraması alarmı, zaten her gün
 bakılan bir yüzeye — pipeline'ın kırmızısına — bağlar.
+
+---
+---
+
+# ═══ BÖLÜM E ═══ Kalıcı Kırmızı: Ölü Kaynağın Alarm Sistemini Körleştirmesi
+
+*(doğrudan bu dosyaya yazıldı — 18 Eylül 2026)*
+
+**Tarih:** 18 Eylül 2026
+**Tetikleyici:** Rutin sağlık taraması. Son 9 gündür `prices` modlu her otopilot
+koşusu (günde 4) kırmızı dönüyordu.
+**Kapsam:** `run_all_bots.py`, `backend_health_check.py`, `ops_report.py`,
+`shell_bot.py`, `telemetry.py`, Supabase (canlı, salt-okunur denetim).
+**Denetim anındaki sürüm:** 1.0.4+7
+
+---
+
+## Özet
+
+Shell'in fiyat kaynağı 9 Eylül'de kalıcı olarak öldü (`/pompatest/History.aspx`
+→ HTTP 404; 18 Eylül'de yeniden doğrulandı, `turkiyeshell.com` artık yalnızca
+Taşıt Tanıma portalı). Bu, PR #7'de zaten teşhis edilmiş ve botun bunu saniyeler
+içinde anlaması sağlanmıştı. **Kapatılmayan şey, bu ölümün alarm sistemine
+yaptığıydı.**
+
+| # | Bulgu | Etki | Durum |
+|---|---|---|---|
+| **E-Y1** | Kabul edilmiş ölü kaynak, üç ayrı kapıyı kalıcı kırmızıya boyuyordu | 9 gün × 4 koşu = 36 kırmızı koşu; kırmızı sinyal anlamını yitirdi | ✅ düzeltildi |
+| **E-Y2** | `shell_bot` ölü kaynağa her koşuda 2 kez gidiyordu (retry) | Beyhude 404 + günlük gürültüsü | ✅ düzeltildi |
+| **E-Y3** | `ops_report` tek kalıcı uyarı yüzünden DÜZELMİŞ markaların alarmlarını da hiç kapatmıyordu | Çözülmüş alarmlar sonsuza dek `open` kalıyordu | ✅ düzeltildi |
+| **E-G1** | `fiyat_gecmisi` push trigger'ı satır başına HTTP isteği yapıyor | Tek zam = 9.028 edge function çağrısı, DB'nin %57'si pg_net çöpü | 🔶 rapor edildi (DDL onayı gerekli) |
+| **E-G2** | Push trigger tanımında **düz metin `service_role` JWT** | RLS'i tamamen aşan anahtar, DB nesnesinde saklı | 🔶 rapor edildi (karar kullanıcının) |
+
+---
+
+## E-Y1 — Kalıcı kırmızının bedeli
+
+D bölümünün dersi şuydu: *"alarmın açılması ile görülmesi ayrı şeylerdir"* ve
+çözüm, alarmı **zaten her gün bakılan bir yüzeye** — pipeline'ın kırmızısına —
+bağlamaktı. E bölümü o çözümün faturasıdır: **o yüzey 9 gün boyunca kesintisiz
+kırmızı kaldığında, yüzey olmaktan çıkar.**
+
+Üç kapı birden, düzeltilemeyecek tek bir sebeple 1 döndürüyordu:
+
+| Kapı | Sebep |
+|---|---|
+| `run_all_bots.py` | `shell_bot` exit 1 → `critical_failures` boş değil → exit 1 |
+| `backend_health_check.py` | `[FAIL] bot silence shell_bot.py: son başarı 201 saat önce` |
+| `ops_report.py` | `[WARN] Shell: stale price data (8d > 48h)` → exit 1 |
+
+Ölçülen sonuç: 10 Eylül'den 18 Eylül'e kadar `system_alerts`'e **tek bir yeni
+kayıt düşmedi** — açık alarmlar her koşuda yerinde güncellendi. Yani bu dönemde
+başka bir bot kırılsaydı, ne pipeline'ın rengi ne de alarm panosu değişirdi.
+Diğer 13 botun tamamı bu sırada %100 başarılıydı (her fiyat botu 27/27,
+`shell_bot` 0/54); bunu görmek için canlı `bot_runs` sorgulamak gerekti — CI'ya
+bakmak yetmedi. **Tam olarak kaçınılması gereken durum budur.**
+
+### Neden `TOLERATED_FAILURE_BOTS` kullanılmadı
+
+`run_all_bots.TOLERATED_FAILURE_BOTS` bir zamanlar tam bunun için vardı ve
+kasıtlı olarak boşaltıldı (denetim Y1): bir botu topluca "tolere edilen" ilan
+etmek, **kaynağın ölümünü de parser kırıklığını da** aynı anda gizler ve hiçbir
+zaman sona ermez. Aynı tuzağa düşmemek için yeni mekanizma (`known_outages.py`)
+üç noktada ondan ayrılır:
+
+1. **Yalnızca çalışma anında DOĞRULANMIŞ tek bir imzayı** susturur. Bot
+   `EXIT_SOURCE_GONE` (3) ile çıkmalıdır ve bunu ancak kaynağın erişilemez
+   olduğunu kanıtladığında yapar (`shell_bot._verify_source`: HTTP durumu **ve**
+   uygulamanın kendi DOM çapası). Parser kırılıp 0 kayıt dönerse çıkış kodu yine
+   1'dir ve pipeline yine kırmızıdır.
+2. **Süresi dolar.** `review_by` (31 Ekim 2026) geçtiğinde kayıt susturmayı
+   bırakır ve sağlık kontrolü *"gözden geçirme tarihi GEÇTİ"* diyerek kırmızıya
+   döner. Kalıcı göz bağına dönüşemez.
+3. **Kendini temizletir.** Kaydı olan bot yeniden başarılı olursa sağlık
+   kontrolü kırmızıya döner ve kaydın **silinmesini** ister. Bu olmadan, geri
+   dönmüş bir kaynağın gelecekteki gerçek arızası sessizce yutulurdu.
+
+### Yeni durum eşlemesi
+
+| Koşul | `bot_runs.status` | Alarm | Pipeline |
+|---|---|---|---|
+| Kaynak ölü **+ geçerli kayıt** | `skipped` | tek `warning` | 🟢 yeşil |
+| Kaynak ölü **+ kayıt yok / süresi dolmuş** | `failed` | `error` + `critical` | 🔴 kırmızı |
+| Parser kırık (0 kayıt, kaynak ayakta) | `failed` | `error` + `critical` | 🔴 kırmızı |
+
+`skipped` seçimi bilinçli: bot çalıştı ama **işini yapmadı**, çünkü gidilecek
+yer yoktu. `success` yalan olurdu; `failed` ise yanlış yere — koda — işaret
+ederdi. Kapsama satırı (`targets_ok=0 targets_total=280`) her hâlükârda basılır:
+"Shell'in hiçbiri tazelenmedi" bilgisi kaynağın ölümünden bağımsız olarak
+doğrudur ve telemetride görünmelidir.
+
+Ayrıca `telemetry.record_bot_run(escalate_failures=False)` eklendi: kabul edilmiş
+arızada ardışık-hata sayacı çalışmaz. Çalışsaydı her koşuda tazelenen kalıcı bir
+`critical` alarm üretir ve görmemiz gereken tek şeyi — **gerçek** bir ardışık
+hatayı — gürültüye gömerdi.
+
+## E-Y2 — Ölü kaynağa retry
+
+`BOT_MAX_RETRIES=1` ölü kaynakta da işliyordu: aynı 404, 20 saniye backoff
+sonrası ikinci kez soruluyordu. Tek kazandığı günlüğü ikiye katlamaktı.
+`OUTCOME_OUTAGE` artık retry döngüsünü kırar.
+
+## E-Y3 — `ops_report`'un yan etkisi
+
+`resolve_system_alerts(source="ops_report")` yalnızca **hiç uyarı yokken**
+çalışıyordu. Shell'in kalıcı uyarısı, düzelmiş bütün markaların (`TotalEnergies`,
+`Opet`, `BP`, …) eski alarmlarını sonsuza dek `open` bırakıyordu. Artık uyarısı
+olmayan her marka kendi başlığıyla ayrı ayrı kapatılır — kalıcı bir uyarının
+varlığı diğerlerinin temizlenmesini engellemez.
+
+---
+
+## E-G1 / E-G2 — Push trigger'ı (rapor edildi, uygulanmadı)
+
+`public.fiyat_gecmisi` üzerindeki **"Fiyat Push Tetikleyici"**, `FOR EACH ROW`
+olarak `supabase_functions.http_request(...)` çağırıyor. 16 Eylül gecesi tek bir
+ulusal zam **9.028 geçmiş satırı** yazdı ve bu, **9.028 ayrı HTTP isteği**
+doğurdu. Yanıtların tamamı `200 OK (No target devices)` — yani kayıtlı cihaz yok,
+işin tamamı beyhude. Ölçülen maliyet: `net._http_response` **191 MB**, 336 MB'lık
+veritabanının **%57'si**.
+
+Ayrıca trigger tanımı, `Authorization` başlığında **düz metin `service_role`
+JWT** taşıyor (2036'ya kadar geçerli, RLS'i tamamen aşar). Bu, Supabase Database
+Webhooks arayüzünün varsayılan davranışıdır; doğrusu anahtarı Vault'ta tutmaktır.
+
+İkisi de DDL gerektirdiği için bu denetimde **uygulanmadı** — üretim
+veritabanında şema değişikliği ayrı ve açık onay ister. Önerilen yön:
+`STATEMENT` seviyesine indirmek ya da cihaz kaydı gelene kadar trigger'ı devre
+dışı bırakmak; anahtarı Vault'a taşımak.
+
+---
+
+## Regresyon kilidi
+
+`scraper/test_known_outages.py` (24 test) + `test_ops_report.py`'ye 3 test.
+Kilitlenen davranışlar:
+
+- ölü kaynak ≠ kırık parser (çıkış kodu ayrımı, her iki yönde),
+- `source_dead` → `source_gone` kablosu (kopsa mekanizmanın geri kalanı
+  çalışır ve yine de hiçbir işe yaramaz — bu yüzden `shell_bot.main()`
+  `__main__` bloğundan çıkarılıp test edilebilir hâle getirildi),
+- süresi dolmuş kayıt susturmayı bırakır,
+- iyileşen bot bayat kaydın silinmesini isteyerek kırmızıya döner,
+- **bilinen arıza, BAŞKA bir markanın/botun gerçek arızasını yutmaz.**
+
+Son madde mekanizmanın tek gerçek riskidir ve iki ayrı testle kilitlenmiştir.
+
+### Genelleştirilebilir ders
+
+C: yeşil telemetri yanlış veriyi gizleyebilir.
+D: kırmızı telemetri kimse bakmazsa hiçbir şey ifade etmez.
+**E: kırmızı telemetri, düzeltilemeyecek bir sebeple kalıcı hâle geldiğinde
+kimsenin bakmadığı telemetriye dönüşür.**
+
+Bir sinyalin değeri, **değişebilme** yeteneğindedir. Sabit bir sinyal — hep
+yeşil ya da hep kırmızı — sinyal değildir. Düzeltilemeyen bir arızayla
+karşılaşıldığında sorulacak soru "bunu nasıl susturayım?" değil, **"bu, geri
+kalan her şeyi hâlâ görebilmemi sağlıyor mu?"**dur. Susturmanın meşru olduğu tek
+hâl, susturmanın *kapsamı dar*, *süresi sınırlı* ve *kendini iptal eder*
+olmasıdır.

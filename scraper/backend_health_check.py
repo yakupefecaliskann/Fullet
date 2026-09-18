@@ -59,6 +59,54 @@ def _ok(label: str, detail: str = "") -> None:
     print(f"[OK] {label}{': ' + detail if detail else ''}")
 
 
+def evaluate_bot_silence(
+    bot_name: str,
+    *,
+    yas: float,
+    son_basari,
+    warn_hours: float,
+    fail_hours: float,
+    outage=None,
+) -> list[tuple[str, str, str]]:
+    """Tek bir botun sessizliğini değerlendirir. (seviye, etiket, ayrıntı) döner.
+
+    Saf fonksiyon — Supabase'e dokunmaz, yalnızca karar verir. Ayrı durmasının
+    sebebi bu kararın üç ince dalı olması ve üçünün de yanlış tarafa düşmesinin
+    pahalı olması:
+
+    * Kabul edilmiş ölü kaynak KIRMIZI olmamalı. Olursa her koşu kırmızı olur,
+      kırmızı anlamını yitirir ve BAŞKA bir botun arızası görünmez hâle gelir —
+      `shell_station_bot`'un 16 gün fark edilmemesiyle aynı sınıf hata.
+    * Süresi dolmuş kayıt yeniden KIRMIZI olmalı; yoksa kayıt kalıcı göz bağı.
+    * Bot iyileştiyse kayıt artık bayattır ve SİLİNMESİ istenmeli; yoksa
+      kaynağın gelecekteki gerçek arızası sessizce yutulur.
+    """
+    detay = f"son başarı {yas:.0f} saat önce ({son_basari.date()})"
+    etiket = f"bot silence {bot_name}"
+
+    if outage is not None and yas <= warn_hours:
+        return [
+            (
+                "fail",
+                f"bilinen arıza kaydı bayat: {bot_name}",
+                f"bot yeniden sağlıklı ({detay}) ama known_outages.py'de hâlâ "
+                "kaydı var — kaydı SİL.",
+            ),
+            ("ok", etiket, detay),
+        ]
+
+    if yas > fail_hours:
+        if outage is not None and not outage.is_expired():
+            return [("warn", etiket, f"{detay}; {outage.describe()}")]
+        ek = f"; {outage.describe()}" if outage is not None else ""
+        return [("fail", etiket, f"{detay}; eşik {fail_hours} saat{ek}")]
+
+    if yas > warn_hours:
+        return [("warn", etiket, f"{detay}; eşik {warn_hours} saat")]
+
+    return [("ok", etiket, detay)]
+
+
 def _warn(label: str, detail: str = "") -> None:
     print(f"[WARN] {label}{': ' + detail if detail else ''}")
 
@@ -375,6 +423,7 @@ def main() -> int:
     # denetim dışı bırakırdı.
     try:
         from run_all_bots import PRICE_BOTS, STATION_BOTS
+        from known_outages import outage_for_bot
 
         gruplar = [(bot, "price") for bot in PRICE_BOTS]
         gruplar += [(bot, "station") for bot in STATION_BOTS]
@@ -395,19 +444,27 @@ def main() -> int:
                 or []
             )
             son_basari = _parse_datetime(rows[0]["started_at"]) if rows else None
+            outage = outage_for_bot(bot_name)
             if son_basari is None:
                 _fail(f"bot silence {bot_name}", "hiç başarılı koşu kaydı yok")
                 failed = True
                 continue
             yas = (now - son_basari).total_seconds() / 3600
-            detay = f"son başarı {yas:.0f} saat önce ({son_basari.date()})"
-            if yas > fail_hours:
-                _fail(f"bot silence {bot_name}", f"{detay}; eşik {fail_hours} saat")
-                failed = True
-            elif yas > warn_hours:
-                _warn(f"bot silence {bot_name}", f"{detay}; eşik {warn_hours} saat")
-            else:
-                _ok(f"bot silence {bot_name}", detay)
+            for seviye, etiket, ayrinti in evaluate_bot_silence(
+                bot_name,
+                yas=yas,
+                son_basari=son_basari,
+                warn_hours=warn_hours,
+                fail_hours=fail_hours,
+                outage=outage,
+            ):
+                if seviye == "fail":
+                    _fail(etiket, ayrinti)
+                    failed = True
+                elif seviye == "warn":
+                    _warn(etiket, ayrinti)
+                else:
+                    _ok(etiket, ayrinti)
     except Exception as exc:
         _fail("bot silence check", str(exc))
         failed = True
