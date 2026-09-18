@@ -1,9 +1,8 @@
 # Fullet — Kod Denetimi Arşivi (KAPALI)
 
 Bu dosya beş **kapatılmış** denetim raporunun birleşimidir. Beşi de tarihsel
-kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır — tek
-istisna E bölümündeki iki DDL bulgusudur (E-G1, E-G2), bunlar açıkça "rapor
-edildi, uygulanmadı" olarak işaretlidir. Aktif bir iş listesi değildir — güncel
+kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır. Aktif bir
+iş listesi değildir — güncel
 yayın durumu için `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan
 kontroller için `RELEASE_QA_CHECKLIST.md`.
 
@@ -36,7 +35,7 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 | **B** | `FULLET_KOD_SAGLIGI_YOL_HARITASI.md` | Tam kod sağlığı yol haritası — Faz 0–3 | 3 Ağustos 2026 |
 | **C** | *(doğrudan bu dosyaya yazıldı)* | Uçtan uca denetim — "fiyatlar yanlış" şikâyetlerinin kök nedeni (K1–K2, Y1, O1–O3, D1–D3) | 25 Ağustos 2026 |
 | **D** | *(doğrudan bu dosyaya yazıldı)* | Envanter denetimi — 16 gündür sessiz kalan `shell_station_bot.py` (D-K1, D-K2, D-Y1) | 25 Ağustos 2026 |
-| **E** | *(doğrudan bu dosyaya yazıldı)* | Kalıcı kırmızı — ölü Shell kaynağının alarm sistemini körleştirmesi (E-Y1–Y3, E-G1, E-G2) | 18 Eylül 2026 |
+| **E** | *(doğrudan bu dosyaya yazıldı)* | Kalıcı kırmızı + ölü push tetikleyicisi — alarm körlüğü ve 235 MB çöp (E-Y1–Y3, E-G1, E-G2) | 18 Eylül 2026 |
 
 > A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
 > özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
@@ -2258,8 +2257,8 @@ yaptığıydı.**
 | **E-Y1** | Kabul edilmiş ölü kaynak, üç ayrı kapıyı kalıcı kırmızıya boyuyordu | 9 gün × 4 koşu = 36 kırmızı koşu; kırmızı sinyal anlamını yitirdi | ✅ düzeltildi |
 | **E-Y2** | `shell_bot` ölü kaynağa her koşuda 2 kez gidiyordu (retry) | Beyhude 404 + günlük gürültüsü | ✅ düzeltildi |
 | **E-Y3** | `ops_report` tek kalıcı uyarı yüzünden DÜZELMİŞ markaların alarmlarını da hiç kapatmıyordu | Çözülmüş alarmlar sonsuza dek `open` kalıyordu | ✅ düzeltildi |
-| **E-G1** | `fiyat_gecmisi` push trigger'ı satır başına HTTP isteği yapıyor | Tek zam = 9.028 edge function çağrısı, DB'nin %57'si pg_net çöpü | 🔶 rapor edildi (DDL onayı gerekli) |
-| **E-G2** | Push trigger tanımında **düz metin `service_role` JWT** | RLS'i tamamen aşan anahtar, DB nesnesinde saklı | 🔶 rapor edildi (karar kullanıcının) |
+| **E-G1** | `fiyat_gecmisi` push trigger'ı satır başına HTTP isteği yapıyor | Tek zam = 9.028 edge function çağrısı; DB'nin **%70'i** çöp (235 MB) | ✅ düzeltildi |
+| **E-G2** | Push trigger tanımında **düz metin `service_role` JWT** | RLS'i tamamen aşan anahtar, DB nesnesinde saklı | ✅ düzeltildi |
 
 ---
 
@@ -2353,10 +2352,52 @@ Ayrıca trigger tanımı, `Authorization` başlığında **düz metin `service_r
 JWT** taşıyor (2036'ya kadar geçerli, RLS'i tamamen aşar). Bu, Supabase Database
 Webhooks arayüzünün varsayılan davranışıdır; doğrusu anahtarı Vault'ta tutmaktır.
 
-İkisi de DDL gerektirdiği için bu denetimde **uygulanmadı** — üretim
-veritabanında şema değişikliği ayrı ve açık onay ister. Önerilen yön:
-`STATEMENT` seviyesine indirmek ya da cihaz kaydı gelene kadar trigger'ı devre
-dışı bırakmak; anahtarı Vault'a taşımak.
+### Karar: tetikleyici tamamen kaldırıldı
+
+İlk raporda "DDL onayı bekliyor" olarak bırakılmıştı; onay alındıktan sonra
+(18 Eyl 2026) daha derin bakıldı ve **düzeltmek değil kaldırmak** gerektiği
+ortaya çıktı. Beş gerekçe de canlıda doğrulandı:
+
+1. **Hedef tablo hiç yok.** Edge function `public.push_tokens`'tan okuyor;
+   o tablo bu projede oluşturulmamış. Her çağrı `tokenError` alıp
+   `"OK (No target devices)"` dönüyordu. Kanal hiçbir zaman çalışmadı.
+2. **Yanlış push sağlayıcısı.** Edge function `ExponentPushToken` bekliyor
+   (Expo / React Native). Fullet Flutter + Firebase ve `fullet_flutter/lib`
+   altında ne `firebase_messaging` ne de herhangi bir token kaydı var — tablo
+   oluşturulsa bile bu kod bu uygulamaya bildirim gönderemezdi.
+3. **`FOR EACH ROW` = yayılma felaketi.** Edge function her çağrıda TEK bir
+   istasyonun metnini üretip TÜM cihazlara yolluyor. Kanal çalışsaydı 16 Eylül
+   gecesi kayıtlı her cihaza **10 dakikada 9.028 bildirim** giderdi. Bu bir
+   maliyet sorunu değil, kullanıcı kaybettirecek bir arıza olurdu.
+4. **Düz metin `service_role` JWT** (exp 2036), `pg_get_triggerdef` ile
+   okunabiliyor ve her `pg_dump`'a giriyordu.
+5. **235 MB çöp**, üstelik hiçbir şey onu temizlemiyordu.
+
+Sızıntı denetimi (rotasyon kararı için): anahtar **public depoya veya git
+geçmişine sızmamış** (`git log -S` ile tüm geçmiş tarandı). `scraper/.env`'de
+var ama o dosya gitignore'lu ve hiç commit edilmemiş. Admin panel bundle'ındaki
+JWT `anon` anahtarıdır — o zaten herkese açık olmalı ve RLS ile korunuyor.
+Dolayısıyla **acil rotasyon gerekmiyor**; anahtar DB nesnesinden kalktığı için
+maruziyet kapandı.
+
+Uygulanan: `database/drop_fiyat_push_trigger.sql`.
+
+| Ölçüm | Önce | Sonra |
+|---|---|---|
+| `net._http_response` | 191 MB / 9.028 satır | **32 kB / 0** |
+| `supabase_functions.hooks` | 44 MB / 330.919 satır | **32 kB / 0** |
+| Veritabanı toplam | 336 MB | **101 MB** |
+| JWT taşıyan tetikleyici | 1 | **0** |
+
+İş verisi değişmedi (fiyat_gecmisi 313.723, fiyatlar 17.476, aktif istasyon
+6.960); `trigger_fiyat_guncelleme` ve `trigger_set_konum` etkin kaldı; anon
+REST okumaları ve `get_nearby_stations_v2` doğrulandı. Ücretsiz katman
+sınırı 500 MB — doluluk %67'den %20'ye indi.
+
+**Push gerçekten istenirse** bu tetikleyici geri konmamalı; doğrusu FCM
+(Expo değil), `FOR EACH STATEMENT` ya da tamamen uygulama katmanında ve zam
+başına TEK bildirim, sır Vault'ta (`supabase_vault` kurulu), opt-in ile.
+Ayrıntı SQL dosyasının başlığında.
 
 ---
 

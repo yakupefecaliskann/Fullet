@@ -160,6 +160,35 @@ yani "kaynak geri döndü mü?" tespiti de sürer. Kaynak dönerse
 `database/auto_price_staleness.sql` JOB 5b gizlenen istasyonları bir saat içinde
 kendiliğinden `visible` yapar.
 
+## 7.2 Dashboard "Database Webhooks" kullanmayın
+
+18 Eyl 2026'da Dashboard arayüzüyle kurulmuş tek bir webhook kaldırıldı ve
+veritabanının **%70'ini** geri kazandırdı (336 MB → 101 MB). Arayüzün ürettiği
+tetikleyicinin üç kalıcı sorunu var:
+
+1. **`Authorization` başlığına `service_role` anahtarını DÜZ METİN gömüyor.**
+   Anahtar `pg_get_triggerdef` ile okunabilir ve her `pg_dump`'a girer.
+2. **Her çağrıyı `supabase_functions.hooks`'a yazıyor ve kimse temizlemiyor.**
+   330.919 satır / 44 MB birikmişti.
+3. **`FOR EACH ROW` kuruluyor.** Toplu yazan bir bota bağlanırsa tek koşuda
+   binlerce HTTP isteği doğurur (bizde tek zam = 9.028 istek), `net._http_response`
+   da onunla birlikte şişer (191 MB).
+
+Bir şeyin DB değişikliğine tepki vermesi gerekiyorsa: `FOR EACH STATEMENT`
+kullanın ya da işi kazıma sonrasında uygulama katmanında yapın; sırrı Vault'ta
+tutun (`supabase_vault` kurulu). Denetimde bakılacaklar:
+
+```sql
+-- Sır sızdıran tetikleyici var mı? (0 olmalı)
+SELECT count(*) FROM pg_trigger
+WHERE NOT tgisinternal AND pg_get_triggerdef(oid) ~ 'eyJhbGciOi';
+
+-- Sessizce büyüyen altyapı tabloları + katman sınırı (ücretsiz: 500 MB)
+SELECT pg_size_pretty(pg_database_size(current_database())) AS db,
+       pg_size_pretty(pg_total_relation_size('supabase_functions.hooks')) AS hooks,
+       pg_size_pretty(pg_total_relation_size('net._http_response')) AS pg_net;
+```
+
 ## 8. Admin Panel ve Observability
 
 Admin panel için önce Supabase SQL Editor içinde çalıştır:
