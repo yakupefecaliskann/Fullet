@@ -14,6 +14,13 @@ from db_utils import (
     record_bot_run,
     resolve_system_alerts,
 )
+from known_outages import EXIT_SOURCE_GONE, active_outage_for_bot
+
+# _run_subprocess_once / run_bot_with_retries sonuçları. Eskiden bool'du;
+# "kaynağı kabul edilmiş biçimde ölü" üçüncü bir durum ve bool'a sığmıyor.
+OUTCOME_OK = "ok"
+OUTCOME_FAILED = "failed"
+OUTCOME_OUTAGE = "outage"
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -125,8 +132,8 @@ def _parse_target_coverage(stdout):
 
 
 def _run_subprocess_once(script_name, env_overrides, timeout, mode):
-    """Tek bir deneme: subprocess'i çalıştırır, telemetriyi kaydeder, başarı
-    durumunu döner. Alarm kararı vermez — bu, retry sarmalayıcısının işi
+    """Tek bir deneme: subprocess'i çalıştırır, telemetriyi kaydeder, sonucu
+    (OUTCOME_*) döner. Alarm kararı vermez — bu, retry sarmalayıcısının işi
     (aksi halde her ara deneme kendi başına gürültülü alarm açar/kapatırdı)."""
     print("\n=====================================")
     print(f"Running: {script_name}")
@@ -164,7 +171,7 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
             stderr=exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr,
         )
         print(f"[FAIL] {script_name} timed out after {timeout}s.")
-        return False
+        return OUTCOME_FAILED
 
     if result.stdout:
         print(result.stdout)
@@ -174,6 +181,37 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
     elapsed = time.time() - start_time
     finished_at = datetime.now(timezone.utc)
     records = _parse_scraped_records(result.stdout)
+
+    # --- Kaynağı ölmüş bot: "kırık" değil, "yok" -----------------------------
+    # EXIT_SOURCE_GONE, botun kaynağın ayakta OLMADIĞINI doğruladığı anlamına
+    # gelir (shell_bot._verify_source). Bunu yalnızca known_outages.py'de
+    # GEÇERLİ bir kaydı varsa hoş görürüz; kaydı yoksa ya da süresi dolmuşsa
+    # bu YENİ bir haberdir ve normal bir arıza gibi gürültü çıkarmalıdır.
+    outage = active_outage_for_bot(script_name)
+    if result.returncode == EXIT_SOURCE_GONE and outage:
+        # 'skipped' dürüst olan: bot çalıştı ama işini YAPMADI, çünkü
+        # gidilecek yer yoktu. 'success' yalan, 'failed' ise bu bağlamda
+        # yanlış yere işaret eder (kodda düzeltilecek bir şey yok).
+        record_bot_run(
+            bot_name=script_name,
+            mode=mode,
+            status="skipped",
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_seconds=elapsed,
+            exit_code=result.returncode,
+            summary=f"{script_name} atlandı: kaynak kapalı ({outage.describe()})",
+            stdout=result.stdout,
+            stderr=result.stderr,
+            records_written=records,
+            escalate_failures=False,
+        )
+        print(
+            f"[BILINEN-ARIZA] {script_name} atlandı ({elapsed:.1f}s): "
+            f"{outage.describe()}."
+        )
+        return OUTCOME_OUTAGE
+
     status = "success" if result.returncode == 0 else "failed"
     # Savunma hattı: bot exit 0 dönse bile 0 kayıt scrape ettiyse bu bir
     # başarı değildir. (Botların kendisi de bu durumda exit 1 döner —
@@ -232,26 +270,33 @@ def _run_subprocess_once(script_name, env_overrides, timeout, mode):
     )
     if status == "success":
         print(f"[OK] {script_name} finished in {elapsed:.1f}s.")
-        return True
+        return OUTCOME_OK
 
     if status == "degraded":
         # Kısmi veri başarısızlık değildir: yeniden denemek aynı 9 dakikalık
         # kazımayı tekrarlar ve pipeline'ı kalıcı kırmızıya boyar. Durum
         # bot_runs'ta ve açık bir system_alert'te görünür — sessiz değil.
         print(f"[DEGRADED] {script_name} finished in {elapsed:.1f}s with partial coverage.")
-        return True
+        return OUTCOME_OK
 
     if status == "empty":
         print(f"[FAIL] {script_name} exited 0 but scraped 0 records in {elapsed:.1f}s.")
+    elif result.returncode == EXIT_SOURCE_GONE:
+        # Kaynak öldü ama kaydı yok / kaydın süresi dolmuş: BU HABERDİR.
+        print(
+            f"[FAIL] {script_name} kaynağının ayakta olmadığını bildirdi ama "
+            "known_outages.py'de geçerli bir kaydı yok. Ya kaynak yeni öldü "
+            "(kaydı ekle) ya da mevcut kaydın gözden geçirme tarihi geçti."
+        )
     else:
         print(f"[FAIL] {script_name} exited with code {result.returncode} in {elapsed:.1f}s.")
-    return False
+    return OUTCOME_FAILED
 
 
 def run_bot_with_retries(script_name, env_overrides=None, timeout=180, mode=None):
     """Bot'u en fazla (1 + BOT_MAX_RETRIES) kez dener, aralarında backoff
-    bekler. Başarı/başarısızlık kararı ve alarm burada, tek yerde verilir."""
-    ok = False
+    bekler. Sonuç kararı ve alarm burada, tek yerde verilir. OUTCOME_* döner."""
+    outcome = OUTCOME_FAILED
     for attempt in range(BOT_MAX_RETRIES + 1):
         if attempt > 0:
             print(
@@ -259,11 +304,55 @@ def run_bot_with_retries(script_name, env_overrides=None, timeout=180, mode=None
                 f"{BOT_RETRY_BACKOFF_SECONDS}s bekleniyor"
             )
             time.sleep(BOT_RETRY_BACKOFF_SECONDS)
-        ok = _run_subprocess_once(script_name, env_overrides, timeout, mode)
-        if ok:
+        outcome = _run_subprocess_once(script_name, env_overrides, timeout, mode)
+        # Kaynağın ölü olduğu doğrulandıysa yeniden denemek aynı 404'ü
+        # tekrar sormaktır: tek kazandığı, günlüğü ikiye katlamak.
+        if outcome in (OUTCOME_OK, OUTCOME_OUTAGE):
             break
 
-    if ok:
+    if outcome == OUTCOME_OUTAGE:
+        # `_run_subprocess_once` bunu yalnızca geçerli bir kayıt bulduğunda
+        # döner, ama kayıt tam bu iki çağrı arasında süresini doldurmuş
+        # olabilir (gece yarısını geçen koşu). O durumda `None` gelir ve
+        # `outage.describe()` bütün orkestratörü öldürürdü — bir raporlama
+        # ayrıntısı uğruna kaybedilecek en pahalı şey koşunun kendisidir.
+        outage = active_outage_for_bot(script_name)
+        if outage is None:
+            print(
+                f"[FAIL] {script_name} kaydının süresi koşu sırasında doldu — "
+                "gözden geçirilmesi gerekiyor."
+            )
+            return OUTCOME_FAILED
+        # Kaynağın ölümünü anlatan TEK bir açık uyarı bırakılır. Ondan önce,
+        # bu arıza "onarılabilir bir hata" sanıldığı dönemden kalan error ve
+        # critical alarmlar kapatılır — yoksa panoda kalıcı olarak kırmızı
+        # durur ve bir sonraki GERÇEK kritik alarmı görünmez kılarlar.
+        for title in (
+            f"{script_name} failed",
+            f"{script_name} arka arkaya başarısız",
+            f"{script_name} timed out",
+        ):
+            resolve_system_alerts(source=f"bot:{script_name}", title=title)
+        create_system_alert(
+            severity="warning",
+            source=f"bot:{script_name}",
+            title=f"{script_name} kaynağı kapalı (bilinen arıza)",
+            message=(
+                f"{script_name} atlandı: {outage.describe()}. "
+                f"Kaynak: {outage.url}. {outage.reason} "
+                "Bu kayıt gözden geçirme tarihinde kendiliğinden susturmayı "
+                "bırakır ve sağlık kontrolü yeniden kırmızıya döner."
+            ),
+            metadata={
+                "mode": mode,
+                "url": outage.url,
+                "since": outage.since.isoformat(),
+                "review_by": outage.review_by.isoformat(),
+            },
+        )
+        return OUTCOME_OUTAGE
+
+    if outcome == OUTCOME_OK:
         # Yalnızca BU sarmalayıcının açtığı başarısızlık alarmlarını kapat.
         # Kaynağın tamamını körü körüne kapatmak, aynı kaynağa yazan diğer
         # alarmları (hedef kapsaması uyarısı, ardışık-hata alarmı) da
@@ -272,9 +361,13 @@ def run_bot_with_retries(script_name, env_overrides=None, timeout=180, mode=None
             f"{script_name} failed",
             f"{script_name} failed (tolerated)",
             f"{script_name} timed out",
+            # Kaynak geri döndü: ölüm ilanı da kapanmalı. known_outages.py
+            # kaydının SİLİNMESİ ayrıca backend_health_check tarafından
+            # kırmızıyla istenir — bu resolve onu gizlemez, farklı title.
+            f"{script_name} kaynağı kapalı (bilinen arıza)",
         ):
             resolve_system_alerts(source=f"bot:{script_name}", title=title)
-        return True
+        return OUTCOME_OK
 
     if should_open_failure_alert(script_name):
         create_system_alert(
@@ -300,10 +393,10 @@ def run_bot_with_retries(script_name, env_overrides=None, timeout=180, mode=None
             ),
             metadata={"mode": mode, "attempts": BOT_MAX_RETRIES + 1},
         )
-    return False
+    return OUTCOME_FAILED
 
 
-def _run_bot_group(bots, *, failures, bot_env, mode):
+def _run_bot_group(bots, *, failures, outages, bot_env, mode):
     """Bağımsız botları paralel çalıştırır — her biri ayrı bir web sitesini
     kazıdığı için aralarında yarış durumu yok. Bir sonraki grup (örn. price
     bots), bu grubun tamamı bitmeden başlamaz (istasyon verisi fiyat
@@ -321,15 +414,20 @@ def _run_bot_group(bots, *, failures, bot_env, mode):
         }
         for future in concurrent.futures.as_completed(future_to_bot):
             bot = future_to_bot[future]
-            if not future.result():
+            outcome = future.result()
+            if outcome == OUTCOME_OUTAGE:
+                outages.append(bot)
+            elif outcome != OUTCOME_OK:
                 failures.append(bot)
 
 
-def _run_news_bot(*, failures, mode):
-    ok = run_bot_with_retries(
+def _run_news_bot(*, failures, outages, mode):
+    outcome = run_bot_with_retries(
         "news_bot.py", timeout=BOT_TIMEOUTS_SECONDS["news_bot.py"], mode=mode
     )
-    if not ok:
+    if outcome == OUTCOME_OUTAGE:
+        outages.append("news_bot.py")
+    elif outcome != OUTCOME_OK:
         failures.append("news_bot.py")
 
 
@@ -337,17 +435,22 @@ def main():
     args = parse_args()
     print(f"Fullet scraper orchestrator starting. Mode: {args.mode}")
     failures = []
+    outages = []
 
     bot_env: dict[str, str] = {}
 
     if args.mode in ("stations", "all"):
-        _run_bot_group(STATION_BOTS, failures=failures, bot_env=bot_env, mode=args.mode)
+        _run_bot_group(
+            STATION_BOTS, failures=failures, outages=outages, bot_env=bot_env, mode=args.mode
+        )
 
     if args.mode in ("prices", "all"):
-        _run_bot_group(PRICE_BOTS, failures=failures, bot_env=bot_env, mode=args.mode)
+        _run_bot_group(
+            PRICE_BOTS, failures=failures, outages=outages, bot_env=bot_env, mode=args.mode
+        )
 
     if args.mode in ("news", "all"):
-        _run_news_bot(failures=failures, mode=args.mode)
+        _run_news_bot(failures=failures, outages=outages, mode=args.mode)
 
     # Fiyat tazeliği bakımı her fiyat koşusundan sonra çalışmalı. Eskiden bu
     # blok yalnızca mode == "all" iken çalışıyordu — ama cron hiçbir zaman
@@ -386,6 +489,15 @@ def main():
         else:
             resolve_system_alerts(source="bot:quarantine_old_prices.py")
 
+    # Kaynağı kabul edilmiş biçimde ölü botlar pipeline'ı KIRMIZIYA
+    # DÖNDÜRMEZ ama asla sessiz de kalmaz: her koşuda adıyla ve gözden
+    # geçirme tarihiyle basılır, ayrıca açık bir `warning` alarmı taşır.
+    if outages:
+        print(
+            f"[BILINEN-ARIZA] Kaynağı kapalı olduğu için atlanan bot(lar): "
+            f"{', '.join(outages)} — ayrıntı için known_outages.py."
+        )
+
     if failures:
         print(f"[WARN] Completed with failing/skipped bots: {', '.join(failures)}")
         critical_failures = [bot for bot in failures if not is_tolerated_failure(bot)]
@@ -394,7 +506,10 @@ def main():
         print("[WARN] Bot failures were recorded as telemetry; health checks decide workflow status.")
         return 0
 
-    print("[OK] All configured bots completed.")
+    if outages:
+        print("[OK] Kaynağı ayakta olan tüm botlar tamamlandı.")
+    else:
+        print("[OK] All configured bots completed.")
     return 0
 
 

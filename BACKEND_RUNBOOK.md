@@ -129,6 +129,37 @@ Fullet canlıya sahte fiyat veya tahmini istasyon basmaz. Fiyatlar resmi
 kaynaklardan, koordinatlar resmi istasyon envanteri/locator kaynaklarından
 gelmelidir.
 
+## 7.1 Ölen Bir Kaynak — `scraper/known_outages.py`
+
+Bir kaynak sitesi kalıcı olarak kapandığında (Shell `/pompatest/`, 9 Eyl 2026)
+kodda düzeltilecek bir şey yoktur, ama düzeltilmeden bırakmak da olmaz: bot her
+koşuda başarısız olur ve **pipeline kalıcı kırmızıya döner**. Kırmızı sabitlenince
+sinyal olmaktan çıkar — başka bir bot kırılsa kimse fark etmez (bkz.
+`docs/KOD_DENETIM_ARSIVI.md` Bölüm E).
+
+Çözüm, botu "tolere edilenler" listesine atmak **değildir** (o liste tam bu
+yüzden boşaltıldı). Bunun yerine `scraper/known_outages.py`'ye bir kayıt eklenir:
+
+```python
+KnownOutage(
+    bot="ornek_bot.py", brand="Örnek",
+    url="https://...", reason="Kaynak neden öldü, hangi alternatifler elendi",
+    since=date(2026, 9, 9), review_by=date(2026, 10, 31),
+)
+```
+
+Kaydın üç sınırı vardır ve üçü de kasıtlıdır:
+
+1. Yalnızca botun **çalışma anında doğruladığı** ölü kaynağı (`EXIT_SOURCE_GONE`)
+   susturur. Parser kırılıp 0 kayıt dönerse pipeline yine kırmızıdır.
+2. `review_by` geçince susturmayı bırakır; sağlık kontrolü yeniden kırmızı olur.
+3. Bot iyileşirse sağlık kontrolü kırmızıya döner ve **kaydın silinmesini** ister.
+
+Bot rotasyondan ÇIKARILMAZ: rotasyonda kaldığı sürece her koşuda kaynağı yoklar,
+yani "kaynak geri döndü mü?" tespiti de sürer. Kaynak dönerse
+`database/auto_price_staleness.sql` JOB 5b gizlenen istasyonları bir saat içinde
+kendiliğinden `visible` yapar.
+
 ## 8. Admin Panel ve Observability
 
 Admin panel için önce Supabase SQL Editor içinde çalıştır:
