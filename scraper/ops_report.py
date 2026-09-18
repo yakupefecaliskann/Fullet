@@ -237,7 +237,7 @@ def main() -> int:
 
     if warnings:
         print("\nWarnings")
-        for warning, outage in blocking:
+        for warning, _ in blocking:
             print(f"[WARN] {warning}")
             create_system_alert(
                 severity="warning",
