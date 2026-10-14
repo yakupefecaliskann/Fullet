@@ -82,7 +82,20 @@ android {
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
-        manifestPlaceholders = [ MAPS_API_KEY: mapsApiKey ]
+        // `+=` ŞART, `=` DEĞİL. Flutter Gradle eklentisi `applicationName`
+        // placeholder'ını buraya kendisi enjekte ediyor ve AndroidManifest.xml
+        // `android:name="${applicationName}"` ile ona bağlı. `=` ile atama
+        // yapmak haritayı baştan kuruyor, yani o enjekte edilen değeri
+        // SİLİYOR ve manifest birleştirme şu hatayla düşüyor:
+        //
+        //   Attribute application@name ... requires a placeholder
+        //   substitution but no value for <applicationName> is provided.
+        //
+        // 14 Eki 2026'da 1.0.5 release derlemesi tam bu yüzden kırıldı.
+        // Ağustos'ta (1.0.4+7) çalışmasının sebebi o günkü Flutter'ın
+        // placeholder'ı farklı bir aşamada eklemesiydi — yani bu satır
+        // baştan beri kırılgandı, sadece henüz patlamamıştı.
+        manifestPlaceholders += [ MAPS_API_KEY: mapsApiKey ]
     }
 
     def keystorePropertiesFile = rootProject.file("key.properties")

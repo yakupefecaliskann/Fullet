@@ -2511,6 +2511,7 @@ istasyon fazla gösteriyordu. Workflow yeşil, rapor sakin, admin paneline
 | **F-O3** | BP'nin envanter botu yok (diğer 6 markada var); 37 istasyonda donmuş | Kapsam boşluğu | 📋 raporlandı |
 | **F-O4** | `shell_station_bot` hâlâ haftalık 1290 kayıt yazıyor — %100 görünmez envanter için | Beyhude Actions dakikası + DB yazması | 📋 raporlandı |
 | **F-D1** | Dokümanlar 2 ay bayat; `FULLET_PRD.md` §Sprint 3 hiç uygulanmamış bir şemayı uygulanmış gibi sunuyor | Bir sonraki okuyan ölü şemayı yeniden kurar | ✅ düzeltildi |
+| **F-O5** | `manifestPlaceholders = [...]` Flutter'ın enjekte ettiği `applicationName`'i siliyordu; release derlemesi CI'da hiç koşmadığı için iki ay gizli kaldı | 1.0.5 release derlemesi kırıldı | ✅ düzeltildi (`+=`), CI boşluğu açık |
 
 ---
 
@@ -2729,6 +2730,45 @@ onaya bağladı). Sıra önemli ve `CASCADE` bilinçli kullanılmadı:
 `user_favorites.user_id → user_profiles.id` FK'si var, çocuk önce düşer.
 
 ---
+
+## F-O5 — İki ay gizli kalmış release yapı kırığı
+
+1.0.5'in AAB derlemesi ilk denemede şu hatayla düştü:
+
+```
+Attribute application@name at AndroidManifest.xml:26:9-42 requires a
+placeholder substitution but no value for <applicationName> is provided.
+```
+
+Sebep `android/app/build.gradle`'daki tek bir karakterdi:
+
+```groovy
+manifestPlaceholders = [ MAPS_API_KEY: mapsApiKey ]   // yanlış
+manifestPlaceholders += [ MAPS_API_KEY: mapsApiKey ]  // doğru
+```
+
+Flutter Gradle eklentisi `applicationName` placeholder'ını bu haritaya kendisi
+enjekte ediyor ve manifest `android:name="${applicationName}"` ile ona bağlı.
+`=` ile atama yapmak haritayı baştan kuruyor, yani enjekte edilen değeri
+siliyor.
+
+**Asıl bulgu hata değil, hatanın ne kadar yaşadığı.** Satır Ağustos'tan beri
+kırılgandı ve 1.0.4+7 derlemesinde çalışmasının tek sebebi o günkü Flutter'ın
+placeholder'ı farklı bir aşamada eklemesiydi. Yani kırılma Flutter 3.44.8 ile
+*ortaya çıktı*, onunla *oluşmadı*.
+
+Neden iki ay görünmedi: **CI release derlemesi yapmıyor.** `tests.yml` yalnızca
+`flutter test` + `dart`/Python birim testleri koşuyor; `flutter build appbundle`
+hiçbir otomasyonda yok. Dolayısıyla yapı yapılandırmasının çürümesi ancak bir
+insan release almaya kalktığında görünür hâle geliyor — ve iki release arasında
+iki ay geçtiği için tam o kadar gizli kaldı.
+
+Bu boşluk **kapatılmadı** ve bilinçli: CI'da release AAB derlemek keystore'u
+(`key.properties` + `.jks`) ve `MAPS_API_KEY`'i GitHub secrets'a koymayı
+gerektirir — imzalama anahtarını CI'ya taşımanın kendi güvenlik bedeli var ve
+bu ayrı bir karar. Daha hafif bir ara adım mümkün: CI'da **imzasız** bir
+`flutter build appbundle` koşmak, manifest/Gradle çürümesini sır gerektirmeden
+yakalardı (build.gradle imzasız pakette uyarıyla devam ediyor, kırılmıyor).
 
 ## Regresyon kilidi
 

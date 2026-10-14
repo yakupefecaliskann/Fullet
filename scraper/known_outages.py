@@ -96,10 +96,33 @@ KNOWN_OUTAGES: tuple[KnownOutage, ...] = (
             "find.shell.com fiyat şemasını taşıyor ama TR için "
             "fuel_pricing.status='unavailable'. Geriye yalnızca üçüncü taraf "
             "toplayıcılar kalıyor — bu provenance düşüşü ve ToS riski demek, "
-            "karar ürün sahibinin."
+            "karar ürün sahibinin. "
+            "-- 14 Eki 2026 UZATMA (1. kez, 31 Eki -> 15 Ara): kaynak yeniden "
+            "tarandı, hâlâ ölü. Elenenler: /pompatest/History.aspx ve "
+            "/pompatest/ 404; shell.com.tr/sitemap.xml'de fiyat sayfası YOK "
+            "(yalnızca 'how-shell-price' açıklama sayfası — JS iskeleti, tek "
+            "fiyat sayısı içermiyor — ve Shell Recharge EV tarife sayfası); "
+            "ana sayfadaki 'akaryakıt fiyatları' ifadesi SEO meta metni, "
+            "href'lerde fiyat bağlantısı yok. Yani yeni resmî kanal açılmadı "
+            "ve bu uzatma bir erteleme değil, kanıta dayalı bir yeniden "
+            "değerlendirme."
         ),
         since=date(2026, 9, 9),
-        review_by=date(2026, 10, 31),
+        # 14 Eki 2026'da 31 Eki'den buraya çekildi. Tarih seçimi gerekçeli:
+        # kaynak tespiti için bu tarihe gerek YOK — bot rotasyonda kaldığı
+        # sürece her koşuda kaynağı yokluyor ve dönerse sağlık kontrolü
+        # kaydın silinmesini zaten ister. Bu tarihin tek işi İNSAN kararını
+        # zorlamak (Shell kalıcı olarak çıkarılacak mı, üçüncü taraf kaynağa
+        # geçilecek mi, fiyatsız mı gösterilecek — bkz. BACKEND_RUNBOOK §10.3).
+        # ~9 hafta: haftalık yoklama boşa iş olurdu, 6 ay ise modülün en
+        # başında uyardığı "kalıcı göz bağı" hâline gelirdi. Yıl sonu
+        # tatillerinden önceye denk gelsin diye 15 Aralık.
+        #
+        # ÜÇÜNCÜ BİR UZATMA YAPMAYIN. İki kez uzatılmış bir kayıt, kararın
+        # verilmediğini söyler; o noktada doğru hamle tarihi tekrar ötelemek
+        # değil, markayı kalıcı bir şekilde çıkarmak ya da kaynağa karar
+        # vermektir.
+        review_by=date(2026, 12, 15),
     ),
 )
 

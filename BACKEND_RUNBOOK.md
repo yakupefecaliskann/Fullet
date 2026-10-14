@@ -295,9 +295,18 @@ bakım penceresine kadar *kabul edilmiş altyapı uyarısı* olarak kalır.
 
 ## 10. Açık Elle İşler — 14 Ekim 2026 Denetimi
 
-Bu üç iş kod tarafında kapatıldı ama **üretimde elle uygulanması** gerekiyor;
-otomasyondan ya da MCP'den yapılamıyor. Ayrıntılar:
-`docs/KOD_DENETIM_ARSIVI.md` §F.
+**Toplam iki iş kaldı (10.1 ve 10.2).** İkisi de kod tarafında kapatıldı ama
+üretimde elle uygulanması gerekiyor: Claude Code'un auto-mode classifier'ı
+üretimde yıkıcı DDL'i (DROP) engelliyor, Supabase MCP'sinde de
+`delete_edge_function` yok. Yani bunlar bilinçli olarak insan onayına bırakılmış
+eylemler, eksik kalmış işler değil. Ayrıntılar: `docs/KOD_DENETIM_ARSIVI.md` §F.
+
+İkisi de **acil değil**: ne kullanıcıyı ne de veri akışını etkiliyorlar.
+Birikmiş teknik borcun kapanışı.
+
+> §10.3 (Shell kaynak kararı) **14 Ekim'de ele alındı ve son tarih 15 Aralık'a
+> çekildi** — artık 31 Ekim'de kendiliğinden kırmızıya düşme riski YOK.
+> Yine de bir ürün kararı bekliyor; aşağıya bakın.
 
 ### 10.1 Ölü şemayı düşür (`user_profiles` / `user_favorites`)
 
@@ -332,24 +341,42 @@ Ya da Dashboard → Edge Functions → `fiyat-push` → Delete.
 Kaynağı kaybolmuyor: commit `224d200` içinde duruyor
 (`supabase/functions/fiyat-push/index.ts`, 3 Ağustos 2026'da depodan silinmişti).
 
-### 10.3 Shell fiyat kaynağı kararı — SON TARİH 31 EKİM 2026
+### 10.3 Shell fiyat kaynağı kararı — ✅ ELE ALINDI, yeni tarih 15 ARALIK 2026
 
-**Bu bir mühendislik işi değil, ürün kararı.** `scraper/known_outages.py`
-içindeki Shell kaydının `review_by` tarihi **2026-10-31**. O tarih geçtiğinde:
+**14 Ekim 2026'da seçenek (d) uygulandı: kayıt kanıta dayalı olarak uzatıldı.**
+`scraper/known_outages.py` içindeki Shell kaydının `review_by` tarihi
+**2026-10-31 → 2026-12-15**. Yani 31 Ekim'de kendiliğinden kırmızıya düşme
+riski **ortadan kalktı**.
 
-- susturma kalkar,
-- `prices` modlu her koşu (günde 4) yeniden kırmızıya döner,
-- ve E bölümünün bütün dersi sıfırlanır: kalıcı kırmızı, sinyali yeniden
-  anlamsızlaştırır.
+Uzatma körü körüne yapılmadı; kaynak önce yeniden tarandı (14 Eki 2026):
 
-Seçenekler ve bedelleri:
+| Kontrol | Sonuç |
+|---|---|
+| `turkiyeshell.com/pompatest/History.aspx` | HTTP 404 |
+| `turkiyeshell.com/pompatest/` | HTTP 404 |
+| `shell.com.tr/sitemap.xml` içinde fiyat sayfası | **YOK** (yalnızca `how-shell-price` açıklama sayfası — JS iskeleti, tek fiyat sayısı yok — ve Shell Recharge EV tarife sayfası) |
+| Ana sayfadaki "akaryakıt fiyatları" ifadesi | SEO meta metni; href'lerde fiyat bağlantısı yok |
+| `find.shell.com` (daha önce elendi) | TR için `fuel_pricing.status='unavailable'` |
+
+**Neden 15 Aralık (~9 hafta):** Bu tarihin işi kaynak tespiti DEĞİL — bot
+rotasyonda kaldığı sürece her koşuda kaynağı yokluyor ve dönerse sağlık
+kontrolü kaydın silinmesini zaten ister (§7.1). Tarihin tek işi **insan
+kararını zorlamak.** Haftalık yoklama boşa iş olurdu; 6 ay ise
+`known_outages.py`'nin en başında uyardığı "kalıcı göz bağı" hâline gelirdi.
+Yıl sonu tatillerinden önceye denk gelsin diye 15 Aralık.
+
+> **ÜÇÜNCÜ BİR UZATMA YAPMAYIN.** İki kez uzatılmış bir kayıt, kararın
+> verilmediğini söyler. O noktada doğru hamle tarihi tekrar ötelemek değil,
+> aşağıdaki seçeneklerden birini kalıcı olarak seçmektir.
+
+Hâlâ bekleyen ürün kararı ve bedelleri:
 
 | Seçenek | Bedel |
 |---|---|
 | **(a)** 3. taraf toplayıcı | Provenance düşüşü + ToS riski |
 | **(b)** Shell'i marka listesinden ve envanterden çıkar | 1309 istasyon kalıcı kaybı |
 | **(c)** İstasyonları fiyatsız/konum amaçlı göster | Fiyat vaadi zayıflar, konum değeri kalır |
-| **(d)** Arıza kaydını bilinçli uzat | Karar ertelenir; `review_by` güncellenmeli |
+| **(d)** ~~Arıza kaydını bilinçli uzat~~ | ✅ 14 Eki 2026'da bir kez kullanıldı |
 
 Hangisi seçilirse seçilsin, kararın gerekçesi `known_outages.py`'deki `reason`
 alanına yazılmalı — altı hafta sonra o satırı okuyan kişi aynı araştırmayı

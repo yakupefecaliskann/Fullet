@@ -258,9 +258,10 @@ def main() -> int:
     if total_active != total_visible:
         hidden_total = total_active - total_visible
         share = (hidden_total / total_active * 100) if total_active else 0.0
+        share_text = f"{share:.1f}".replace(".", ",")  # TR ondalık ayracı
         print(
             f"  -> {hidden_total} aktif istasyon KULLANICIYA GÖRÜNMÜYOR "
-            f"(envanterin %{share:.1f}'i; visibility_status != visible)"
+            f"(envanterin %{share_text}'si; visibility_status != visible)"
         )
 
     # --- Kabul edilmiş kaynak arızaları --------------------------------------

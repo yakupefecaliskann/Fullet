@@ -6,7 +6,31 @@
 
 ---
 
-## 0. Durum Panosu — 11 Ağustos 2026
+## 0. Durum Panosu — 14 Ekim 2026
+
+> ### 📦 1.0.5+8 YÜKLENMEYE HAZIR (henüz Play'e gönderilmedi)
+>
+> | | |
+> |---|---|
+> | Paket | `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` |
+> | Boyut | 52,8 MB |
+> | Sürüm | versionName `1.0.5`, versionCode `8` (AAB manifest'inden doğrulandı) |
+> | İmza | ✅ beklenen upload sertifikası — SHA-1 `497B9CC2…CD67E2` birebir eşleşti |
+> | Doğrulama | `scripts/release_check.ps1 -BuildAab` **tam geçti** (canlı backend health + `ops_report`, backend birim testleri, `flutter analyze`, 50/50 Flutter testi, obfuscate'li AAB, imza kontrolü) |
+> | İçerik | Marka filtresi karartma düzeltmesi (`docs/KOD_DENETIM_ARSIVI.md` §F-K2) + kısıt içi 25 paket güncellemesi |
+>
+> **Yükleme adımı sende:** Play Console → Üretim → Yeni sürüm oluştur → AAB'yi
+> yükle → "Yenilikler" metnini `RELEASE_NOTES.md` §1.0.5'ten yapıştır.
+>
+> ⚠️ Yüklemeden önce `build/symbols/1.0.5+8` klasörünü (8,8 MB) güvenli bir yere
+> arşivle — `build/` git'te değil ve `flutter clean` onu siler. Silinirse bu
+> sürümün Crashlytics Dart stack trace'leri **kalıcı olarak** okunamaz hâle gelir.
+>
+> ⚠️ `scraper/known_outages.py` Shell kaydı 15 Aralık'a uzatıldı; 1.0.5 bu
+> sürümde Shell fiyatlarını geri **getirmiyor** — yalnızca yokluğunu dürüstçe
+> gösteriyor. Ayrıntı: `BACKEND_RUNBOOK.md` §10.3.
+
+### Önceki pano — 11 Ağustos 2026
 
 **Uygulama Google Play'de CANLI.** İlk yayın süreci kapandı; aşağıdaki tablo artık
 "yayına çıkış" değil, **açık kalan operasyonel işleri** takip ediyor.
@@ -28,9 +52,13 @@
 | # | İş | Kim | Not |
 |---|---|---|---|
 | 1 | Kota + bütçe uyarısı kur | 👤 | "Sıfır maliyet" hedefi için sürpriz fatura riski. §2.2 |
-| 2 | W2 ASO incelemesinin sonucu | Google | Gönderildi, sonuç bekleniyor. **Yeni bir değişiklik göndermek bekleyen incelemeyi sıfırlar** — önce sonucu gör |
+| 2 | ~~W2 ASO incelemesinin sonucu~~ | ✅ | **18 Eyl 2026: YAYINDA**, public listede doğrulandı. Ölçülen etki: haftalık kurulum ~5 → ~17 (bkz. `docs/KOD_DENETIM_ARSIVI.md` §F-K3) |
 | 3 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
 | 4 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
+| 5 | **`build/symbols/1.0.5+8` arşivle** | 👤 | Aynı gerekçe, yeni sürüm için. 8,8 MB |
+| 6 | **1.0.5+8 AAB'sini Play'e yükle** | 👤 | Paket hazır ve imzalı; yukarıdaki panoya bakın |
+| 7 | Ölü tabloları düşür + `fiyat-push` sil | 👤 | Acil değil, teknik borç kapanışı. `BACKEND_RUNBOOK.md` §10.1–10.2 |
+| 8 | Shell fiyat kaynağı kararı | 👤 | Son tarih **15 Ara 2026** (31 Eki'den uzatıldı). `BACKEND_RUNBOOK.md` §10.3 |
 
 > 🔥 **11 Ağustos 2026 — canlıda boş harita olayı çözüldü.** App signing SHA-1
 > Maps anahtarında eksikti, Play'den kuran herkeste harita boşdu. Eklendi; ayrıntı

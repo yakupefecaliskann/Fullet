@@ -1,5 +1,76 @@
 # Fullet — Sürüm Notları
 
+## 1.0.5 (versionCode 8) — Ekim 2026
+
+---
+
+### 📋 Play Console "Yenilikler" alanına yapıştırılacak metin
+
+```text
+Marka filtresini netleştirdik: fiyat verisi şu anda alınamayan bir marka artık
+soluk görünüyor ve dokunduğunda sebebini söylüyor — boş bir haritayla baş başa
+kalmıyorsun. Kaynak yeniden yayına girdiğinde o marka kendiliğinden geri
+geliyor.
+```
+
+### 🎯 Uzun sürüm (iç kullanım)
+
+14 Ekim 2026 genel sağlık taramasının (`docs/KOD_DENETIM_ARSIVI.md` §F) mobil
+tarafa düşen tek maddesi. Shell'in fiyat kaynağı 9 Eylül'de öldü; zincirin her
+halkası doğru çalıştı (fiyatlar `unknown` → cron istasyonları `hidden` → RLS
+onları sakladı) ama **uygulama bunu bilemiyordu.**
+
+Bilemeyişinin nedeni mimari: istasyonlar yalnızca harita görüş alanı için
+çekiliyor, dolayısıyla istemci *"bu bölgede yok"* ile *"hiçbir yerde yok"*
+ayrımını kendi verisinden yapamıyordu. Sonuç iki katmanlı bir kullanıcı
+zararıydı:
+
+1. Marka filtresindeki **ilk** çip (Shell) garanti boş harita döndürüyordu.
+2. Boş-durum metni *"haritayı kaydırarak farklı bölgede ara"* diyerek
+   kullanıcıyı **hiç var olmayan** istasyonları aramaya yönlendiriyordu.
+
+#### Ne değişti
+
+- Yeni `marka_kullanilabilirlik` view'i (Supabase) markaya göre **anon rolünün
+  görebildiği** istasyon sayısını veriyor; `security_invoker = true` olduğu için
+  RLS aynen uygulanıyor.
+- Verisi olmayan marka çipi **gizlenmiyor, soluklaştırılıyor**; dokunulduğunda
+  sebep söyleniyor ve filtre uygulanmıyor. Seçimi kaldırmak her zaman serbest.
+- Boş-durum metni ayrıştırıldı: seçili markaların **tamamı** karanlıksa
+  "kaydırmak sonucu değiştirmez", **kısmen** karanlıksa eski metin korunuyor
+  (orada kaydırmak hâlâ işe yarar).
+- Erişilebilirlik: soluklaştırma görsel bir sinyal olduğu için durum ayrıca
+  `Semantics` etiketiyle sözle söyleniyor.
+
+#### Tasarım kararları
+
+- **Fail-open.** `fetchBrandAvailability()` `null` dönerse (sorgu başarısız ya
+  da hiç satır yok) hiçbir çip kısıtlanmaz. Yanlış bir "veri yok" etiketi
+  *çalışan* bir markayı kullanıcıdan saklar; eksik etiket yalnızca eski
+  davranışa döner. Hata maliyeti asimetrik, davranış da öyle.
+- **Sabit kodlu Shell istisnası YOK.** Kaynak dönünce istasyonlar `visible`
+  olur, view onları saymaya başlar ve çip kendiliğinden etkinleşir. Geri
+  alınacak geçici yama bırakılmadı; bu bir testle kilitli.
+
+#### Bağımlılıklar
+
+Mevcut kısıtlar içindeki 25 paket güncellendi (`shared_preferences`,
+`url_launcher`, `xml` vb.). **`google_sign_in` 6→7 BİLİNÇLİ OLARAK ERTELENDİ:**
+7.0 singleton + zorunlu `initialize()` + ayrılmış yetkilendirmeyle tam bir API
+yeniden yazımı, cihazda test edilmesi gerekir ve zorlayıcı bir tarih yok
+(changelog'daki deprecation web JS SDK'sıyla ilgili, Android'le değil). Acil
+bir kullanıcı düzeltmesini test edilemeyen bir auth SDK geçişiyle paketlemek,
+bilinen bir hatayı bilinmeyenle takas etmek olurdu. Aynı gerekçe
+`firebase_*` 2.x→4.x için de geçerli.
+
+#### Doğrulama
+
+`scripts/release_check.ps1 -BuildAab` tam geçti: canlı backend health check,
+`ops_report` (canlıya karşı), backend birim testleri, `flutter analyze`,
+**50/50 Flutter testi**, obfuscate'li AAB derlemesi ve AAB imza doğrulaması.
+
+---
+
 ## 1.0.4 (versionCode 7) — Ağustos 2026
 
 ---
