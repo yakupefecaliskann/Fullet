@@ -554,6 +554,48 @@ class SupabaseService {
       return [];
     }
   }
+
+  /// Hangi markaların ŞU AN ülke genelinde haritada gösterilecek verisi var.
+  ///
+  /// Neden sunucudan: istasyonlar yalnızca harita görüş alanı için çekiliyor
+  /// (`get_nearby_stations`, yarıçap sorgusu), dolayısıyla istemci "bu BÖLGEDE
+  /// marka yok" ile "bu markanın HİÇBİR YERDE verisi yok" ayrımını kendi
+  /// verisinden yapamaz. `marka_kullanilabilirlik` view'i bu ayrımı tek
+  /// istekte veriyor (6-7 satır) ve RLS'i `security_invoker` ile aynen
+  /// uyguluyor — yani burada sayılanlar tam olarak kullanıcının görebildikleri.
+  ///
+  /// `null` = **BİLİNMİYOR**, "hiçbir marka kullanılabilir değil" DEĞİL.
+  /// Çağıran bunu hiçbir çipi kısıtlamayarak okumalı (bkz.
+  /// `isBrandDataUnavailable`). Oturum başına bir kez çağrılması yeterli.
+  static Future<Set<String>?> fetchBrandAvailability() async {
+    try {
+      final response = await client
+          .from('marka_kullanilabilirlik')
+          .select('marka, istasyon_sayisi');
+
+      final keys = <String>{};
+      for (final row in List<dynamic>.from(response)
+          .whereType<Map<String, dynamic>>()) {
+        final brand = row['marka']?.toString();
+        if (brand == null || brand.trim().isEmpty) continue;
+        final raw = row['istasyon_sayisi'];
+        final count =
+            raw is int ? raw : int.tryParse(raw?.toString() ?? '') ?? 0;
+        if (count > 0) keys.add(canonicalBrandKey(brand));
+      }
+
+      // Hiç satır dönmemesi "tüm markalar karanlık" demek olabileceği gibi
+      // view'in kendisinin bozulduğu (şema değişikliği, grant kaybı) anlamına
+      // da gelir. İkisini ayırt edemediğimiz için BİLİNMİYOR'a düşüyoruz:
+      // tek bir bozuk sorgu yüzünden her çipi "veri yok" diye etiketlemek,
+      // uygulamayı tamamen kullanılamaz gösterirdi.
+      if (keys.isEmpty) return null;
+      return keys;
+    } catch (e) {
+      appLog('Brand availability fetch failed: $e');
+      return null;
+    }
+  }
 }
 
 class _StationDistance {

@@ -1,0 +1,44 @@
+-- =============================================================================
+-- Firebase öncesi ölü kullanıcı şeması kaldırıldı (14 Ekim 2026 denetimi, §D-9)
+-- =============================================================================
+-- `user_profiles` + `user_favorites`, projenin Supabase Auth ile çalışan İLK
+-- kullanıcı modelinden kalma. Mobil taraf 14 Eylül 2026'da Firebase Auth'a
+-- geçti ve canlı tablolar `fullet_users` / `fullet_favorites` oldu
+-- (firebase_uid anahtarlı, `auth.jwt() ->> 'sub'` ile politikalanmış).
+-- Bu iki tablo o günden beri ölü.
+--
+-- Düşürme öncesi doğrulandı (14 Ekim 2026):
+--   * user_profiles: 0 satır — user_favorites: 0 satır
+--   * Depoda tek bir kod referansı yok (.dart/.py/.js/.jsx/.ts taraması temiz)
+--   * RLS politikaları `auth.uid()` tabanlı; Firebase JWT'si ile ZATEN hiçbir
+--     zaman eşleşemezdi. Yani boş kalmaları tesadüf değil, yapısal.
+--   * Dışa FK yok: user_favorites.user_id -> user_profiles.id ve
+--     user_profiles.id -> auth.users. Başka hiçbir tablo bunlara bakmıyor.
+--
+-- Not: 20260905223000 bu iki tablonun politikalarına da dokunuyor. Bu,
+-- o migration'ın canlı HER politikayı mekanik olarak initplan'a sarmasından
+-- kaynaklanıyor — tabloların kullanımda olduğunun kanıtı DEĞİL.
+--
+-- YEDEK ALINMADI, kasıtlı: 0 satırlık bir yedek tablo hiçbir veri taşımaz ama
+-- RLS'siz kaldığı için Supabase linter'ında kalıcı ERROR üretir. 20260804091908
+-- tam bu yüzden dört ayrı yedek tabloyu tek tek düşürmek zorunda kalmıştı;
+-- aynı tuzağı yeniden kurmuyoruz.
+--
+-- Bu iki tablonun depoda CREATE TABLE tanımı YOK — Dashboard'dan elle
+-- oluşturulmuşlar (`fullet_users`'ın da bir dönem başına gelen şey; bkz.
+-- database/sprint4_users_favorites.sql'in BAĞLAM notu). Kurtarılacak veri de
+-- olmadığı için (0 satır) kaybedilen bir şey yok. Karıştırmamak için:
+-- database/sprint4_users_favorites.sql CANLI `fullet_*` tablolarını tanımlar,
+-- buradaki düşürülenlerle ilgisi yoktur.
+--
+-- docs/FULLET_PRD.md §Sprint 3'te bu adların geçtiği bir ŞEMA PLANI var; o
+-- plan hiç uygulanmadı (planda `firebase_uid TEXT` anahtar, canlıda ise
+-- `id UUID -> auth.users` vardı) ve orada artık uygulanmadığını söyleyen bir
+-- not duruyor. Tarihsel kayıt olarak bilerek silinmedi.
+--
+-- Sıra önemli ve CASCADE kasıtlı KULLANILMIYOR: FK zinciri nedeniyle çocuk
+-- tablo önce düşer. CASCADE, beklenenden fazlasını sessizce silebilirdi.
+-- =============================================================================
+
+DROP TABLE IF EXISTS public.user_favorites;
+DROP TABLE IF EXISTS public.user_profiles;

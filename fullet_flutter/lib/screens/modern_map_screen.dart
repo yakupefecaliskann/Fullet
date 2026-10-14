@@ -69,6 +69,11 @@ class _ModernMapScreenState extends State<ModernMapScreen>
   final ValueNotifier<Set<Marker>> _markersNotifier = ValueNotifier({});
   double _currentZoom = 12;
   Set<String> _selectedBrands = {};
+
+  /// Ülke genelinde şu anda verisi olan markalar. `null` = henüz bilinmiyor
+  /// (sorgu dönmedi ya da başarısız) ve bu durumda hiçbir çip kısıtlanmaz.
+  /// Bkz. `SupabaseService.fetchBrandAvailability` — fail-open kasıtlı.
+  Set<String>? _availableBrandKeys;
   MapFocusMode _focusMode = MapFocusMode.smart;
 
   User? _currentUser;
@@ -156,11 +161,21 @@ class _ModernMapScreenState extends State<ModernMapScreen>
     unawaited(_requestNotificationsOnce());
     unawaited(NotificationService.ensureFuelReminderScheduled());
     unawaited(_loadNews());
+    unawaited(_loadBrandAvailability());
     await _fetchStationsForRegion(_currentLocation);
     if (!mounted) return;
     setState(() => _isLoading = false);
     unawaited(SupabaseService.fetchAllActiveStationsSafe());
     unawaited(_checkPriceAlerts());
+  }
+
+  /// Marka çiplerinin "verisi yok" etiketini besler. Başarısız olursa
+  /// `_availableBrandKeys` `null` kalır ve filtre çubuğu denetim öncesi gibi
+  /// davranır — yani bu çağrının çökmesi hiçbir şeyi bozmaz.
+  Future<void> _loadBrandAvailability() async {
+    final keys = await SupabaseService.fetchBrandAvailability();
+    if (!mounted || keys == null) return;
+    setState(() => _availableBrandKeys = keys);
   }
 
   Future<void> _checkPriceAlerts() async {
@@ -1135,6 +1150,8 @@ class _ModernMapScreenState extends State<ModernMapScreen>
             label: brand.displayLabel,
             isSelected: _selectedBrands.contains(brand.key),
             isDark: isDark,
+            isUnavailable:
+                isBrandDataUnavailable(brand.key, _availableBrandKeys),
             onTap: () => _toggleBrandFilter(brand.key),
           );
         },
@@ -1425,6 +1442,24 @@ class _ModernMapScreenState extends State<ModernMapScreen>
     if (next.contains(brandKey)) {
       next.remove(brandKey);
     } else {
+      // Verisi olmayan bir markayı SEÇMEK, kullanıcıyı garanti boş bir
+      // haritaya götürürdü. Eskiden tam bu oluyordu: Shell çipi (listedeki
+      // İLK çip) 9 Eylül'den beri boş harita döndürüyor ve boş-durum metni
+      // "haritayı kaydırarak farklı bölgede ara" diyerek hiç var olmayan
+      // istasyonları aratıyordu. Artık seçim hiç uygulanmıyor ve sebep
+      // söyleniyor. Seçimi KALDIRMAK her zaman serbest (yukarıdaki dal),
+      // yoksa kullanıcı filtresine kilitlenebilirdi.
+      if (isBrandDataUnavailable(brandKey, _availableBrandKeys)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${brandLabelForKey(brandKey)} fiyatları şu anda alınamıyor. '
+              'Kaynak yeniden yayına girdiğinde bu marka kendiliğinden döner.',
+            ),
+          ),
+        );
+        return;
+      }
       next.add(brandKey);
     }
     final center = _lastFetchCenter ?? _currentLocation;
@@ -1523,16 +1558,29 @@ class _ModernMapScreenState extends State<ModernMapScreen>
     final selectedBrandText = brandFilterSummary(_selectedBrands);
     final fuelText =
         prefs.selectedFuel == 'Kursunsuz 95' ? 'Benzin' : prefs.selectedFuel;
+
+    // Seçili markaların TAMAMI karanlıksa "haritayı kaydır" demek yalan olur:
+    // kaydırmak hiçbir şey bulamaz. Kısmen karanlıksa kaydırma hâlâ anlamlı,
+    // o yüzden ayrımı `every` ile yapıyoruz, `any` ile değil.
+    final darkBrands =
+        unavailableBrandsAmong(_selectedBrands, _availableBrandKeys);
+    final allSelectedBrandsDark =
+        hasBrandFilter && darkBrands.length == _selectedBrands.length;
+
     final title = hasError
         ? 'Veri alınamadı'
-        : hasBrandFilter
-            ? 'Bu bölgede $selectedBrandText yok'
-            : 'Bu bölgede fiyat bulunamadı';
+        : allSelectedBrandsDark
+            ? '$selectedBrandText şu anda güncellenemiyor'
+            : hasBrandFilter
+                ? 'Bu bölgede $selectedBrandText yok'
+                : 'Bu bölgede fiyat bulunamadı';
     final description = hasError
         ? 'Bağlantıyı kontrol edip tekrar deneyebilirsin.'
-        : hasBrandFilter
-            ? '$selectedBrandText için $fuelText fiyatı bu harita alanında görünmüyor. Haritayı kaydırarak farklı bölgede ara veya filtreyi temizle.'
-            : '$fuelText için doğrulanmış fiyat verisi görünmüyor.';
+        : allSelectedBrandsDark
+            ? '$selectedBrandText fiyat kaynağı şu anda yayında değil, bu yüzden hiçbir bölgede gösterilemiyor. Haritayı kaydırmak sonucu değiştirmez — filtreyi temizleyip diğer markaları görebilirsin.'
+            : hasBrandFilter
+                ? '$selectedBrandText için $fuelText fiyatı bu harita alanında görünmüyor. Haritayı kaydırarak farklı bölgede ara veya filtreyi temizle.'
+                : '$fuelText için doğrulanmış fiyat verisi görünmüyor.';
     final actionLabel = hasError
         ? 'Tekrar dene'
         : hasBrandFilter
@@ -2014,51 +2062,73 @@ class _BrandFilterChip extends StatelessWidget {
   final bool isDark;
   final VoidCallback onTap;
 
+  /// Markanın şu anda hiç verisi yok. Çip GİZLENMİYOR, soluklaştırılıyor:
+  /// gizlemek "Shell nereye gitti?" sorusunu cevapsız bırakır, soluk çip ise
+  /// durumu dokunmadan önce anlatır. Dokunulduğunda sebep SnackBar'da söylenir
+  /// ve filtre uygulanmaz (bkz. `_toggleBrandFilter`).
+  final bool isUnavailable;
+
   const _BrandFilterChip({
     required this.label,
     required this.isSelected,
     required this.isDark,
     required this.onTap,
+    this.isUnavailable = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textColor = isSelected
+    final baseTextColor = isSelected
         ? Colors.white
         : (isDark ? FulColors.darkText : FulColors.lightText);
+    // Soluk ama okunur: 0.38 Material'in "disabled" opaklığı ve her iki temada
+    // kontrast eşiğini geçiyor. Tamamen devre dışı bir görünüm vermiyoruz
+    // çünkü çip HÂLÂ dokunulabilir — dokunmak açıklamayı getiriyor.
+    final textColor = isUnavailable
+        ? baseTextColor.withValues(alpha: 0.38)
+        : baseTextColor;
     final border = isSelected
         ? FulColors.primary
-        : (isDark ? FulColors.darkBorder : FulColors.lightBorder);
+        : (isDark ? FulColors.darkBorder : FulColors.lightBorder)
+            .withValues(alpha: isUnavailable ? 0.45 : 1.0);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? FulColors.primary
-              : (isDark
-                  ? FulColors.darkSurface.withValues(alpha: 0.94)
-                  : Colors.white.withValues(alpha: 0.94)),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: border, width: 1.1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
+    // Soluklaştırma GÖRSEL bir sinyal; ekran okuyucu kullanan biri için hiçbir
+    // anlam taşımaz. Durum bu yüzden ayrıca sözle söyleniyor.
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: isUnavailable ? '$label, şu anda veri yok' : label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? FulColors.primary
+                : (isDark
+                    ? FulColors.darkSurface.withValues(alpha: 0.94)
+                    : Colors.white.withValues(alpha: 0.94)),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border, width: 1.1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: textColor,
             ),
-          ],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: textColor,
           ),
         ),
       ),

@@ -1642,6 +1642,23 @@ class AuthService {
 ```
 
 **Supabase'de yeni tablo (migration):**
+
+> **⚠️ BU PLAN UYGULANMADI (not: 14 Ekim 2026).** Aşağıdaki şema tarihsel
+> kayıt olarak duruyor; canlı sistemde karşılığı yok.
+>
+> Ne oldu: `user_profiles` / `user_favorites` canlıda bu plandan FARKLI
+> kuruldu (anahtar `id UUID → auth.users`, plandaki `firebase_uid TEXT`
+> değil), çünkü o dönem Supabase Auth kullanılıyordu. Proje 14 Eylül 2026'da
+> mobil tarafta Firebase Auth'a geçti ve kullanıcı verisi
+> **`fullet_users` / `fullet_favorites`** tablolarına taşındı
+> (bkz. `database/sprint4_users_favorites.sql`). Eski iki tablo hiç
+> kullanılmadı — 0 satırda kaldılar — ve
+> `supabase/migrations/20261014120100_olu_kullanici_semasi_kaldirildi.sql`
+> ile düşürüldüler. `user_preferences` ise hiç oluşturulmadı; tercihler
+> cihazda `SharedPreferences` ile tutuluyor.
+>
+> **Bu bloğu yeniden uygulamayın.**
+
 ```sql
 -- user_profiles tablosu
 CREATE TABLE user_profiles (

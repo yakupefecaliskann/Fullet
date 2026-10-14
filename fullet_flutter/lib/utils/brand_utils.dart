@@ -76,6 +76,36 @@ String brandFilterSummary(Set<String> keys) {
   return keys.map(brandDisplayLabelForKey).join(', ');
 }
 
+/// Bu markanın ŞU AN haritada gösterilecek verisi var mı yok mu.
+///
+/// [availableKeys] `null` ise cevap **BİLİNMİYOR** — sunucu sorgusu henüz
+/// dönmemiş ya da başarısız olmuş olabilir — ve hiçbir çip kısıtlanmaz.
+/// Boş küme ile karıştırılmamalı; `null` fail-open, boş küme "hiçbir markada
+/// veri yok" demektir.
+///
+/// Hata maliyeti kasıtlı olarak asimetrik ele alınıyor: yanlış bir "veri yok"
+/// etiketi ÇALIŞAN bir markayı kullanıcıdan saklar (gerçek zarar), eksik
+/// etiket ise yalnızca denetim öncesi davranışa döner (tanıdık zarar).
+bool isBrandDataUnavailable(String brandKey, Set<String>? availableKeys) {
+  if (availableKeys == null) return false;
+  return !availableKeys.contains(brandKey);
+}
+
+/// [selectedKeys] içinden şu anda verisi OLMAYAN markalar.
+///
+/// Boş-durum metni bununla karar veriyor: sonuç boşsa "bu bölgede yok"
+/// (haritayı kaydırmak işe yarar), doluysa "kaynak şu anda yok"
+/// (kaydırmak işe YARAMAZ ve kullanıcıya öyle söylemek yanlış olur).
+Set<String> unavailableBrandsAmong(
+  Set<String> selectedKeys,
+  Set<String>? availableKeys,
+) {
+  if (availableKeys == null) return const <String>{};
+  return selectedKeys
+      .where((key) => !availableKeys.contains(key))
+      .toSet();
+}
+
 // `replaceAll('İ', 'i')` burada `toLowerCase()`'ten SONRA geldiği için hiç
 // eşleşmiyordu (bkz. text_normalize.dart). Tek ortak normalleştiriciye taşındı.
 String _normalizeBrandText(String value) => normalizeTurkish(value);

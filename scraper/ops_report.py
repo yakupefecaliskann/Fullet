@@ -57,6 +57,22 @@ MIN_PRICE_ROWS = {
 MAX_PRICE_AGE_HOURS = STALE_MAX_HOURS
 VERIFIED_SOURCES = OFFICIAL_REGIONAL_SOURCES | OFFICIAL_STATION_SOURCES
 
+# RLS'in anon rolüne açtığı görünürlük durumları — `rls_policies.sql`,
+# "public read istasyonlar" politikasının allowlist'iyle BİREBİR aynı olmalı.
+#
+# 14 Ekim 2026 denetimi, §D-7: bu rapor yalnızca `aktif=true` sayıyordu ve
+# `visibility_status`'a hiç bakmıyordu. Shell kaynağı 9 Eylül'de ölünce
+# `fullet-resolve-station-visibility` cron'u 1309 istasyonu `hidden` yaptı —
+# ama rapor 33 gün boyunca "Total active stations: 6992" yazmaya devam etti.
+# Sahibin baktığı tek özet sayı, kullanıcı gerçeğini 1309 istasyon FAZLA
+# gösteriyordu; yani ürünün beşte biri karanlıktayken rapor sakin görünüyordu.
+#
+# Allowlist (RLS'i aynen yansıtmak) bilinçli olarak `!= 'hidden'` yerine
+# seçildi: yeni bir durum değeri eklenirse RLS onu anon'dan saklar, ve bu
+# listeyi güncellemeyi unutmak raporu yine yalancı yapardı. Aynı listeyi
+# kullanmak, sapmayı ilk koşuda görünür kılar.
+USER_VISIBLE_STATUSES = frozenset({"visible", "low_priority"})
+
 
 def _chunks(items, size=200):
     for index in range(0, len(items), size):
@@ -70,7 +86,10 @@ def _select_brand_stations(brand):
     while True:
         page = (
             supabase.table("istasyonlar")
-            .select("id,marka,il,aktif,veri_kaynagi,guncellenme_tarihi")
+            .select(
+                "id,marka,il,aktif,veri_kaynagi,guncellenme_tarihi,"
+                "visibility_status"
+            )
             .eq("marka", brand)
             .order("id")
             .range(start, start + 999)
@@ -138,20 +157,28 @@ def main() -> int:
         return 1
 
     print("Fullet live data report")
-    print("=" * 72)
+    print("=" * 85)
+    # "Shown" ilk sütun ve kasıtlı: raporu okuyan kişinin güvenmesi gereken
+    # sayı budur. "Active" veritabanı gerçeğini, "Shown" KULLANICI gerçeğini
+    # söyler ve ikisi ayrışabilir (bkz. USER_VISIBLE_STATUSES).
     print(
-        f"{'Brand':<20} {'Active':>6} {'Total':>6} {'Prices':>7} "
-        f"{'City':>4} {'Fuels':<26} {'Latest':>7}"
+        f"{'Brand':<20} {'Shown':>6} {'Active':>6} {'Total':>6} {'Prices':>7} "
+        f"{'City':>4} {'Fuels':<22} {'Latest':>7}"
     )
-    print("-" * 72)
+    print("-" * 85)
 
     total_active = 0
+    total_visible = 0
     total_prices = 0
     warnings = []
 
     for brand in BRANDS:
         stations = _select_brand_stations(brand)
         active = [row for row in stations if row.get("aktif") is True]
+        visible = [
+            row for row in active
+            if (row.get("visibility_status") or "") in USER_VISIBLE_STATUSES
+        ]
         prices = _select_prices([row["id"] for row in active])
         fuels = Counter(row.get("yakit_tipi") for row in prices)
         # Tazelik `son_dogrulama`'ya bakar, `son_guncelleme`'ye DEĞİL:
@@ -170,10 +197,24 @@ def main() -> int:
         )
         active_cities = len({row.get("il") for row in active if row.get("il")})
         total_active += len(active)
+        total_visible += len(visible)
         total_prices += len(prices)
 
         if not active:
             warnings.append(f"{brand}: no active stations")
+        # Tam karartma: marka veritabanında duruyor ama kullanıcı TEK BİR
+        # istasyonunu bile göremiyor. Shell'in 9 Eylül'den beri içinde olduğu
+        # durum tam olarak bu ve hiçbir sinyal bunu söylemiyordu.
+        #
+        # KISMİ karartma kasıtlı olarak uyarı ÜRETMİYOR: tek tek istasyonların
+        # fiyatını kaybedip gizlenmesi olağan dalgalanma: her koşuda uyarı
+        # basmak S0-4'teki sahte "stale" gürültüsünü yeniden kurardı. Kısmi
+        # fark "Shown" sütununda ve alttaki toplamda zaten görünüyor.
+        elif not visible:
+            warnings.append(
+                f"{brand}: no user-visible stations "
+                f"({len(active)} active, all hidden by visibility_status)"
+            )
         if latest is None:
             warnings.append(f"{brand}: no price update timestamp")
         if len(active) < MIN_ACTIVE_STATIONS.get(brand, 1):
@@ -205,13 +246,22 @@ def main() -> int:
             if fuel
         )
         print(
-            f"{brand:<20} {len(active):>6} {len(stations):>6} {len(prices):>7} "
-            f"{active_cities:>4} {fuel_text[:26]:<26} {_age_text(latest):>7}"
+            f"{brand:<20} {len(visible):>6} {len(active):>6} {len(stations):>6} "
+            f"{len(prices):>7} {active_cities:>4} {fuel_text[:22]:<22} "
+            f"{_age_text(latest):>7}"
         )
 
-    print("-" * 72)
+    print("-" * 85)
+    print(f"User-visible stations: {total_visible}")
     print(f"Total active stations: {total_active}")
     print(f"Total active prices: {total_prices}")
+    if total_active != total_visible:
+        hidden_total = total_active - total_visible
+        share = (hidden_total / total_active * 100) if total_active else 0.0
+        print(
+            f"  -> {hidden_total} aktif istasyon KULLANICIYA GÖRÜNMÜYOR "
+            f"(envanterin %{share:.1f}'i; visibility_status != visible)"
+        )
 
     # --- Kabul edilmiş kaynak arızaları --------------------------------------
     # Kaynağı ölmüş bir markanın verisi elbette bayatlar; bunu her 6 saatte bir

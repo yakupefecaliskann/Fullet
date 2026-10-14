@@ -57,6 +57,37 @@ Beklenen final:
 [OK] Live data operations report is clean.
 ```
 
+### Hangi sayıya güvenilir: `Shown` vs `Active`
+
+Tablonun **ilk** sütunu `Shown` ve bu kasıtlı — raporu okuyanın güvenmesi
+gereken sayı budur:
+
+| Sütun | Ne söyler |
+|---|---|
+| **`Shown`** | **Kullanıcının gerçekten görebildiği** istasyon sayısı (`visibility_status` RLS allowlist'inde) |
+| `Active` | Veritabanındaki `aktif=true` satır sayısı |
+
+İkisi ayrışabilir ve ayrıştığında alt tarafta şu satır çıkar:
+
+```text
+  -> 1309 aktif istasyon KULLANICIYA GÖRÜNMÜYOR (envanterin %18,7'i; ...)
+```
+
+**Neden bu ayrım var:** 14 Ekim 2026 denetimine kadar rapor yalnızca `Active`
+basıyordu. Shell kaynağı 9 Eylül'de ölünce cron 1309 istasyonu `hidden` yaptı,
+ama rapor 33 gün boyunca `Total active stations: 6992` demeye devam etti — yani
+ürünün beşte biri karanlıkken bakılan rakam sakin görünüyordu
+(bkz. `docs/KOD_DENETIM_ARSIVI.md` §F-Y1).
+
+Bir markanın `Shown` değeri **0** olup `Active` değeri pozitifse uyarı açılır.
+**Kısmi** fark uyarı üretmez (olağan dalgalanma; her koşuda basmak sahte alarm
+gürültüsü olurdu) — bu durumda sayıya `Shown` sütunundan bakın.
+
+> `USER_VISIBLE_STATUSES` (ops_report.py) `rls_policies.sql`'deki
+> "public read istasyonlar" allowlist'iyle **birebir aynı** olmak zorundadır.
+> RLS'e yeni bir durum değeri eklenirse buraya da eklenmeli; `test_ops_report.py`
+> sapmayı yakalar.
+
 ## 4. Botları Test Et
 
 Veritabanına yazmadan tüm botları dene:
@@ -259,3 +290,72 @@ Uzun vadeli kalıcı çözüm:
 
 **Yayın kararı:** Bu uyarı Fullet'in yayınını engellemez. Planlı bir veritabanı
 bakım penceresine kadar *kabul edilmiş altyapı uyarısı* olarak kalır.
+
+---
+
+## 10. Açık Elle İşler — 14 Ekim 2026 Denetimi
+
+Bu üç iş kod tarafında kapatıldı ama **üretimde elle uygulanması** gerekiyor;
+otomasyondan ya da MCP'den yapılamıyor. Ayrıntılar:
+`docs/KOD_DENETIM_ARSIVI.md` §F.
+
+### 10.1 Ölü şemayı düşür (`user_profiles` / `user_favorites`)
+
+Migration dosyası hazır ve gerekçesi içinde:
+`supabase/migrations/20261014120100_olu_kullanici_semasi_kaldirildi.sql`
+
+Supabase Dashboard → SQL Editor'da:
+
+```sql
+DROP TABLE IF EXISTS public.user_favorites;
+DROP TABLE IF EXISTS public.user_profiles;
+```
+
+**Sıra önemli** (`user_favorites.user_id → user_profiles.id` FK'si var) ve
+`CASCADE` kullanılmamalı. Düşürme öncesi doğrulanmıştı: her ikisi de 0 satır,
+depoda tek kod referansı yok. Yedek bilinçli olarak alınmadı — 0 satırlık yedek
+tablo veri taşımaz ama RLS'siz kaldığı için linter'da kalıcı ERROR üretir.
+
+### 10.2 Yetim Edge Function'ı sil (`fiyat-push`)
+
+Fonksiyon üretimde hâlâ `ACTIVE` (v4) ama kesin ölü: düşürülmüş `push_tokens`
+tablosunu okuyor, onu çağıran trigger kaldırıldı, yalnızca Expo token'larına
+gönderiyor (proje Firebase'de). Çağrılsa anında patlar.
+
+```powershell
+npx supabase login
+npx supabase functions delete fiyat-push --project-ref xhkvlwecsacfjpbtyqcc
+```
+
+Ya da Dashboard → Edge Functions → `fiyat-push` → Delete.
+
+Kaynağı kaybolmuyor: commit `224d200` içinde duruyor
+(`supabase/functions/fiyat-push/index.ts`, 3 Ağustos 2026'da depodan silinmişti).
+
+### 10.3 Shell fiyat kaynağı kararı — SON TARİH 31 EKİM 2026
+
+**Bu bir mühendislik işi değil, ürün kararı.** `scraper/known_outages.py`
+içindeki Shell kaydının `review_by` tarihi **2026-10-31**. O tarih geçtiğinde:
+
+- susturma kalkar,
+- `prices` modlu her koşu (günde 4) yeniden kırmızıya döner,
+- ve E bölümünün bütün dersi sıfırlanır: kalıcı kırmızı, sinyali yeniden
+  anlamsızlaştırır.
+
+Seçenekler ve bedelleri:
+
+| Seçenek | Bedel |
+|---|---|
+| **(a)** 3. taraf toplayıcı | Provenance düşüşü + ToS riski |
+| **(b)** Shell'i marka listesinden ve envanterden çıkar | 1309 istasyon kalıcı kaybı |
+| **(c)** İstasyonları fiyatsız/konum amaçlı göster | Fiyat vaadi zayıflar, konum değeri kalır |
+| **(d)** Arıza kaydını bilinçli uzat | Karar ertelenir; `review_by` güncellenmeli |
+
+Hangisi seçilirse seçilsin, kararın gerekçesi `known_outages.py`'deki `reason`
+alanına yazılmalı — altı hafta sonra o satırı okuyan kişi aynı araştırmayı
+baştan yapmasın.
+
+> **Not:** Shell'e yeni bir kaynak tanımlandığı an uygulama tarafında hiçbir
+> şey yapmak gerekmiyor. İstasyonlar `visible`'a döner, `marka_kullanilabilirlik`
+> view'i onları saymaya başlar ve marka filtresindeki çip kendiliğinden
+> etkinleşir. Hiçbir yerde "Shell" sabit kodlu istisna bırakılmadı.

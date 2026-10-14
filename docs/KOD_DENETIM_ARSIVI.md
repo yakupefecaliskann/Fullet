@@ -1,10 +1,16 @@
-# Fullet — Kod Denetimi Arşivi (KAPALI)
+# Fullet — Kod Denetimi Arşivi
 
-Bu dosya beş **kapatılmış** denetim raporunun birleşimidir. Beşi de tarihsel
-kayıttır: içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır. Aktif bir
-iş listesi değildir — güncel
-yayın durumu için `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan
-kontroller için `RELEASE_QA_CHECKLIST.md`.
+Bu dosya altı denetim raporunun birleşimidir. **A–E kapatılmıştır**: tarihsel
+kayıttır, içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır.
+**F (14 Ekim 2026) KISMEN AÇIKTIR** — bulgularının bir kısmı ürün sahibinin
+kararını ya da elle müdahalesini bekliyor; açık maddeler F'nin özet tablosunda
+`⏳` ve `🟡` ile işaretli. Güncel yayın durumu için
+`GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan kontroller için
+`RELEASE_QA_CHECKLIST.md`.
+
+> **F'deki en acil madde:** Shell fiyat kaynağı kararının son tarihi
+> **31 Ekim 2026**. O tarihte `known_outages` kaydı dolar, susturma kalkar ve
+> pipeline kalıcı kırmızıya döner — yani E bölümünün bütün dersi sıfırlanır.
 
 > **Bölüm C ve D'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır
 > hatayla kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını
@@ -17,11 +23,19 @@ kontroller için `RELEASE_QA_CHECKLIST.md`.
 > 16 gün boyunca kimseye ulaşmadı**. Alarmın açılması ile görülmesi ayrı
 > şeylerdir.
 >
-> E bölümü (18 Eylül 2026) üçlemeyi kapatır: D'nin çözümü alarmı pipeline'ın
-> kırmızısına bağlamıştı; E, **o kırmızının 9 gün boyunca sabit kalınca sinyal
-> olmaktan çıktığını** ölçer. Düzeltilemeyen bir arıza bulduğunuzda sorulacak
-> soru "bunu nasıl susturayım?" değil, "bu, geri kalan her şeyi hâlâ
-> görebilmemi sağlıyor mu?"dur.
+> E bölümü (18 Eylül 2026) D'nin çözümünün faturasını keser: D alarmı
+> pipeline'ın kırmızısına bağlamıştı; E, **o kırmızının 9 gün boyunca sabit
+> kalınca sinyal olmaktan çıktığını** ölçer. Düzeltilemeyen bir arıza
+> bulduğunuzda sorulacak soru "bunu nasıl susturayım?" değil, "bu, geri kalan
+> her şeyi hâlâ görebilmemi sağlıyor mu?"dur.
+>
+> F bölümü (14 Ekim 2026) serinin en sinsi hâlidir: **E'nin düzeltmesi tam
+> tasarlandığı gibi çalıştı ve kör nokta tam o yeşilin içinde oluştu.** Alarm
+> doğruydu, görünüyordu, bilinçli olarak bloklamıyordu — ve 33 gün okunmadı,
+> çünkü yanındaki özet rakam (`Total active stations`) veritabanını ölçüyordu,
+> kullanıcının gördüğünü değil. O 33 günde Shell — envanterin %18,7'si —
+> uygulamada hiç yoktu. Bir alarmın doğru olması, yanındaki yanlış toplamı
+> telafi etmez: **insan toplama bakar, uyarıya değil.**
 
 **Neden siliniyor değil de saklanıyor:** kararların *gerekçesi* burada. Örneğin
 `win32` bağımlılığının neden ölü olmadığı, `_fetchStationsLegacy` /
@@ -36,10 +50,11 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 | **C** | *(doğrudan bu dosyaya yazıldı)* | Uçtan uca denetim — "fiyatlar yanlış" şikâyetlerinin kök nedeni (K1–K2, Y1, O1–O3, D1–D3) | 25 Ağustos 2026 |
 | **D** | *(doğrudan bu dosyaya yazıldı)* | Envanter denetimi — 16 gündür sessiz kalan `shell_station_bot.py` (D-K1, D-K2, D-Y1) | 25 Ağustos 2026 |
 | **E** | *(doğrudan bu dosyaya yazıldı)* | Kalıcı kırmızı + ölü push tetikleyicisi — alarm körlüğü ve 235 MB çöp (E-Y1–Y3, E-G1, E-G2) | 18 Eylül 2026 |
+| **F** | *(doğrudan bu dosyaya yazıldı)* | Genel sağlık taraması — Shell karartması, ölçülen şeyin yanlışlığı, tutundurma çöküşü (F-K1–K3, F-Y1–Y2, F-G1–G3, F-O1–O4, F-D1) | **kısmen açık** (14 Ekim 2026) |
 
 > A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
 > özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
-> bırakılmıştır. C ve D bölümleri doğrudan bu dosyaya yazılmıştır.
+> bırakılmıştır. C, D, E ve F bölümleri doğrudan bu dosyaya yazılmıştır.
 
 ---
 ---
@@ -2429,3 +2444,339 @@ karşılaşıldığında sorulacak soru "bunu nasıl susturayım?" değil, **"bu
 kalan her şeyi hâlâ görebilmemi sağlıyor mu?"**dur. Susturmanın meşru olduğu tek
 hâl, susturmanın *kapsamı dar*, *süresi sınırlı* ve *kendini iptal eder*
 olmasıdır.
+
+---
+---
+
+# ═══ BÖLÜM F ═══ Doğru Çalışan Alarm: Ölçülen Şeyin Yanlış Olması
+
+*(doğrudan bu dosyaya yazıldı — 14 Ekim 2026)*
+
+**Tarih:** 14 Ekim 2026
+**Tetikleyici:** Projeye ~4 haftadır dokunulmamıştı; kapsamlı genel sağlık
+taraması istendi. Hiçbir alarm, hiçbir kırmızı koşu, hiçbir şikâyet yoktu.
+**Kapsam:** Mobil uygulama, scraper botları, Supabase (canlı), GitHub Actions,
+admin panel, güvenlik yüzeyi, kullanım telemetrisi.
+**Denetim anındaki sürüm:** 1.0.4+7 (Play'de canlı)
+
+---
+
+## Özet
+
+E bölümünün düzeltmesi **tam tasarlandığı gibi çalıştı.** `known_outages.py`
+Shell'in ölü kaynağını dar kapsamlı, süreli ve kendini iptal eden bir kayıtla
+susturdu; pipeline yeşile döndü; `tp_bot` yarın kırılsa görülebilir hâle geldi.
+Mekanizmada tek bir kusur bulunmadı.
+
+**Kör nokta tam da bu yeşilin içinde oluştu.**
+
+9 Eylül'de Shell'in kaynağı öldüğünde zincirin her halkası doğru çalıştı:
+fiyatlar 48 saatte `unknown`'a döndü, `fullet-resolve-station-visibility` cron'u
+fiyatsız kalan **1309 Shell istasyonunu `hidden`** yaptı, RLS onları anon'dan
+sakladı. Yani Shell — Türkiye'nin en bilinen akaryakıt markası — 33 gün boyunca
+uygulamada **hiç yoktu**. Envanterin %18,7'si karanlıktı.
+
+Bu süre boyunca sistem doğru teşhisi her 6 saatte bir basmaya devam etti:
+
+```
+[WARN] hidden but active stations: 1309 rows are active but visibility_status is hidden
+```
+
+Alarm açıktı. Çıktıda görünüyordu. Doğruydu. Ve **hiçbir işe yaramadı**, çünkü
+aynı koşu şunları da söylüyordu:
+
+```
+Total active stations: 6992
+[OK] backend health: all checked items passed
+[OK] Bloklayıcı uyarı yok; kalanların tamamı known_outages.py'de kayıtlı
+```
+
+Bakılan özet sayı `aktif=true` sayıyordu ve `visibility_status`'a **hiç
+bakmıyordu**. Yani sahibinin güvendiği tek rakam, kullanıcı gerçeğini 1309
+istasyon fazla gösteriyordu. Workflow yeşil, rapor sakin, admin paneline
+31 Temmuz'dan beri giriş yok.
+
+| # | Bulgu | Etki | Durum |
+|---|---|---|---|
+| **F-K1** | Shell uygulamada tamamen karanlık: 1309 istasyon `hidden`, 3460 fiyat `unknown`, en yeni doğrulama 34 gün önce | Kullanıcı 6992 değil **5683** istasyon görüyor; envanterin %18,7'si yok | 🟡 UX düzeltildi, **kaynak kararı ürün sahibinde** |
+| **F-K2** | Marka filtresindeki **ilk** çip (Shell) boş harita döndürüyor; boş-durum metni "haritayı kaydırarak farklı bölgede ara" diyerek hiç var olmayan istasyonları aratıyordu | Yeni kullanıcının en muhtemel ilk dokunuşu bir çıkmaz sokak | ✅ düzeltildi |
+| **F-K3** | Tutundurma çöküşü: D1 dönüş %23,9 → %7,9, D7 %16,1 → %4,8, ortalama açılış 4,6 → 2,1 | ASO'nun ~3× kurulum kazancı delik kovaya akıyor | 📊 ölçüldü, **nedensellik çözülemedi** |
+| **F-Y1** | `ops_report` kör noktası: yalnızca `aktif=true` okuyor, `visibility_status`'u hiç okumuyor | Bakılan tek özet sayı 33 gün boyunca yanlıştı | ✅ düzeltildi |
+| **F-Y2** | İnsan döngüsü kopuk: doğru `WARN`, yeşil workflow, 31 Tem'den beri girilmemiş admin panel | Teşhis 33 gün okunmadı | 📋 raporlandı |
+| **F-G1** | Yetim Edge Function: `fiyat-push` üretimde `ACTIVE` (v4), depoda karşılığı yok, düşürülmüş `push_tokens` tablosunu okuyor | Ölü üretim yüzeyi | ⏳ **silme kullanıcıda** (MCP'de delete yok, CLI token'ı yok) |
+| **F-G2** | `spatial_ref_sys` RLS kapalı (8500 satır, PostGIS sistem tablosu) | Advisor'da kalıcı ERROR gürültüsü; veri hassas değil | ⏳ **yalnızca Dashboard SQL Editor'dan** (owner kısıtı) |
+| **F-G3** | `record_app_heartbeat` anon'a açık ve `install_id` serbest | Tek kullanım metriği dışarıdan şişirilebilir | 📋 raporlandı |
+| **F-O1** | Ölü şema: `user_profiles` / `user_favorites` (0 satır, Firebase öncesi `auth.uid()` politikaları) | Şema gürültüsü, yanlış yola sevk riski | ✅ migration yazıldı, ⏳ **DROP kullanıcıda** |
+| **F-O2** | Bağımlılıklar 2 major geride (`firebase_core` 2.32→4.15, `google_sign_in` 6→7, `flutter_local_notifications` 17→22) | `google_sign_in` 7 geçişi girişi kırabilir | 📋 raporlandı |
+| **F-O3** | BP'nin envanter botu yok (diğer 6 markada var); 37 istasyonda donmuş | Kapsam boşluğu | 📋 raporlandı |
+| **F-O4** | `shell_station_bot` hâlâ haftalık 1290 kayıt yazıyor — %100 görünmez envanter için | Beyhude Actions dakikası + DB yazması | 📋 raporlandı |
+| **F-D1** | Dokümanlar 2 ay bayat; `FULLET_PRD.md` §Sprint 3 hiç uygulanmamış bir şemayı uygulanmış gibi sunuyor | Bir sonraki okuyan ölü şemayı yeniden kurar | ✅ düzeltildi |
+
+---
+
+## F-K1 — Shell karartması ve neden istemci bunu bilemezdi
+
+Karartmanın kendisi bir hata değil: fiyatı doğrulanamayan istasyonu haritada
+göstermemek **doğru** karardır (S2-2'de bilinçli olarak böyle kurulmuştu).
+Hata, bu durumun kullanıcıya ve operatöre hiçbir yerde söylenmemesiydi.
+
+Uygulamanın bunu kendi verisinden anlaması **mimari olarak imkânsızdı:**
+istasyonlar yalnızca harita görüş alanı için çekiliyor (`get_nearby_stations`,
+yarıçap sorgusu). Dolayısıyla istemci tarafında
+
+> "bu **BÖLGEDE** Shell yok" ile "Shell'in **HİÇBİR YERDE** verisi yok"
+
+ayrımı yapılamıyordu. Eski boş-durum metni ("haritayı kaydırarak farklı bölgede
+ara") bölgesel yokluk için **doğru**, ulusal yokluk için **yanlış** — ve
+kullanıcıyı sonsuz bir aramaya yönlendiriyordu.
+
+### Çözüm: ayrımı sunucudan almak
+
+`supabase/migrations/20261014120000_marka_kullanilabilirlik_view.sql` —
+`marka_kullanilabilirlik` view'i, markaya göre **anon rolünün görebildiği**
+istasyon sayısını döndürür (6-7 satır, sıcak ~18 ms; soğuk ~510 ms ölçüldü,
+fark tamamen önbellek).
+
+Üç tasarım kararı kayda değer:
+
+1. **`security_invoker = true`** (PG15+, proje PG 17.6'da): view çağıranın
+   haklarıyla çalışır, RLS aynen uygulanır. Aynı işi `SECURITY DEFINER` bir
+   fonksiyonla yapmak advisor'da kalıcı *"anon can execute SECURITY DEFINER"*
+   uyarısı bırakırdı — F-G3'ün yanına bir tane daha eklemenin anlamı yoktu.
+
+2. **`EXISTS` koşulu fazlalık değil.** `visibility_status='visible'` zaten cron
+   değişmezi gereği "kullanılabilir fiyatı var" demek. Ama o değişmeze
+   *güvenmek* kırılgan: cron durduğu an view yalan söylemeye başlardı.
+   Doğruluk varsayımla değil inşa yoluyla sağlanıyor.
+
+3. **Hiçbir yerde "Shell" sabit kodlu istisna YOK.** Kaynak yeniden yayına
+   girdiği an istasyonlar `visible`'a döner, view onları saymaya başlar ve çip
+   kendiliğinden etkinleşir. Geri alınacak bir geçici yama bırakılmadı —
+   `test_karnak_dondugunde_cip_kendiliginde_etkinlesir` bunu kilitliyor.
+
+### Kaynak kararı — AÇIK, ürün sahibinde
+
+Bu denetim Shell'e yeni bir fiyat kaynağı **tanımlamadı**; o bir ürün kararıdır:
+
+- **(a)** 3. taraf toplayıcı — provenance düşüşü + ToS riski
+- **(b)** Shell'i marka listesinden ve envanterden çıkar
+- **(c)** istasyonları fiyatsız/konum amaçlı göster
+- **(d)** arıza kaydını bilinçli olarak uzat
+
+**Hiçbir şey yapmamak bir seçenek değil:** `known_outages` kaydının gözden
+geçirme tarihi **31 Ekim 2026**. O tarih geçtiğinde susturma kalkar, pipeline
+kalıcı kırmızıya döner ve E bölümünün bütün dersi sıfırlanır.
+
+---
+
+## F-K2 — Boş harita döndüren filtre çipi
+
+`brand_utils.dart`'taki `brandOptions` listesi sabit kodlu ve **Shell ilk
+sırada**. 9 Eylül'den beri bu çip garanti boş harita döndürüyordu.
+
+Üç seçenek değerlendirildi:
+
+| Seçenek | Neden seçilmedi / seçildi |
+|---|---|
+| Shell'i listeden sil | Kaynak dönünce geri eklemeyi hatırlamak gerekir; ayrıca "Shell nereye gitti?" sorusu cevapsız kalır |
+| Çipi tamamen gizle | Aynı sorun: bilgi kaybı, kullanıcı uygulamayı eksik sanır |
+| **Çipi soluklaştır + dokunmayı açıkla** | ✅ Seçildi: durum dokunmadan önce görünür, dokunulduğunda sebep söylenir, kaynak dönünce kendiliğinden düzelir |
+
+Uygulanan davranış:
+
+- **Soluk çip** (`alpha 0.38` — Material'in disabled opaklığı, her iki temada
+  kontrast eşiğini geçiyor). Çip gizlenmiyor, dokunulabilir kalıyor.
+- **Seçim uygulanmıyor:** verisi olmayan markaya dokunmak filtreyi
+  değiştirmiyor, SnackBar sebebi söylüyor. Seçimi *kaldırmak* her zaman serbest
+  — yoksa kullanıcı kendi filtresine kilitlenebilirdi.
+- **Boş-durum metni ayrıştırıldı:** seçili markaların **tamamı** karanlıksa
+  "kaynak şu anda yayında değil, haritayı kaydırmak sonucu değiştirmez";
+  **kısmen** karanlıksa eski "bu bölgede yok" metni korunuyor (kaydırmak hâlâ
+  anlamlı). Ayrım `every` ile, `any` ile değil.
+- **Semantics etiketi:** soluklaştırma görsel bir sinyal ve ekran okuyucu
+  kullanan biri için hiçbir anlam taşımıyor; durum ayrıca sözle söyleniyor.
+
+### Fail-open, kasıtlı asimetri
+
+`SupabaseService.fetchBrandAvailability()` **`null`** dönebilir ve bu
+"hiçbir marka kullanılabilir değil" DEMEK DEĞİL — "bilinmiyor" demek. `null`
+gelince hiçbir çip kısıtlanmaz, yani denetim öncesi davranışa dönülür.
+
+Hata maliyeti bilinçli olarak asimetrik ele alındı:
+
+- yanlış bir "veri yok" etiketi **çalışan** bir markayı kullanıcıdan saklar → gerçek zarar
+- eksik etiket yalnızca tanıdık eski davranışa döner → tanıdık zarar
+
+Aynı sebeple view'den **hiç satır dönmemesi** de `null`'a düşürülüyor: bu
+"tüm markalar karanlık" olabileceği gibi view'in bozulduğu (şema değişikliği,
+grant kaybı) anlamına da gelir ve ikisi ayırt edilemez. Tek bozuk sorgu
+yüzünden her çipi "veri yok" diye etiketlemek uygulamayı tamamen kullanılamaz
+gösterirdi.
+
+---
+
+## F-K3 — Tutundurma çöküşü (ölçüldü, nedensellik çözülemedi)
+
+`app_heartbeats` üzerinden, en az 7 gün olgunlaşmış kurulumlar:
+
+| | Shell VARDI | Shell YOK |
+|---|---|---|
+| Kurulum | 180 | 63 |
+| Tek açılışta bırakan | %33,9 | **%50,8** |
+| 1 gün sonra dönen | %23,9 | **%7,9** |
+| 7 gün sonra dönen | %16,1 | **%4,8** |
+| Ortalama açılış | 4,6 | **2,1** |
+
+Aynı pencerede **W2 ASO işe yaradı**: haftalık kurulum ~5'ten ~17'ye çıktı
+(Ağu 17–Eyl 13: 6/5/5/4 → Eyl 21–Eki 11: 12/24/15). Yani kazanç gerçek, ama
+delik kovaya akıyor.
+
+### Dürüst sınır
+
+Shell karartması **11 Eylül**, ASO **18 Eylül** — yedi gün arayla. Aradaki
+temiz pencerede yalnızca **n=8** kurulum var; bu, iki nedeni istatistiksel
+olarak ayrıştırmaya **yetmiyor**. "ASO düşük niyetli trafik getirdi"
+alternatifi bu veriyle elenemez.
+
+Bu, raporun en zayıf çıkarımıdır ve öyle kaydedilmelidir. Ama kararı
+değiştirmez: Shell'in %100 karanlık olması, tutundurmaya etkisinden bağımsız
+olarak kesin bir ürün kusurudur.
+
+---
+
+## F-Y1 — `ops_report` kör noktası
+
+`ops_report.py:154` yalnızca `aktif=true` süzüyordu; satır 213 de
+`Total active stations: 6992` basıyordu. `visibility_status` sorguda bile yoktu.
+
+Düzeltme:
+
+- Sorguya `visibility_status` eklendi (ve kolonun gerçekten istendiği testle
+  kilitlendi — kolon düşerse her satır `None` gelir, allowlist hiçbir satırı
+  tutmaz ve rapor TÜM markaları karanlık sanardı).
+- `USER_VISIBLE_STATUSES = {"visible", "low_priority"}` — `rls_policies.sql`
+  allowlist'iyle birebir aynı. `!= 'hidden'` yerine allowlist seçilmesi
+  bilinçli: yeni bir durum değeri eklenirse RLS onu anon'dan saklar ve bu
+  listeyi güncellemeyi unutmak raporu yine yalancı yapardı. Ayrı bir test
+  sapmayı yakalıyor.
+- Tabloya **`Shown`** sütunu eklendi ve **ilk** sütun yapıldı: raporu okuyanın
+  güvenmesi gereken sayı budur. `Active` veritabanı gerçeğini, `Shown`
+  kullanıcı gerçeğini söyler.
+- Toplamlara `User-visible stations` ve fark satırı eklendi.
+
+### Kısmi karartma kasıtlı olarak uyarı ÜRETMİYOR
+
+Yalnızca **tam** karartma (`active` var, `visible` yok) uyarı açar. Tek tek
+istasyonların fiyatını kaybedip gizlenmesi olağan dalgalanmadır; her koşuda
+uyarı basmak S0-4'teki sahte "stale" gürültüsünü yeniden kurardı — sinyal
+anlamını yitirir ve sıradaki gerçek arıza görünmez olur. Kısmi fark `Shown`
+sütununda ve toplam satırında zaten görünüyor.
+
+Yeni uyarı mevcut `known_outages` makinesine kendiliğinden bağlanıyor:
+Shell'in karartması **bugün** raporlanır ama bloklamaz; **31 Ekim'de** kayıt
+dolduğunda bloklar. Başka bir markanın karartması **anında** bloklar.
+
+---
+
+## F-Y2 — Teşhis doğruydu, okunmadı
+
+Bu bölümün asıl bulgusu bir kod hatası değil. Sistem kendini **doğru** teşhis
+etti ve teşhis 33 gün bekledi. Üç katman üst üste geldi:
+
+1. `WARN`, `FAIL` değil → workflow **yeşil** (son 25 koşunun 24'ü "success")
+2. `ops_report` kapanışta `[OK] Bloklayıcı uyarı yok` → sakin
+3. Admin paneline **31 Temmuz'dan beri** giriş yok (`auth.users.last_sign_in_at`)
+
+E bölümü alarmı pipeline'ın kırmızısına bağlamıştı. F, o kırmızının **meşru
+sebeplerle yeşile döndüğünde** aynı körlüğün geri geldiğini gösteriyor: bu kez
+susturma doğru, dar ve süreliydi — ama yeşil yüzey, "ürün sağlıklı" diye
+okundu.
+
+---
+
+## F-G1 — Yetim `fiyat-push` Edge Function
+
+`20260803150000_drop_push_infrastructure.sql` push altyapısını kaldırdı ve
+`supabase/functions/fiyat-push/` dizinini depodan sildi (commit `224d200`,
+3 Ağustos). **Fonksiyon üretimden hiç kaldırılmadı:** `ACTIVE`, v4.
+
+Kesin ölü olduğu doğrulandı: kaynağı `push_tokens` tablosunu okuyor, o tablo
+18 Eylül'de düşürüldü; onu çağıran trigger da kaldırıldı; yalnızca Expo
+token'larına gönderiyor, proje ise Firebase'de. Yani çağrılsa anında patlar.
+
+Silinmedi çünkü Supabase MCP'sinde `delete_edge_function` yok ve CLI token'ı
+bu makinede tanımlı değil. Kaynağı kaybolmuş değil — `224d200`'de duruyor.
+
+---
+
+## F-O1 — Ölü kullanıcı şeması
+
+`user_profiles` / `user_favorites`: 0 satır, depoda tek kod referansı yok,
+RLS politikaları `auth.uid()` tabanlı — Firebase JWT'si ile **yapısal olarak**
+hiç eşleşemezdi (canlı model `auth.jwt() ->> 'sub'` kullanıyor). Boş
+kalmaları tesadüf değil.
+
+`20260905223000` bu tabloların politikalarına da dokunuyor; bu, o migration'ın
+canlı **her** politikayı mekanik olarak initplan'a sarmasından kaynaklanıyor —
+kullanımda olduklarının kanıtı değil.
+
+**Yedek alınmadı, kasıtlı:** 0 satırlık yedek tablo hiçbir veri taşımaz ama
+RLS'siz kaldığı için linter'da kalıcı ERROR üretir. `20260804091908` tam bu
+yüzden dört yedek tabloyu tek tek düşürmek zorunda kalmıştı.
+
+Migration yazıldı; `DROP` üretimde uygulanamadı (araç katmanı yıkıcı DDL'i
+onaya bağladı). Sıra önemli ve `CASCADE` bilinçli kullanılmadı:
+`user_favorites.user_id → user_profiles.id` FK'si var, çocuk önce düşer.
+
+---
+
+## Regresyon kilidi
+
+| Dosya | Önce | Sonra |
+|---|---|---|
+| `fullet_flutter/test/brand_utils_test.dart` | — | **+5 test** (`D-1` grubu) |
+| `scraper/test_ops_report.py` | 7 test | **14 test** (+7, `OpsReportVisibilityTest`) |
+| **Flutter toplam** | 45 | **50, tamamı geçti** |
+| **Python toplam** | 179 | **186** (4 hata yalnızca yerel `playwright` eksikliği; CI kurar) |
+
+Kilitlenen davranışlar:
+
+- kullanılabilirlik **bilinmiyor** (`null`) ise hiçbir çip kısıtlanmaz — fail-open
+- verisi olmayan marka karanlık, olanlar değil
+- kısmi karartmada `every`/`any` ayrımı korunuyor
+- **kaynak dönünce çip kendiliğinden etkinleşir** (sabit kodlu istisna olmadığının kanıtı)
+- tam karartma uyarı üretir, **kısmi karartma üretmez** (gürültü kilidi)
+- `low_priority` kullanıcıya **görünür** sayılır (RLS ile aynı)
+- karartma uyarısı bilinen arızayla bloklamaz, **süresi dolunca bloklar**
+- istasyon sorgusu `visibility_status` kolonunu **gerçekten ister**
+- allowlist RLS politikasıyla **birebir aynı**
+
+Son üç madde mekanizmanın gerçek riskleridir: biri susturmanın kalıcılaşması,
+ikisi sessiz kolon/allowlist sapması.
+
+---
+
+### Genelleştirilebilir ders
+
+C: yeşil telemetri yanlış veriyi gizleyebilir.
+D: kırmızı telemetri kimse bakmazsa hiçbir şey ifade etmez.
+E: kırmızı telemetri, düzeltilemeyecek bir sebeple kalıcı hâle geldiğinde
+kimsenin bakmadığı telemetriye dönüşür.
+**F: değişebilen, görünen ve doğru olan bir alarm bile, yanındaki özet sayı
+yanlış şeyi ölçüyorsa okunmaz.**
+
+E'nin dersi "bir sinyalin değeri değişebilme yeteneğindedir" idi. F bunun
+yetmediğini gösteriyor: sinyal **değişebilir** olmalı *ve* **önemsediğin şeyi
+ölçmeli**. `Total active stations` 33 gün boyunca kusursuz çalıştı — yanlış
+soruyu cevaplayarak. Veritabanının kaç satırı olduğunu ölçüyordu; oysa
+önemsenen şey kullanıcının kaç istasyon gördüğüydü.
+
+Pratik kural: **operatörün her gün baktığı özet rakam, ürünün kullanıcıya
+görünen hâlini ölçmek zorundadır.** Bir uyarı satırının doğru olması, onun
+yanındaki yanlış toplamı telafi etmez — çünkü insan toplama bakar, uyarıya
+değil. Bu yüzden `Shown` sütunu `Active`'in **soluna** kondu.
+
+İkinci kural, F-K3'ten: **büyüme kazancı, ürün kusurunu ölçmeden
+değerlendirilemez.** ASO kurulumları 3× artırdı ve bu bir başarı gibi
+raporlanabilirdi. Aynı hafta ürünün beşte biri karanlıktı. Huninin üstünü
+onarmak, altı delikken kazanç değil, maliyet üretir.
