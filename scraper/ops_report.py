@@ -26,7 +26,6 @@ BRANDS = [
     normalize_brand("TP"),
     "Opet",
     "Petrol Ofisi",
-    "BP",
     "Aytemiz",
 ]
 
@@ -39,7 +38,6 @@ MIN_ACTIVE_STATIONS = {
     normalize_brand("TP"): 30,
     "Opet": 400,
     "Petrol Ofisi": 50,
-    "BP": 30,
     "Aytemiz": 25,
 }
 
@@ -49,7 +47,6 @@ MIN_PRICE_ROWS = {
     normalize_brand("TP"): 60,
     "Opet": 800,
     "Petrol Ofisi": 150,
-    "BP": 80,
     "Aytemiz": 50,
 }
 

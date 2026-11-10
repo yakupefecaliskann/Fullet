@@ -13,15 +13,16 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { hasSupabaseConfig, supabase } from './supabaseClient.js';
 
-// Tazelik eşikleri scraper/freshness.py ve database/add_price_verification.sql
-// ile AYNI olmalı. Eskiden burası 72 saatti; pg_cron 12 saatte bayat
-// işaretlediği için panel "Temiz" derken uygulama aynı fiyata "⚠️ Bayat"
-// diyordu (yol haritası S0-4).
-const PRICE_STALE_HOURS = 12;
+// Tazelik eşikleri scraper/freshness.py (FRESH_MAX_HOURS) ve
+// database/add_price_verification.sql ile AYNI olmalı. Eskiden burası 72
+// saatti; pg_cron bayat işaretlediği için panel "Temiz" derken uygulama aynı
+// fiyata "⚠️ Bayat" diyordu (yol haritası S0-4). 1 Eylül'de eşik 18 saate
+// çekilirken burası unutulmuştu (denetim §G).
+const PRICE_STALE_HOURS = 18;
 const NEWS_STALE_HOURS = 48;
 const ACTIVE_NOW_MINUTES = 15;
 const PAGE_SIZE = 1000;
-const BRANDS = ['Shell', 'TotalEnergies', 'Türkiye Petrolleri', 'Opet', 'Petrol Ofisi', 'BP', 'Aytemiz'];
+const BRANDS = ['Shell', 'TotalEnergies', 'Türkiye Petrolleri', 'Opet', 'Petrol Ofisi', 'Aytemiz'];
 
 function ageHours(value) {
   if (!value) return null;

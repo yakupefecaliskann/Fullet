@@ -194,8 +194,14 @@ def create_system_alert(
     message: str,
     metadata: dict[str, Any] | None = None,
 ) -> None:
-    _send_discord_webhook(title, message, severity)
+    # Bildirim YALNIZCA alarm YENİ açıldığında gider. Açık bir alarm her koşuda
+    # burada yeniden "oluşturulur" (içeriği tazelenir); her seferinde mesaj
+    # atmak, kabul edilmiş Shell arızası için günde onlarca aynı mesaj demekti
+    # ve kanalı E bölümündeki kalıcı kırmızının mesaj kutusu hâline getirirdi.
+    # Veritabanına ulaşılamıyorsa "açık mı?" sorusu cevaplanamaz; o durumda
+    # susmak yerine bildirilir, çünkü kayıt da yazılamayacaktır.
     if not supabase:
+        _send_discord_webhook(title, message, severity)
         return
     severity = severity if severity in {"info", "warning", "error", "critical"} else "warning"
     source = clean_text(source)[:120]
@@ -224,9 +230,11 @@ def create_system_alert(
             supabase.table("system_alerts").update(payload).eq("id", existing[0]["id"]).execute()
         else:
             supabase.table("system_alerts").insert(payload).execute()
+            _send_discord_webhook(title, message, severity)
     except Exception as exc:
         if not _observability_table_missing(exc):
             print(f"[WARN] System alert skipped: {exc}")
+            _send_discord_webhook(title, message, severity)
 
 def resolve_system_alerts(*, source: str, title: str | None = None) -> None:
     if not supabase:

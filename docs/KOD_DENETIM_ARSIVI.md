@@ -1,15 +1,15 @@
 # Fullet — Kod Denetimi Arşivi
 
-Bu dosya altı denetim raporunun birleşimidir. **A–E kapatılmıştır**: tarihsel
+Bu dosya yedi denetim raporunun birleşimidir. **A–E kapatılmıştır**: tarihsel
 kayıttır, içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır.
-**F (14 Ekim 2026) KISMEN AÇIKTIR** — bulgularının bir kısmı ürün sahibinin
-kararını ya da elle müdahalesini bekliyor; açık maddeler F'nin özet tablosunda
-`⏳` ve `🟡` ile işaretli. Güncel yayın durumu için
+**F (14 Ekim 2026) ve G (10 Kasım 2026) KISMEN AÇIKTIR** — bulgularının bir kısmı
+ürün sahibinin kararını ya da elle müdahalesini bekliyor; açık maddeler özet
+tablolarda `⏳` ve `🟡` ile işaretli. Güncel yayın durumu için
 `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan kontroller için
 `RELEASE_QA_CHECKLIST.md`.
 
-> **F'deki en acil madde:** Shell fiyat kaynağı kararının son tarihi
-> **31 Ekim 2026**. O tarihte `known_outages` kaydı dolar, susturma kalkar ve
+> **En acil madde:** Shell fiyat kaynağı kararının son tarihi
+> **15 Aralık 2026**. O tarihte `known_outages` kaydı dolar, susturma kalkar ve
 > pipeline kalıcı kırmızıya döner — yani E bölümünün bütün dersi sıfırlanır.
 
 > **Bölüm C ve D'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır
@@ -36,6 +36,11 @@ kararını ya da elle müdahalesini bekliyor; açık maddeler F'nin özet tablos
 > kullanıcının gördüğünü değil. O 33 günde Shell — envanterin %18,7'si —
 > uygulamada hiç yoktu. Bir alarmın doğru olması, yanındaki yanlış toplamı
 > telafi etmez: **insan toplama bakar, uyarıya değil.**
+>
+> G bölümü (10 Kasım 2026) zincirin eksik halkasını gösterir: BP 18 gün boyunca
+> her fiyat koşusunu kırmızıya boyadı ve kimse duymadı, çünkü bildirim kodu
+> yazılmış ama CI'a hiç bağlanmamıştı. **Yazılmış olması, bağlı olması demek
+> değildir.**
 
 **Neden siliniyor değil de saklanıyor:** kararların *gerekçesi* burada. Örneğin
 `win32` bağımlılığının neden ölü olmadığı, `_fetchStationsLegacy` /
@@ -51,10 +56,11 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 | **D** | *(doğrudan bu dosyaya yazıldı)* | Envanter denetimi — 16 gündür sessiz kalan `shell_station_bot.py` (D-K1, D-K2, D-Y1) | 25 Ağustos 2026 |
 | **E** | *(doğrudan bu dosyaya yazıldı)* | Kalıcı kırmızı + ölü push tetikleyicisi — alarm körlüğü ve 235 MB çöp (E-Y1–Y3, E-G1, E-G2) | 18 Eylül 2026 |
 | **F** | *(doğrudan bu dosyaya yazıldı)* | Genel sağlık taraması — Shell karartması, ölçülen şeyin yanlışlığı, tutundurma çöküşü (F-K1–K3, F-Y1–Y2, F-G1–G3, F-O1–O4, F-D1) | **kısmen açık** (14 Ekim 2026) |
+| **G** | *(doğrudan bu dosyaya yazıldı)* | Periyodik denetim — BP'nin ölümü, bağlanmamış alarm kanalı, tarih bombası (G-K1–K3, G-Y1–Y4, G-G1–G3, G-O1–O4, G-D1) | **kısmen açık** (10 Kasım 2026) |
 
 > A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
 > özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
-> bırakılmıştır. C, D, E ve F bölümleri doğrudan bu dosyaya yazılmıştır.
+> bırakılmıştır. C, D, E, F ve G bölümleri doğrudan bu dosyaya yazılmıştır.
 
 ---
 ---
@@ -2820,3 +2826,115 @@ değil. Bu yüzden `Shown` sütunu `Active`'in **soluna** kondu.
 değerlendirilemez.** ASO kurulumları 3× artırdı ve bu bir başarı gibi
 raporlanabilirdi. Aynı hafta ürünün beşte biri karanlıktı. Huninin üstünü
 onarmak, altı delikken kazanç değil, maliyet üretir.
+
+---
+---
+
+# ═══ BÖLÜM G ═══ Haber Vermeyen Alarm: Kırmızının Kimseye Ulaşmaması
+
+*(doğrudan bu dosyaya yazıldı — 10 Kasım 2026)*
+
+**Tarih:** 10 Kasım 2026
+**Tetikleyici:** Rutin periyodik denetim; projeye 27 gündür dokunulmamıştı.
+**Kapsam:** Scraper botları, veri tazeliği, Supabase (canlı), GitHub Actions,
+mobil istemci, admin panel, güvenlik yüzeyi, kullanım telemetrisi.
+**Denetim anındaki sürüm:** 1.0.5+8 (Play'de canlı; public liste ve
+`app_heartbeats` ile doğrulandı).
+
+**Doğrulanamayanlar:** Crashlytics/Android Vitals, Play Console içi, Firebase
+ayarları ve Maps anahtar kısıtları bu denetimin erişimi dışındaydı.
+
+---
+
+## Özet
+
+Kullanıcıya giden veri sağlıklıydı: beş markanın fiyat botu son 7 günde 18/18
+başarılı, PO'nun Ankara ve Adana fiyatları kaynak sayfayla birebir eşleşti.
+Bozuk olan, sorunu haber veren zincirdi.
+
+BP'nin fiyat sayfası 23 Ekim'de kapandı. O günden denetime kadar `bp_bot.py` 106
+kez düştü ve **her `prices` koşusu kırmızı bitti**. Alarm açıldı, 18 gün açık
+kaldı, kimse görmedi. Workflow listesinde yine de yeşiller vardı, ama hepsi
+30 saniyelik haber koşularıydı.
+
+Bu, E bölümünün kalıcı kırmızısının aynısı. Farkı, bu kez kök nedenin de
+kodda duruyor olması: Discord bildirimi yazılmıştı, ama `DISCORD_WEBHOOK_URL`
+ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmamıştı.
+
+| # | Bulgu | Etki | Durum |
+|---|---|---|---|
+| **G-K1** | BP kaynağı öldü: `/akaryakit-fiyatlari-bp` → `/istasyonlar/...` → 404. Marka PO'ya devroldu | 37 gizli istasyon; asıl zarar tüm fiyat koşularının kırmızı olması | ✅ kalıcı çıkarıldı |
+| **G-K2** | Alarm kanalı CI'a bağlı değildi | Kritik alarm 18 gün kimseye ulaşmadı | ✅ kod, ⏳ **secret kullanıcıda** |
+| **G-K3** | `spatial_ref_sys`: anon'da INSERT/UPDATE/DELETE/TRUNCATE, RLS kapalı, REST'ten 200 | Tablo bozulursa `get_nearby_stations*` büyük olasılıkla çalışmaz. F-G2 bunu "gürültü" saymıştı | ⏳ **Dashboard/Support** |
+| **G-Y1** | Test tarih bombası: fikstür `review_by=2026-10-31` | 1 Kasım'dan beri kırık, CI yalnızca push'ta koştuğu için görünmedi | ✅ |
+| **G-Y2** | Discord kodu her `create_system_alert` çağrısında mesaj atıyordu | Bağlansaydı açık Shell uyarıları her koşuda tekrarlanırdı | ✅ yalnızca yeni alarm |
+| **G-Y3** | GitHub cron koşuları kayboluyor: geçen tam haftada 28 plandan 18 fiyat koşusu; en uzun ara 13,7 saat, eşik 18 | Bugün eşik aşılmıyor, pay daralıyor | 📋 izleniyor |
+| **G-Y4** | Admin panel tazelik eşiği 12 saat kalmıştı, `freshness.py` 1 Eylül'den beri 18 | Panel uygulamadan daha erken "bayat" diyordu | ✅ |
+| **G-G1** | Eski `anon`/`service_role` anahtarları 2026 sonuna kadar kullanımdan kalkıyor; kesin gün bulunamadı | Sağlık kontrolü ve workflow yeni biçimi reddediyordu, uygulama yeni sürüm ister | 🟡 CI hazır, geçiş kullanıcıda |
+| **G-G2** | `requests`, `python-dotenv`, `geopy` için 5 bilinen açık; `vite` için 2 yüksek bulgu | Düşük-orta | ✅ audit temiz |
+| **G-G3** | Public depoda Dependabot ve secret scanning kapalıydı | Sızıntı ve açıklar görünmüyordu | ✅ açıldı, `dependabot.yml` eklendi |
+| **G-O1** | `istasyonlar` + `fiyat_gecmisi` embed'i: 1000 istasyonda 5,3 sn, anon zaman aşımı 3 sn | Günde birkaç 500 (~%0,4) | ✅ migration yazıldı, ⏳ **uygulama kullanıcıda** |
+| **G-O2** | F-O1 ve F-G1 hâlâ açık: ölü tablolar ve `fiyat-push` | Ölü üretim yüzeyi | ⏳ **kullanıcıda** |
+| **G-O3** | Telemetride "Server disconnected" uyarısı | **Veri kaybı yok**: uyarı basılan koşuların satırları tabloda. Yanıt kayboluyor, yazma gerçekleşiyor | 📋 bilerek dokunulmadı |
+| **G-O4** | Flutter paketleri 3 major geride (`firebase_*`, `google_sign_in`) | Girişi kırabilecek geçişler | 📋 cihaz testi ister |
+| **G-D1** | Tutundurma hâlâ zayıf: son 4 haftada 40 kurulumun 4'ü ertesi gün döndü (%10); tek açılışta bırakan %52 → %38 | Küçük örneklem, nedensellik yine çözülemez | 📊 ölçüldü |
+
+---
+
+## G-K1 — BP neden onarılmadı, çıkarıldı
+
+Üç kanıt aynı yeri gösteriyor: sayfa yönlendirilip 404 dönüyor, PO'nun ana fiyat
+sayfasında BP adı geçmiyor, `po_station_bot.py` başlığı marka dönüşümünün 1 Kasım
+2026'da bittiğini yazıyor. BP'nin envanter botu da hiç olmadı (F-O3), yani
+37 satır aylardır donmuştu.
+
+Shell'deki `known_outages` yolu bilerek seçilmedi. O mekanizma "belki döner,
+yoklamaya devam et" durumu içindir; devrolmuş bir marka dönmez.
+
+Yapılan: `bp_bot.py`, marka listeleri, filtre çipi ve panel kaydı kaldırıldı.
+Canlıdan 37 istasyon, 111 fiyat, 4740 geçmiş satırı silindi (yerel yedek
+`backup_bp_20261110.json`, gitignore'da), üç açık BP alarmı kapatıldı. Filtre
+çipinin kalkması bir sonraki sürümle kullanıcıya ulaşır; 1.0.5'te çip zaten
+"veri yok" görünümünde. Renk ve ikon `case`'leri zararsız olduğu için bırakıldı.
+
+## G-K2 / G-Y2 — Kanalı bağlamak tek başına yanlış olurdu
+
+`_send_discord_webhook`, `create_system_alert`'in ilk satırıydı. Açık alarmlar her
+koşuda bu fonksiyondan geçip yalnızca içerikleri tazelenir. Secret eklenseydi
+kabul edilmiş Shell arızası her koşuda yeniden mesaj atardı ve kanal üç gün içinde
+susturulurdu. Artık bildirim yalnızca **yeni açılan** alarmda gider; veritabanına
+ulaşılamıyorsa da gider, çünkü kayıt yazılamayacaktır.
+
+## G-Y1 — Sabit tarihli fikstür
+
+Fikstür `review_by=2026-10-31` taşıyordu. Kod değişmeden 1 Kasım'da "süresi dolmuş"
+kayda dönüştü. Artık bugüne göreli. Paket sahte saatle 14 Aralık, 16 Aralık ve
+1 Haziran 2027'de de koşturuldu; başka tarih bombası yok.
+
+## Regresyon kilidi
+
+| Dosya | Önce | Sonra |
+|---|---|---|
+| `scraper/test_known_outages.py` | — | +5 test (fikstür tarihi, BP yokluğu, rotasyon dosyaları, anahtar rolleri) |
+| `scraper/test_telemetry_alerts.py` | yok | 4 test (yeni alarm bildirir, açık alarm susar, DB hatasında bildirir) |
+| `fullet_flutter/test/brand_utils_test.dart` | — | +1 test |
+| **Python toplam** | 186 | **195** (4 hata yalnızca yerel `playwright` eksikliği; CI kurar) |
+| **Flutter toplam** | 50 | **51, tamamı geçti** |
+
+Yeni kodla canlı veriye karşı `backend_health_check.py` ve `ops_report.py` çıkış
+0 verdi. Son durum: 6992 aktif, **5677 görünür**, gizlilerin tamamı Shell.
+
+---
+
+### Genelleştirilebilir ders
+
+D: kırmızı telemetri kimse bakmazsa hiçbir şey ifade etmez.
+E: kalıcı kırmızı, bakılmayan telemetriye dönüşür.
+F: doğru alarm, yanındaki yanlış toplamla okunmaz.
+**G: yazılmış olması, bağlı olması demek değildir.**
+
+Bildirim kodu aylardır depodaydı ve kod okuyan herkese "alarm var" diyordu. Hiçbir
+koşu onu çalıştırmamıştı. Pratik kural: **bir alarm yolunun çalıştığını, gerçek
+bir mesajın ulaştığını görmeden kabul etme.** İkinci kural G-Y1'den: takvime
+bağlı her şey, kod değişmese de kırılabilir; bir sonraki push'u beklemeden
+görünür olması gerekir.
