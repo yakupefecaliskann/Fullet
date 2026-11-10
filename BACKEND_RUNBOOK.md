@@ -299,7 +299,7 @@ Uzun vadeli kalıcı çözüm:
 
 ## 10. Açık Elle İşler — 14 Ekim ve 10 Kasım 2026 Denetimleri
 
-**10.1, 10.2 ve 10.4–10.6 açık.** İlk ikisi kod tarafında kapatıldı ama
+**10.1, 10.2 ve 10.4–10.7 açık.** İlk ikisi kod tarafında kapatıldı ama
 üretimde elle uygulanması gerekiyor: Claude Code'un auto-mode classifier'ı
 üretimde yıkıcı DDL'i (DROP) engelliyor, Supabase MCP'sinde de
 `delete_edge_function` yok. Yani bunlar bilinçli olarak insan onayına bırakılmış
