@@ -59,9 +59,11 @@
 | 4 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
 | 5 | **`build/symbols/1.0.5+8` arşivle** | 👤 | Aynı gerekçe, yeni sürüm için. 8,8 MB |
 | 6 | ~~1.0.5+8 AAB'sini Play'e yükle~~ | ✅ | Yayında |
-| 7 | Ölü tabloları düşür + `fiyat-push` sil | 👤 | Acil değil, teknik borç kapanışı. `BACKEND_RUNBOOK.md` §10.1–10.2 |
+| 7 | ~~Ölü tabloları düşür + `fiyat-push` sil~~ | ✅ | 10 Kas 2026'da kapatıldı |
 | 8 | Shell fiyat kaynağı kararı | 👤 | Son tarih **15 Ara 2026** (31 Eki'den uzatıldı). `BACKEND_RUNBOOK.md` §10.3 |
-| 9 | Play açıklamasından BP'yi çıkar | 👤 | BP 10 Kas 2026'da kalıcı çıkarıldı; güncel metin `FULLET_GROWTH_STRATEGY.md` Ek A. Göndermeden bekleyen inceleme var mı bak |
+| 9 | BP'siz açıklamayı incelemeye gönder | 👤 | Metin Play'de taslak olarak kayıtlı. Gönderimde yapay zekâ beyanı istiyor |
+| 10 | **Tacir durumunu beyan et** | 👤 | Son tarih **1 Şub 2027**. Yapılmazsa uygulama Play'den kaldırılır |
+| 11 | "Android 16 hedefle" politika uyarısı | 👀 | Üretim `targetSdk 36`. Eski Alpha kodu 5 sebep olabilir, doğrulanmadı |
 
 > 🔥 **11 Ağustos 2026 — canlıda boş harita olayı çözüldü.** App signing SHA-1
 > Maps anahtarında eksikti, Play'den kuran herkeste harita boşdu. Eklendi; ayrıntı
