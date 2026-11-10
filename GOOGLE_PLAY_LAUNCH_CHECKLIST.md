@@ -8,7 +8,9 @@
 
 ## 0. Durum Panosu — 14 Ekim 2026
 
-> ### 📦 1.0.5+8 YÜKLENMEYE HAZIR (henüz Play'e gönderilmedi)
+> ### ✅ 1.0.5 YAYINDA (10 Kasım 2026'da public liste ve `app_heartbeats` ile doğrulandı)
+>
+> Aşağıdaki tablo yükleme öncesi kayıttır.
 >
 > | | |
 > |---|---|
@@ -56,9 +58,10 @@
 | 3 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
 | 4 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
 | 5 | **`build/symbols/1.0.5+8` arşivle** | 👤 | Aynı gerekçe, yeni sürüm için. 8,8 MB |
-| 6 | **1.0.5+8 AAB'sini Play'e yükle** | 👤 | Paket hazır ve imzalı; yukarıdaki panoya bakın |
+| 6 | ~~1.0.5+8 AAB'sini Play'e yükle~~ | ✅ | Yayında |
 | 7 | Ölü tabloları düşür + `fiyat-push` sil | 👤 | Acil değil, teknik borç kapanışı. `BACKEND_RUNBOOK.md` §10.1–10.2 |
 | 8 | Shell fiyat kaynağı kararı | 👤 | Son tarih **15 Ara 2026** (31 Eki'den uzatıldı). `BACKEND_RUNBOOK.md` §10.3 |
+| 9 | Play açıklamasından BP'yi çıkar | 👤 | BP 10 Kas 2026'da kalıcı çıkarıldı; güncel metin `FULLET_GROWTH_STRATEGY.md` Ek A. Göndermeden bekleyen inceleme var mı bak |
 
 > 🔥 **11 Ağustos 2026 — canlıda boş harita olayı çözüldü.** App signing SHA-1
 > Maps anahtarında eksikti, Play'den kuran herkeste harita boşdu. Eklendi; ayrıntı

@@ -288,14 +288,18 @@ Uzun vadeli kalıcı çözüm:
   yedek/drop/recreate/restore akışını ya da taşımayı Supabase Support'un
   yapmasını öneriyor.
 
-**Yayın kararı:** Bu uyarı Fullet'in yayınını engellemez. Planlı bir veritabanı
-bakım penceresine kadar *kabul edilmiş altyapı uyarısı* olarak kalır.
+**Yayın kararı:** Bu uyarı Fullet'in yayınını engellemez.
+
+> **10 Kasım 2026 düzeltmesi:** Bu bölüm riski yalnızca okuma olarak ele alıyordu.
+> Ölçüm: `anon` ve `authenticated` rollerinde INSERT/UPDATE/DELETE/TRUNCATE yetkisi
+> var, tablo REST'ten erişilebilir. Yani "kabul edilmiş uyarı" değil, kapatılması
+> gereken bir yazma yüzeyi. `postgres` rolünde grant option da yok; adımlar §10.4.
 
 ---
 
-## 10. Açık Elle İşler — 14 Ekim 2026 Denetimi
+## 10. Açık Elle İşler — 14 Ekim ve 10 Kasım 2026 Denetimleri
 
-**Toplam iki iş kaldı (10.1 ve 10.2).** İkisi de kod tarafında kapatıldı ama
+**10.1, 10.2 ve 10.4–10.6 açık.** İlk ikisi kod tarafında kapatıldı ama
 üretimde elle uygulanması gerekiyor: Claude Code'un auto-mode classifier'ı
 üretimde yıkıcı DDL'i (DROP) engelliyor, Supabase MCP'sinde de
 `delete_edge_function` yok. Yani bunlar bilinçli olarak insan onayına bırakılmış
@@ -386,3 +390,27 @@ baştan yapmasın.
 > şey yapmak gerekmiyor. İstasyonlar `visible`'a döner, `marka_kullanilabilirlik`
 > view'i onları saymaya başlar ve marka filtresindeki çip kendiliğinden
 > etkinleşir. Hiçbir yerde "Shell" sabit kodlu istisna bırakılmadı.
+
+### 10.4 `spatial_ref_sys` yazma yetkisi
+
+SQL Editor'da `database/postgis_spatial_ref_sys_rls.sql` çalıştır. `42501 must be
+owner` verirse tablonun sahibi `supabase_admin` olduğu için çözüm Supabase
+Support'tur: anon ve authenticated rollerinden yazma yetkilerinin alınmasını iste.
+
+### 10.5 `fiyat_gecmisi` bileşik indeksi
+
+Migration hazır, canlıya elle uygulanacak:
+`supabase/migrations/20261110120100_fiyat_gecmisi_istasyon_tarih_indeksi.sql`
+
+### 10.6 Alarm kanalı
+
+GitHub → Settings → Secrets and variables → Actions → `DISCORD_WEBHOOK_URL`.
+Workflow okumaya hazır; secret yokken bildirim sessizce atlanır. Bildirim yalnızca
+yeni açılan alarmda gider.
+
+### 10.7 Eski Supabase anahtarlarından geçiş
+
+Tarihi Dashboard → Settings → API Keys ekranından takip et. `otopilot.yml` ve
+`backend_health_check.py` yeni `sb_secret_` / `sb_publishable_` biçimini tanıyor.
+Sıra: uygulamayı yeni publishable anahtarla yayınla, eski sürümlerin erimesini
+bekle, GitHub secret'larını ve panel anahtarını değiştir, en son eskileri kapat.
