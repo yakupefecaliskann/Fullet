@@ -299,7 +299,7 @@ Uzun vadeli kalıcı çözüm:
 
 ## 10. Açık Elle İşler — 14 Ekim ve 10 Kasım 2026 Denetimleri
 
-**10 Kasım 2026 durumu: 10.1, 10.2 ve 10.5 kapandı; 10.4 Supabase Support'ta; 10.6 ve
+**10 Kasım 2026 durumu: 10.1, 10.2, 10.3 ve 10.5 kapandı; 10.4 Supabase Support'ta; 10.6 ve
 10.7 açık.** Aşağıdaki 14 Ekim notu tarihsel kayıttır. İlk ikisi kod tarafında kapatıldı ama
 üretimde elle uygulanması gerekiyor: Claude Code'un auto-mode classifier'ı
 üretimde yıkıcı DDL'i (DROP) engelliyor, Supabase MCP'sinde de
@@ -346,7 +346,19 @@ Ya da Dashboard → Edge Functions → `fiyat-push` → Delete.
 Kaynağı kaybolmuyor: commit `224d200` içinde duruyor
 (`supabase/functions/fiyat-push/index.ts`, 3 Ağustos 2026'da depodan silinmişti).
 
-### 10.3 Shell fiyat kaynağı kararı — ✅ ELE ALINDI, yeni tarih 15 ARALIK 2026
+### 10.3 Shell fiyat kaynağı kararı — ✅ KARAR VERİLDİ (10 Kasım 2026): fiyatsız, konum olarak
+
+**Karar seçenek (c).** Shell istasyonları haritada görünür, fiyat gösterilmez ve en
+ucuz/en mantıklı hesabına girmez. `shell_bot.py` rotasyondan çıktı, `known_outages`
+kaydı kapandı, envanter botu sürer. `ops_report.LOCATION_ONLY_BRANDS` fiyat
+kontrollerini Shell için atlar. Görünürlük istisnası: migration `20261110130000`.
+
+Geri almak veya resmi kaynak eklemek için: migration'daki `marka = 'Shell'`
+istisnalarını ve `LOCATION_ONLY_BRANDS` kaydını kaldırın, `shell_bot.py`'yi
+`PRICE_BOTS`'a geri ekleyin. Yan etki: yoğun merkezlerde 250 sonuçluk listede
+Shell yer kaplıyor (İstanbul merkezde 67 istasyon).
+
+Aşağıdaki metin 14 Ekim tarihli kayıttır.
 
 **14 Ekim 2026'da seçenek (d) uygulandı: kayıt kanıta dayalı olarak uzatıldı.**
 `scraper/known_outages.py` içindeki Shell kaydının `review_by` tarihi

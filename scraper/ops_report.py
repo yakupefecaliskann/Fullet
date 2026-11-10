@@ -29,6 +29,11 @@ BRANDS = [
     "Aytemiz",
 ]
 
+# Resmi fiyat kaynağı olmayan, yalnızca konum olarak gösterilen markalar. Fiyat
+# satırı ve tazelik kontrolleri bunlara uygulanmaz; istasyon sayısı ve görünürlük
+# kontrolleri AYNEN uygulanır (bkz. denetim §G-K4).
+LOCATION_ONLY_BRANDS = {"Shell"}
+
 # Conservative release gates. These are intentionally below the current live
 # counts, so normal day-to-day source movement will pass but a broken parser or
 # partial bot run will stop the release check.
@@ -42,7 +47,6 @@ MIN_ACTIVE_STATIONS = {
 }
 
 MIN_PRICE_ROWS = {
-    "Shell": 1500,
     "TotalEnergies": 900,
     normalize_brand("TP"): 60,
     "Opet": 800,
@@ -212,19 +216,20 @@ def main() -> int:
                 f"{brand}: no user-visible stations "
                 f"({len(active)} active, all hidden by visibility_status)"
             )
-        if latest is None:
+        price_checked = brand not in LOCATION_ONLY_BRANDS
+        if price_checked and latest is None:
             warnings.append(f"{brand}: no price update timestamp")
         if len(active) < MIN_ACTIVE_STATIONS.get(brand, 1):
             warnings.append(
                 f"{brand}: active station count too low "
                 f"({len(active)} < {MIN_ACTIVE_STATIONS[brand]})"
             )
-        if len(prices) < MIN_PRICE_ROWS.get(brand, 1):
+        if price_checked and len(prices) < MIN_PRICE_ROWS.get(brand, 1):
             warnings.append(
                 f"{brand}: price row count too low ({len(prices)} < {MIN_PRICE_ROWS[brand]})"
             )
         latest_age = _age_hours(latest)
-        if latest_age is not None and latest_age > MAX_PRICE_AGE_HOURS:
+        if price_checked and latest_age is not None and latest_age > MAX_PRICE_AGE_HOURS:
             warnings.append(
                 f"{brand}: stale price data ({_age_text(latest)} > {MAX_PRICE_AGE_HOURS}h)"
             )

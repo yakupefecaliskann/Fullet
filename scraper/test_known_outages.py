@@ -336,6 +336,18 @@ class RetiredBrandTest(unittest.TestCase):
                 self.assertTrue((run_all_bots.SCRAPER_DIR / bot).is_file())
 
 
+class ShellLocationOnlyTest(unittest.TestCase):
+    """Shell fiyatsız gösterilir: envanter sürer, fiyat botu rotasyonda yok."""
+
+    def test_shell_rotation_matches_the_product_decision(self):
+        import ops_report
+
+        self.assertNotIn("shell_bot.py", run_all_bots.PRICE_BOTS)
+        self.assertIn("shell_station_bot.py", run_all_bots.STATION_BOTS)
+        self.assertIn("Shell", ops_report.LOCATION_ONLY_BRANDS)
+        self.assertIn("Shell", ops_report.BRANDS)
+
+
 class SupabaseKeyRoleTest(unittest.TestCase):
     """Sağlık kontrolü eski JWT ve yeni önekli anahtarları tanımalı."""
 

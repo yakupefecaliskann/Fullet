@@ -93,6 +93,8 @@ SELECT cron.schedule(
 --   `database_writes.py`'nin eski koşulsuz yazımından kalmaydı; yazma
 --   durdurulmuş ama moloz temizlenmemişti.
 -- =============================================================================
+-- İSTİSNA (10 Kasım 2026): Shell yalnızca konum olarak gösterilir; resmi fiyat
+-- kaynağı kapalı. Fiyat kuralı Shell'e uygulanmaz (migration 20261110130000).
 SELECT cron.schedule(
     'fullet-resolve-station-visibility',
     '15 * * * *',
@@ -101,6 +103,7 @@ SELECT cron.schedule(
     UPDATE public.istasyonlar i
     SET visibility_status = 'hidden'
     WHERE i.visibility_status <> 'hidden'
+      AND i.marka <> 'Shell'
       AND NOT EXISTS (
           SELECT 1 FROM public.fiyatlar f
           WHERE f.istasyon_id = i.id
@@ -112,11 +115,11 @@ SELECT cron.schedule(
     SET visibility_status = 'visible'
     WHERE i.visibility_status = 'hidden'
       AND i.aktif = TRUE
-      AND EXISTS (
+      AND (i.marka = 'Shell' OR EXISTS (
           SELECT 1 FROM public.fiyatlar f
           WHERE f.istasyon_id = i.id
             AND f.price_status IN ('fresh', 'stale')
-      );
+      ));
 
     -- 5c) Pasif istasyon asla görünür olmaz.
     UPDATE public.istasyonlar
@@ -130,11 +133,11 @@ SELECT cron.schedule(
     SET visibility_status = 'visible'
     WHERE i.visibility_status = 'low_priority'
       AND i.aktif = TRUE
-      AND EXISTS (
+      AND (i.marka = 'Shell' OR EXISTS (
           SELECT 1 FROM public.fiyatlar f
           WHERE f.istasyon_id = i.id
             AND f.price_status IN ('fresh', 'stale')
-      );
+      ));
     $$
 );
 
@@ -171,6 +174,7 @@ SELECT cron.schedule(
     SET visibility_status = 'low_priority'
     WHERE i.visibility_status = 'visible'
       AND i.aktif = TRUE
+      AND i.marka <> 'Shell'
       AND i.guncellenme_tarihi < NOW() - INTERVAL '7 days'
       AND NOT EXISTS (
           SELECT 1 FROM public.fiyatlar f
