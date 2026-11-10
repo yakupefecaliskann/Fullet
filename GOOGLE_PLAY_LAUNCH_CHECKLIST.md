@@ -60,8 +60,8 @@
 | 5 | **`build/symbols/1.0.5+8` arşivle** | 👤 | Aynı gerekçe, yeni sürüm için. 8,8 MB |
 | 6 | ~~1.0.5+8 AAB'sini Play'e yükle~~ | ✅ | Yayında |
 | 7 | ~~Ölü tabloları düşür + `fiyat-push` sil~~ | ✅ | 10 Kas 2026'da kapatıldı |
-| 8 | Shell fiyat kaynağı kararı | 👤 | Son tarih **15 Ara 2026** (31 Eki'den uzatıldı). `BACKEND_RUNBOOK.md` §10.3 |
-| 9 | BP'siz açıklamayı incelemeye gönder | 👤 | Metin Play'de taslak olarak kayıtlı. Gönderimde yapay zekâ beyanı istiyor |
+| 8 | ~~Shell fiyat kaynağı kararı~~ | ✅ | 10 Kas 2026: fiyatsız, konum olarak gösteriliyor. `BACKEND_RUNBOOK.md` §10.3 |
+| 9 | Güncel açıklamayı incelemeye gönder | 👤 | BP'siz, Shell'i konum olarak anlatan metin Play'de taslakta. Gönderimde yapay zekâ beyanı istiyor |
 | 10 | **Tacir durumunu beyan et** | 👤 | Son tarih **1 Şub 2027**. Yapılmazsa uygulama Play'den kaldırılır |
 | 11 | "Android 16 hedefle" politika uyarısı | 👀 | Üretim `targetSdk 36`. Eski Alpha kodu 5 sebep olabilir, doğrulanmadı |
 

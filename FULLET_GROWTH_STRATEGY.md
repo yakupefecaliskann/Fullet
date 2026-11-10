@@ -1077,8 +1077,9 @@ durmaz. Aracının tank kapasitesini, ortalama tüketimini ve o istasyona gitmen
 maliyetini de hesaba katarak sana gerçekten kâr eden istasyonu söyler.
 
 ⛽ TÜRKİYE GENELİNDE 6.000'DEN FAZLA İSTASYON
-Shell, Opet, Petrol Ofisi, TotalEnergies, Türkiye Petrolleri ve Aytemiz
-istasyonlarının güncel akaryakıt fiyatları tek haritada. Benzin, motorin, LPG
+Opet, Petrol Ofisi, TotalEnergies, Türkiye Petrolleri ve Aytemiz
+istasyonlarının güncel akaryakıt fiyatları tek haritada. Shell istasyonları konum
+olarak gösterilir. Benzin, motorin, LPG
 ve elektrik için ayrı ayrı filtrele.
 
 🧠 AKILLI SEÇİM — "EN UCUZ" DEĞİL, "EN MANTIKLI"
@@ -1125,8 +1126,8 @@ cihazlar arasında senkronlamak için gerekir.
 Yakıt fiyatları, benzin fiyatları, motorin fiyatı, mazot fiyatı, LPG fiyatları
 ve en yakın benzin istasyonu araman gereken her an Fullet yanında.
 
-Desteklenen markalar: Shell, Opet, Petrol Ofisi, TotalEnergies,
-Türkiye Petrolleri (TP), Aytemiz.
+Fiyat gösterilen markalar: Opet, Petrol Ofisi, TotalEnergies,
+Türkiye Petrolleri (TP), Aytemiz. Shell istasyonları yalnızca konum olarak gösterilir.
 ```
 
 ### Ek B — Sosyal medya bio metinleri

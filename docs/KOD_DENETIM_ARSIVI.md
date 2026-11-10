@@ -8,9 +8,9 @@ tablolarda `⏳` ve `🟡` ile işaretli. Güncel yayın durumu için
 `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan kontroller için
 `RELEASE_QA_CHECKLIST.md`.
 
-> **En acil madde:** Shell fiyat kaynağı kararının son tarihi
-> **15 Aralık 2026**. O tarihte `known_outages` kaydı dolar, susturma kalkar ve
-> pipeline kalıcı kırmızıya döner — yani E bölümünün bütün dersi sıfırlanır.
+> **En acil madde:** Play Console tacir beyanının son tarihi **1 Şubat 2027**.
+> Yapılmazsa uygulama Google Play'den kaldırılır (§G-P1). Shell kararı
+> 10 Kasım 2026'da verildi (§G-K4).
 
 > **Bölüm C ve D'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır
 > hatayla kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını
@@ -2866,6 +2866,7 @@ ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmam
 | **G-K1** | BP kaynağı öldü: `/akaryakit-fiyatlari-bp` → `/istasyonlar/...` → 404. Marka PO'ya devroldu | 37 gizli istasyon; asıl zarar tüm fiyat koşularının kırmızı olması | ✅ kalıcı çıkarıldı |
 | **G-K2** | Alarm kanalı CI'a bağlı değildi | Kritik alarm 18 gün kimseye ulaşmadı | ✅ kod, ⏳ **secret kullanıcıda** |
 | **G-K3** | `spatial_ref_sys`: anon'da INSERT/UPDATE/DELETE/TRUNCATE, RLS kapalı, REST'ten 200 | Tablo bozulursa `get_nearby_stations*` büyük olasılıkla çalışmaz. F-G2 bunu "gürültü" saymıştı | ⏳ Dashboard'dan 42501 ile reddedildi, **Supabase Support talebi açıldı** |
+| **G-K4** | Shell için son karar bekliyordu; 1315 istasyon 61 gündür uygulamada yoktu | Envanterin %18,8'i görünmüyordu | ✅ fiyatsız, konum olarak açıldı (6992 görünür) |
 | **G-Y1** | Test tarih bombası: fikstür `review_by=2026-10-31` | 1 Kasım'dan beri kırık, CI yalnızca push'ta koştuğu için görünmedi | ✅ |
 | **G-Y2** | Discord kodu her `create_system_alert` çağrısında mesaj atıyordu | Bağlansaydı açık Shell uyarıları her koşuda tekrarlanırdı | ✅ yalnızca yeni alarm |
 | **G-Y3** | GitHub cron koşuları kayboluyor: geçen tam haftada 28 plandan 18 fiyat koşusu; en uzun ara 13,7 saat, eşik 18 | Bugün eşik aşılmıyor, pay daralıyor | 📋 izleniyor |
@@ -2880,7 +2881,7 @@ ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmam
 | **G-D1** | Tutundurma hâlâ zayıf: son 4 haftada 40 kurulumun 4'ü ertesi gün döndü (%10); tek açılışta bırakan %52 → %38 | Küçük örneklem, nedensellik yine çözülemez | 📊 ölçüldü |
 | **G-P1** | Play: tacir durumu 1 Şubat 2027'ye kadar beyan edilmezse uygulama Google Play'den kaldırılır | Yayın kaybı | ⏳ **kullanıcıda** (yasal beyan) |
 | **G-P2** | Play Politika durumu "Android 16'yı hedeflemeli" diyor. Üretimdeki kod 8 `targetSdk 36`; eski Kapalı test (Alpha) kodu 5 hâlâ yayında, sebep o olabilir (doğrulanmadı) | Gelecek güncellemeler reddedilebilir; 1.0.5 14 Ekim'de kabul edildi | 📋 izleniyor |
-| **G-P3** | BP'siz mağaza açıklaması taslakta; Play gönderimden önce yapay zekâ beyanı istiyor | Açıklama hâlâ BP diyor | ⏳ **beyan kullanıcıda** |
+| **G-P3** | BP'siz ve Shell'i konum olarak anlatan açıklama taslakta; Play gönderimden önce yapay zekâ beyanı istiyor | Canlı açıklama hâlâ eski | ⏳ **beyan kullanıcıda** |
 
 ---
 
@@ -2907,6 +2908,16 @@ Yakın istasyon RPC'leri SECURITY INVOKER çalışır ve geography işlemleri SR
 tanımını bu tablodan çağıranın rolüyle okur. Okuma kesilseydi harita büyük olasılıkla
 bozulurdu. Betik artık yalnızca yazma yetkilerini kaldırıyor, okumayı açık tutuyor.
 
+## G-K4 — Shell: "fiyatsız göster" neden güvenli
+
+3 Ağustos kuralı "fiyatı olmayanı hiç gösterme" idi. Kaynak kalıcı kapanınca bu
+kural 1315 istasyonu sildi; ürün sahibi Shell için bilinçli istisna istedi. Eski
+fiyatlar silinmedi, `unknown` kaldı. Uygulama `unknown` fiyatı göstermiyor ve
+hesaba katmıyor (`isDisplayable`, Haziran'dan beri); anon ile ölçüldü: İstanbul,
+Ankara ve Kayseri'deki Shell satırlarının tüm fiyatları `unknown`. `known_outages`
+kaydı kapandı, çünkü artık beklenen bir karar yok. Karara rağmen kalan bedel:
+İstanbul merkezde 250 sonuçluk listenin 67'si fiyatsız Shell.
+
 ## G-K2 / G-Y2 — Kanalı bağlamak tek başına yanlış olurdu
 
 `_send_discord_webhook`, `create_system_alert`'in ilk satırıydı. Açık alarmlar her
@@ -2932,7 +2943,8 @@ kayda dönüştü. Artık bugüne göreli. Paket sahte saatle 14 Aralık, 16 Ara
 | **Flutter toplam** | 50 | **51, tamamı geçti** |
 
 Yeni kodla canlı veriye karşı `backend_health_check.py` ve `ops_report.py` çıkış
-0 verdi. Son durum: 6992 aktif, **5677 görünür**, gizlilerin tamamı Shell.
+0 verdi. BP çıkarıldıktan sonra 6992 aktif, 5677 görünürdü; Shell kararıyla
+**6992'nin tamamı görünür**, 5677'si fiyatlı.
 
 ---
 

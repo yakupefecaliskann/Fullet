@@ -80,6 +80,25 @@ class OpsReportFreshnessTest(unittest.TestCase):
             code = ops_report.main()
         return code, alerts
 
+    def test_location_only_brand_skips_price_checks(self):
+        """Fiyatı kasıtlı olarak olmayan marka tazelikten kırmızı üretmemeli."""
+        with unittest.mock.patch.object(ops_report, "LOCATION_ONLY_BRANDS", {TEST_BRAND}):
+            stale_code, stale_alerts = self._run_main(
+                [_price(changed_hours_ago=2000, verified_hours_ago=2000)]
+            )
+            empty_code, empty_alerts = self._run_main([])
+
+        self.assertEqual((stale_code, stale_alerts), (0, []))
+        self.assertEqual((empty_code, empty_alerts), (0, []))
+
+    def test_location_only_brand_still_reports_blackout(self):
+        """İstisna yalnızca fiyatı kapsar; görünmeyen marka yine alarm üretir."""
+        with unittest.mock.patch.object(ops_report, "LOCATION_ONLY_BRANDS", {TEST_BRAND}):
+            code, alerts = self._run_main([], stations=[_station(visibility="hidden")])
+
+        self.assertEqual(code, 1)
+        self.assertEqual(len(alerts), 1)
+
     def test_recently_verified_price_is_not_stale(self):
         """Fiyat 5 gündür DEĞİŞMEDİ ama 1 saat önce DOĞRULANDI -> temiz.
 

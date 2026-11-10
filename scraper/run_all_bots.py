@@ -44,8 +44,10 @@ PRICE_BOTS = [
     "aytemiz_bot.py",
     "total_bot.py",
     "tp_bot.py",
-    "shell_bot.py",
 ]
+# shell_bot.py 10 Kas 2026'da rotasyondan çıktı: resmi kaynak kapalı, Shell
+# istasyonları fiyatsız gösteriliyor (bkz. ops_report.LOCATION_ONLY_BRANDS).
+# Dosya, resmi bir kaynak açılırsa geri dönüş noktası olarak depoda duruyor.
 
 BOT_TIMEOUTS_SECONDS = {
     # 25 Ağu 2026 — 600'den 900'e. Bot 09.08-25.08 arasında KIRIKTI ve saniyeler
