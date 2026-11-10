@@ -2873,7 +2873,7 @@ ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmam
 | **G-G1** | Eski `anon`/`service_role` anahtarları 2026 sonuna kadar kullanımdan kalkıyor; kesin gün bulunamadı | Sağlık kontrolü ve workflow yeni biçimi reddediyordu, uygulama yeni sürüm ister | 🟡 CI hazır, geçiş kullanıcıda |
 | **G-G2** | `requests`, `python-dotenv`, `geopy` için 5 bilinen açık; `vite` için 2 yüksek bulgu | Düşük-orta | ✅ audit temiz |
 | **G-G3** | Public depoda Dependabot ve secret scanning kapalıydı | Sızıntı ve açıklar görünmüyordu | ✅ açıldı, `dependabot.yml` eklendi |
-| **G-O1** | `istasyonlar` + `fiyat_gecmisi` embed'i: 1000 istasyonda 5,3 sn, anon zaman aşımı 3 sn | Günde birkaç 500 (~%0,4) | ✅ migration yazıldı, ⏳ **uygulama kullanıcıda** |
+| **G-O1** | `istasyonlar` + `fiyat_gecmisi` embed'i: 1000 istasyonda 5,3 sn, anon zaman aşımı 3 sn | Günde birkaç 500 (~%0,4) | ✅ bileşik indeks uygulandı (5,3 sn → 3,2 sn; anon sınırına hâlâ yakın) |
 | **G-O2** | F-O1 ve F-G1 hâlâ açık: ölü tablolar ve `fiyat-push` | Ölü üretim yüzeyi | ⏳ **kullanıcıda** |
 | **G-O3** | Telemetride "Server disconnected" uyarısı | **Veri kaybı yok**: uyarı basılan koşuların satırları tabloda. Yanıt kayboluyor, yazma gerçekleşiyor | 📋 bilerek dokunulmadı |
 | **G-O4** | Flutter paketleri 3 major geride (`firebase_*`, `google_sign_in`) | Girişi kırabilecek geçişler | 📋 cihaz testi ister |
@@ -2896,6 +2896,13 @@ Canlıdan 37 istasyon, 111 fiyat, 4740 geçmiş satırı silindi (yerel yedek
 `backup_bp_20261110.json`, gitignore'da), üç açık BP alarmı kapatıldı. Filtre
 çipinin kalkması bir sonraki sürümle kullanıcıya ulaşır; 1.0.5'te çip zaten
 "veri yok" görünümünde. Renk ve ikon `case`'leri zararsız olduğu için bırakıldı.
+
+## G-K3 — Hazır betik sorunu büyütürdü
+
+`postgis_spatial_ref_sys_rls.sql` `REVOKE ALL` yapıp RLS'i politikasız açıyordu.
+Yakın istasyon RPC'leri SECURITY INVOKER çalışır ve geography işlemleri SRID
+tanımını bu tablodan çağıranın rolüyle okur. Okuma kesilseydi harita büyük olasılıkla
+bozulurdu. Betik artık yalnızca yazma yetkilerini kaldırıyor, okumayı açık tutuyor.
 
 ## G-K2 / G-Y2 — Kanalı bağlamak tek başına yanlış olurdu
 
