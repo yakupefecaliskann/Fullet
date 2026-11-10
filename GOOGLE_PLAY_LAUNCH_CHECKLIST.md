@@ -61,7 +61,7 @@
 | 6 | ~~1.0.5+8 AAB'sini Play'e yükle~~ | ✅ | Yayında |
 | 7 | ~~Ölü tabloları düşür + `fiyat-push` sil~~ | ✅ | 10 Kas 2026'da kapatıldı |
 | 8 | ~~Shell fiyat kaynağı kararı~~ | ✅ | 10 Kas 2026: fiyatsız, konum olarak gösteriliyor. `BACKEND_RUNBOOK.md` §10.3 |
-| 9 | Güncel açıklamayı incelemeye gönder | 👤 | BP'siz, Shell'i konum olarak anlatan metin Play'de taslakta. Gönderimde yapay zekâ beyanı istiyor |
+| 9 | Güncel açıklamanın yayına girmesi | ⏳ | 10 Kas 2026'da incelemeye gönderildi. Onay sonrası public listede BP'nin kalktığını doğrula |
 | 10 | **Tacir durumunu beyan et** | 👤 | Son tarih **1 Şub 2027**. Yapılmazsa uygulama Play'den kaldırılır |
 | 11 | "Android 16 hedefle" politika uyarısı | 👀 | Üretim `targetSdk 36`. Eski Alpha kodu 5 sebep olabilir, doğrulanmadı |
 

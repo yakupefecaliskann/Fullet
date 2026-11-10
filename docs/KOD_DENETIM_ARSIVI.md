@@ -2881,7 +2881,7 @@ ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmam
 | **G-D1** | Tutundurma hâlâ zayıf: son 4 haftada 40 kurulumun 4'ü ertesi gün döndü (%10); tek açılışta bırakan %52 → %38 | Küçük örneklem, nedensellik yine çözülemez | 📊 ölçüldü |
 | **G-P1** | Play: tacir durumu 1 Şubat 2027'ye kadar beyan edilmezse uygulama Google Play'den kaldırılır | Yayın kaybı | ⏳ **kullanıcıda** (yasal beyan) |
 | **G-P2** | Play Politika durumu "Android 16'yı hedeflemeli" diyor. Üretimdeki kod 8 `targetSdk 36`; eski Kapalı test (Alpha) kodu 5 hâlâ yayında, sebep o olabilir (doğrulanmadı) | Gelecek güncellemeler reddedilebilir; 1.0.5 14 Ekim'de kabul edildi | 📋 izleniyor |
-| **G-P3** | BP'siz ve Shell'i konum olarak anlatan açıklama taslakta; Play gönderimden önce yapay zekâ beyanı istiyor | Canlı açıklama hâlâ eski | ⏳ **beyan kullanıcıda** |
+| **G-P3** | Mağaza açıklaması BP'yi listeliyor, Shell için güncel fiyat vaat ediyordu | Canlı açıklama yanlıştı | ⏳ düzeltildi, 10 Kasım'da Play incelemesine gönderildi |
 
 ---
 
