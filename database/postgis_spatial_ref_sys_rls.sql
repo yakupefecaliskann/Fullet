@@ -1,30 +1,43 @@
--- Fix Supabase Security Advisor: "RLS Disabled in Public" for PostGIS metadata.
+-- public.spatial_ref_sys: anon ve authenticated rollerinin YAZMA yetkisini kaldırır.
 --
--- public.spatial_ref_sys is created by PostGIS and contains coordinate system
--- definitions, not user data. Supabase still flags it because the public schema
--- is exposed through the Data API. This enables RLS without adding public
--- policies, so anon/authenticated clients cannot read it directly.
+-- OKUMA YETKİSİNE DOKUNMAYIN. Bu betiğin önceki hâli `REVOKE ALL` yapıyor ve RLS'i
+-- politikasız açıyordu. `get_nearby_stations*` SECURITY INVOKER çalışır ve
+-- geography işlemleri SRID tanımını bu tablodan çağıranın rolüyle okur; okuma
+-- kesilirse yakın istasyon sorguları büyük olasılıkla hata verir (harita boş).
+-- Bu yüzden RLS açılırken herkese okuma politikası da eklenir.
 --
--- Important: on some Supabase projects this table is owned by the PostGIS
--- extension owner, not by the SQL Editor role. In that case this script fails
--- with "must be owner of table spatial_ref_sys". That is expected and should not
--- be worked around with DROP EXTENSION on a live app, because PostGIS backs the
--- station location column and nearby-station RPCs.
+-- Tablonun sahibi supabase_admin. "must be owner of table spatial_ref_sys"
+-- hatası alınırsa hiçbir satır uygulanmaz (tek transaction); çözüm Supabase
+-- Support'tur. DROP EXTENSION postgis ÇALIŞTIRMAYIN.
 --
--- After running this, click "Rerun linter" in Supabase Security Advisor.
+-- Uyguladıktan sonra anon ile get_nearby_stations_v2 çağrısını doğrulayın.
+-- Geri alma:
+--   DROP POLICY "public read spatial_ref_sys" ON public.spatial_ref_sys;
+--   ALTER TABLE public.spatial_ref_sys DISABLE ROW LEVEL SECURITY;
+
+BEGIN;
 
 ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE public.spatial_ref_sys FROM anon;
-REVOKE ALL ON TABLE public.spatial_ref_sys FROM authenticated;
+DROP POLICY IF EXISTS "public read spatial_ref_sys" ON public.spatial_ref_sys;
+CREATE POLICY "public read spatial_ref_sys"
+  ON public.spatial_ref_sys
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
+  ON TABLE public.spatial_ref_sys
+  FROM anon, authenticated;
+
+COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
 SELECT
-  c.relrowsecurity AS spatial_ref_sys_rls_enabled,
-  has_table_privilege('anon', 'public.spatial_ref_sys', 'SELECT') AS anon_can_select_spatial_ref_sys,
-  has_table_privilege('authenticated', 'public.spatial_ref_sys', 'SELECT') AS authenticated_can_select_spatial_ref_sys
+  c.relrowsecurity AS rls_enabled,
+  has_table_privilege('anon', c.oid, 'SELECT') AS anon_select_should_be_true,
+  has_table_privilege('anon', c.oid, 'DELETE') AS anon_delete_should_be_false,
+  has_table_privilege('authenticated', c.oid, 'DELETE') AS authenticated_delete_should_be_false
 FROM pg_class c
-JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public'
-  AND c.relname = 'spatial_ref_sys';
+WHERE c.oid = 'public.spatial_ref_sys'::regclass;
