@@ -1,6 +1,6 @@
 requests==2.33.0
 httpx==0.28.1
-supabase==2.28.3
+supabase==2.34.1
 python-dotenv==1.2.2
 playwright==1.41.0
 geopy==2.5.0
