@@ -2865,7 +2865,7 @@ ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmam
 |---|---|---|---|
 | **G-K1** | BP kaynağı öldü: `/akaryakit-fiyatlari-bp` → `/istasyonlar/...` → 404. Marka PO'ya devroldu | 37 gizli istasyon; asıl zarar tüm fiyat koşularının kırmızı olması | ✅ kalıcı çıkarıldı |
 | **G-K2** | Alarm kanalı CI'a bağlı değildi | Kritik alarm 18 gün kimseye ulaşmadı | ✅ kod, ⏳ **secret kullanıcıda** |
-| **G-K3** | `spatial_ref_sys`: anon'da INSERT/UPDATE/DELETE/TRUNCATE, RLS kapalı, REST'ten 200 | Tablo bozulursa `get_nearby_stations*` büyük olasılıkla çalışmaz. F-G2 bunu "gürültü" saymıştı | ⏳ **Dashboard/Support** |
+| **G-K3** | `spatial_ref_sys`: anon'da INSERT/UPDATE/DELETE/TRUNCATE, RLS kapalı, REST'ten 200 | Tablo bozulursa `get_nearby_stations*` büyük olasılıkla çalışmaz. F-G2 bunu "gürültü" saymıştı | ⏳ Dashboard'dan 42501 ile reddedildi, **Supabase Support talebi açıldı** |
 | **G-Y1** | Test tarih bombası: fikstür `review_by=2026-10-31` | 1 Kasım'dan beri kırık, CI yalnızca push'ta koştuğu için görünmedi | ✅ |
 | **G-Y2** | Discord kodu her `create_system_alert` çağrısında mesaj atıyordu | Bağlansaydı açık Shell uyarıları her koşuda tekrarlanırdı | ✅ yalnızca yeni alarm |
 | **G-Y3** | GitHub cron koşuları kayboluyor: geçen tam haftada 28 plandan 18 fiyat koşusu; en uzun ara 13,7 saat, eşik 18 | Bugün eşik aşılmıyor, pay daralıyor | 📋 izleniyor |
@@ -2874,10 +2874,13 @@ ne secret'larda ne `otopilot.yml` env'inde vardı. Alarm kanalı hiç bağlanmam
 | **G-G2** | `requests`, `python-dotenv`, `geopy` için 5 bilinen açık; `vite` için 2 yüksek bulgu | Düşük-orta | ✅ audit temiz |
 | **G-G3** | Public depoda Dependabot ve secret scanning kapalıydı | Sızıntı ve açıklar görünmüyordu | ✅ açıldı, `dependabot.yml` eklendi |
 | **G-O1** | `istasyonlar` + `fiyat_gecmisi` embed'i: 1000 istasyonda 5,3 sn, anon zaman aşımı 3 sn | Günde birkaç 500 (~%0,4) | ✅ bileşik indeks uygulandı (5,3 sn → 3,2 sn; anon sınırına hâlâ yakın) |
-| **G-O2** | F-O1 ve F-G1 hâlâ açık: ölü tablolar ve `fiyat-push` | Ölü üretim yüzeyi | ⏳ **kullanıcıda** |
+| **G-O2** | F-O1 ve F-G1 hâlâ açıktı: ölü tablolar ve `fiyat-push` | Ölü üretim yüzeyi | ✅ 10 Kasım'da Dashboard'dan kapatıldı |
 | **G-O3** | Telemetride "Server disconnected" uyarısı | **Veri kaybı yok**: uyarı basılan koşuların satırları tabloda. Yanıt kayboluyor, yazma gerçekleşiyor | 📋 bilerek dokunulmadı |
 | **G-O4** | Flutter paketleri 3 major geride (`firebase_*`, `google_sign_in`) | Girişi kırabilecek geçişler | 📋 cihaz testi ister |
 | **G-D1** | Tutundurma hâlâ zayıf: son 4 haftada 40 kurulumun 4'ü ertesi gün döndü (%10); tek açılışta bırakan %52 → %38 | Küçük örneklem, nedensellik yine çözülemez | 📊 ölçüldü |
+| **G-P1** | Play: tacir durumu 1 Şubat 2027'ye kadar beyan edilmezse uygulama Google Play'den kaldırılır | Yayın kaybı | ⏳ **kullanıcıda** (yasal beyan) |
+| **G-P2** | Play Politika durumu "Android 16'yı hedeflemeli" diyor. Üretimdeki kod 8 `targetSdk 36`; eski Kapalı test (Alpha) kodu 5 hâlâ yayında, sebep o olabilir (doğrulanmadı) | Gelecek güncellemeler reddedilebilir; 1.0.5 14 Ekim'de kabul edildi | 📋 izleniyor |
+| **G-P3** | BP'siz mağaza açıklaması taslakta; Play gönderimden önce yapay zekâ beyanı istiyor | Açıklama hâlâ BP diyor | ⏳ **beyan kullanıcıda** |
 
 ---
 

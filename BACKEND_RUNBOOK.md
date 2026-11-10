@@ -299,7 +299,8 @@ Uzun vadeli kalıcı çözüm:
 
 ## 10. Açık Elle İşler — 14 Ekim ve 10 Kasım 2026 Denetimleri
 
-**10.1, 10.2, 10.4, 10.6 ve 10.7 açık.** İlk ikisi kod tarafında kapatıldı ama
+**10 Kasım 2026 durumu: 10.1, 10.2 ve 10.5 kapandı; 10.4 Supabase Support'ta; 10.6 ve
+10.7 açık.** Aşağıdaki 14 Ekim notu tarihsel kayıttır. İlk ikisi kod tarafında kapatıldı ama
 üretimde elle uygulanması gerekiyor: Claude Code'un auto-mode classifier'ı
 üretimde yıkıcı DDL'i (DROP) engelliyor, Supabase MCP'sinde de
 `delete_edge_function` yok. Yani bunlar bilinçli olarak insan onayına bırakılmış
@@ -312,7 +313,7 @@ Birikmiş teknik borcun kapanışı.
 > çekildi** — artık 31 Ekim'de kendiliğinden kırmızıya düşme riski YOK.
 > Yine de bir ürün kararı bekliyor; aşağıya bakın.
 
-### 10.1 Ölü şemayı düşür (`user_profiles` / `user_favorites`)
+### 10.1 Ölü şemayı düşür (`user_profiles` / `user_favorites`) — ✅ 10 Kasım 2026'da düşürüldü
 
 Migration dosyası hazır ve gerekçesi içinde:
 `supabase/migrations/20261014120100_olu_kullanici_semasi_kaldirildi.sql`
@@ -329,7 +330,7 @@ DROP TABLE IF EXISTS public.user_profiles;
 depoda tek kod referansı yok. Yedek bilinçli olarak alınmadı — 0 satırlık yedek
 tablo veri taşımaz ama RLS'siz kaldığı için linter'da kalıcı ERROR üretir.
 
-### 10.2 Yetim Edge Function'ı sil (`fiyat-push`)
+### 10.2 Yetim Edge Function'ı sil (`fiyat-push`) — ✅ 10 Kasım 2026'da silindi
 
 Fonksiyon üretimde hâlâ `ACTIVE` (v4) ama kesin ölü: düşürülmüş `push_tokens`
 tablosunu okuyor, onu çağıran trigger kaldırıldı, yalnızca Expo token'larına
@@ -391,7 +392,12 @@ baştan yapmasın.
 > view'i onları saymaya başlar ve marka filtresindeki çip kendiliğinden
 > etkinleşir. Hiçbir yerde "Shell" sabit kodlu istisna bırakılmadı.
 
-### 10.4 `spatial_ref_sys` yazma yetkisi
+### 10.4 `spatial_ref_sys` yazma yetkisi — ⏳ Supabase Support'ta
+
+10 Kasım 2026: SQL Editor'dan denendi, `42501 must be owner` verdi ve hiçbir satır
+uygulanmadı. Supabase Support talebi açıldı (proje erişimi kapalı gönderildi).
+Yanıt `yakupefecaliskann@gmail.com` adresine gelir. Uygulandıktan sonra anon ile
+`get_nearby_stations_v2` çağrısını doğrulayın.
 
 SQL Editor'da `database/postgis_spatial_ref_sys_rls.sql` çalıştır. Betik yalnızca
 yazma yetkilerini kaldırır, **okumayı açık tutar**: yakın istasyon RPC'leri bu
