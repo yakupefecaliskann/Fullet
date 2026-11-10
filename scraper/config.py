@@ -16,7 +16,6 @@ VALID_BRANDS = {
     "Shell",
     "Opet",
     "Petrol Ofisi",
-    "BP",
     "Aytemiz",
     "TotalEnergies",
     "Türkiye Petrolleri",
@@ -25,7 +24,6 @@ VALID_BRANDS = {
 OFFICIAL_REGIONAL_SOURCES = {
     "api.opet.com.tr/api/fuelprices/allprices",
     "petrolofisi.com.tr/akaryakit-fiyatlari",
-    "petrolofisi.com.tr/akaryakit-fiyatlari-bp",
     "aytemiz.com.tr/akaryakit-fiyatlari",
     "turkiyeshell.com/pompatest/History.aspx",
     "apimobile.guzelenerji.com.tr/exapi/fuel_prices",
@@ -47,7 +45,6 @@ BRAND_ALIASES = {
     "PETROL OFISI": "Petrol Ofisi",
     "PETROL OFİSİ": "Petrol Ofisi",
     "PO": "Petrol Ofisi",
-    "BP": "BP",
     "TOTAL": "TotalEnergies",
     "TOTALENERGIES": "TotalEnergies",
     "TOTAL ENERGIES": "TotalEnergies",

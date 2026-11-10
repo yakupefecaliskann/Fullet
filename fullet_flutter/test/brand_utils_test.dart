@@ -17,14 +17,21 @@ void main() {
   test('brand labels come from canonical keys', () {
     expect(brandLabelsForKeys({'shell', 'aytemiz'}), ['Shell', 'Aytemiz']);
     expect(brandDisplayLabelForKey('tp'), 'TP');
-    expect(brandFilterSummary({'petrol_ofisi', 'bp'}), 'Petrol Ofisi, BP');
+    expect(
+      brandFilterSummary({'petrol_ofisi', 'aytemiz'}),
+      'Petrol Ofisi, Aytemiz',
+    );
+  });
+
+  test('kalici cikarilan BP filtre seceneklerinde yok', () {
+    expect(brandOptions.map((o) => o.key), isNot(contains('bp')));
   });
 
   group('D-1: karanlik marka cipi bos harita dondurmuyor', () {
     // 14 Ekim 2026 denetimi: Shell kaynagi 9 Eylul'de olmus, 1309 istasyon
     // `hidden` olmus, ama filtre cipi listede ILK sirada durmaya devam edip
     // bos harita donduruyordu.
-    const canli = {'opet', 'petrol_ofisi', 'bp', 'total', 'tp', 'aytemiz'};
+    const canli = {'opet', 'petrol_ofisi', 'total', 'tp', 'aytemiz'};
 
     test('kullanilabilirlik BILINMIYOR ise hicbir cip kisitlanmaz', () {
       // Fail-open: null, "hicbir marka kullanilabilir degil" DEMEK DEGIL.
@@ -47,7 +54,7 @@ void main() {
 
     test('secili markalardan yalnizca karanlik olanlar donuyor', () {
       expect(unavailableBrandsAmong({'shell'}, canli), {'shell'});
-      expect(unavailableBrandsAmong({'opet', 'bp'}, canli), isEmpty);
+      expect(unavailableBrandsAmong({'opet', 'aytemiz'}, canli), isEmpty);
       // Kismi karanlik: kaydirma hala anlamli oldugu icin bos-durum metni
       // `every` ile karar veriyor, `any` ile degil.
       expect(unavailableBrandsAmong({'shell', 'opet'}, canli), {'shell'});

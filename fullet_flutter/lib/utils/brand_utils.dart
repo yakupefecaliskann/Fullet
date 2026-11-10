@@ -16,7 +16,6 @@ const brandOptions = <BrandOption>[
   BrandOption(key: 'shell', label: 'Shell'),
   BrandOption(key: 'opet', label: 'Opet'),
   BrandOption(key: 'petrol_ofisi', label: 'Petrol Ofisi'),
-  BrandOption(key: 'bp', label: 'BP'),
   BrandOption(key: 'total', label: 'TotalEnergies'),
   BrandOption(
     key: 'tp',

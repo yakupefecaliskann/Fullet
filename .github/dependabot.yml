@@ -1,0 +1,20 @@
+version: 2
+# Aylık ve dar tutuldu: amaç güvenlik yamalarını görünür kılmak, PR gürültüsü
+# üretmek değil. Flutter paketleri kasıtlı olarak yok; google_sign_in ve Firebase
+# major geçişleri girişi kırabilir ve gerçek cihaz testi ister (arşiv §F-O2, §G).
+updates:
+  - package-ecosystem: pip
+    directory: /scraper
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+  - package-ecosystem: npm
+    directory: /admin_panel
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3

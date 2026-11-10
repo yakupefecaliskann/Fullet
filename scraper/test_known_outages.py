@@ -12,8 +12,9 @@ import contextlib
 import io
 import unittest
 import unittest.mock
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
+import config
 import known_outages
 import run_all_bots
 from db_utils import finish_bot_run
@@ -29,13 +30,16 @@ from models import SaveSummary
 
 
 def _outage(**overrides) -> KnownOutage:
+    # `review_by` bugüne GÖRELİ olmak zorunda: sabit tarih yazıldığında fikstür
+    # o gün "süresi dolmuş" kayda dönüşür. 2026-10-31 yazılıydı; test 1 Kasım'da
+    # kod değişmeden kırıldı ve CI yalnızca push'ta koştuğu için görünmedi.
     defaults = dict(
         bot="dummy_bot.py",
         brand="Dummy",
         url="https://example.invalid/prices",
         reason="test",
         since=date(2026, 9, 9),
-        review_by=date(2026, 10, 31),
+        review_by=datetime.now(timezone.utc).date() + timedelta(days=30),
     )
     defaults.update(overrides)
     return KnownOutage(**defaults)
@@ -307,6 +311,45 @@ class RegistryIntegrityTest(unittest.TestCase):
         for outage in KNOWN_OUTAGES:
             with self.subTest(bot=outage.bot):
                 self.assertIn(outage.bot, rotation)
+
+    def test_default_fixture_is_never_expired(self):
+        """Tarih bombası kilidi: varsayılan fikstür takvimle eskimemeli."""
+        self.assertFalse(_outage().is_expired())
+
+
+class RetiredBrandTest(unittest.TestCase):
+    """BP kalıcı olarak çıkarıldı (10 Kas 2026, §G): PO'ya devroldu, sayfası 404."""
+
+    def test_bp_is_not_in_rotation_or_brand_lists(self):
+        import ops_report
+
+        self.assertNotIn("bp_bot.py", run_all_bots.PRICE_BOTS)
+        self.assertNotIn("BP", config.VALID_BRANDS)
+        self.assertNotIn("BP", ops_report.BRANDS)
+        self.assertNotIn("BP", ops_report.MIN_ACTIVE_STATIONS)
+        self.assertNotIn("BP", ops_report.MIN_PRICE_ROWS)
+
+    def test_every_price_bot_file_exists(self):
+        """Rotasyondaki ad diske bağlı kalmalı; yoksa her koşu kırmızı olur."""
+        for bot in run_all_bots.PRICE_BOTS + run_all_bots.STATION_BOTS:
+            with self.subTest(bot=bot):
+                self.assertTrue((run_all_bots.SCRAPER_DIR / bot).is_file())
+
+
+class SupabaseKeyRoleTest(unittest.TestCase):
+    """Sağlık kontrolü eski JWT ve yeni önekli anahtarları tanımalı."""
+
+    def test_new_format_keys_map_to_roles(self):
+        from backend_health_check import _jwt_role
+
+        self.assertEqual(_jwt_role("sb_secret_abc"), "service_role")
+        self.assertEqual(_jwt_role("sb_publishable_abc"), "anon")
+
+    def test_garbage_key_has_no_role(self):
+        from backend_health_check import _jwt_role
+
+        self.assertIsNone(_jwt_role("rastgele-metin"))
+        self.assertIsNone(_jwt_role(None))
 
 
 if __name__ == "__main__":

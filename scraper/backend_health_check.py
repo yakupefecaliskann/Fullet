@@ -123,6 +123,13 @@ def _migration_hint() -> str:
 
 
 def _jwt_role(token: str | None) -> str | None:
+    # Supabase'in yeni anahtarları JWT değildir, rolü önekten okunur. Eski
+    # `anon`/`service_role` anahtarları kaldırılınca bu kontrol yeni biçimi
+    # "unknown" sayıp her koşuyu düşürmesin (bkz. KOD_DENETIM_ARSIVI §G).
+    if token and token.startswith("sb_secret_"):
+        return "service_role"
+    if token and token.startswith("sb_publishable_"):
+        return "anon"
     if not token or token.count(".") < 2:
         return None
     try:
