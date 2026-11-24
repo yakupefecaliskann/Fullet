@@ -12,8 +12,8 @@
 >
 > | # | İş | Kim | Not |
 > |---|---|---|---|
-> | 1 | 1.0.6 AAB'si + "Yenilikler" (`RELEASE_NOTES.md` §1.0.6) | 🤖/👤 | Shell konum pinleri, alarm, saat dilimi, Şarj çipi, hesap silme |
-> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | ✅ taslak | 24 Kas'ta düzeltilip **taslak** kaydedildi; AAB ile aynı gönderimde gidecek |
+> | 1 | 1.0.6 AAB'si + "Yenilikler" | ⏳ incelemede | 24 Kas 2026'da Alpha duraklatmasıyla birlikte gönderildi; "Yönetilen yayınlama" kapalı → onayda otomatik yayına girer |
+> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | ⏳ taslak | Taslak kaydı gönderime GİRMEDİ (yalnızca taslak). 1.0.6 onaylanınca tek başına gönder — şimdi göndermek incelemeyi sıfırlar |
 > | 2b | Politika uyarısı "Android 16 hedefle" | ✅ taslak | Kaynağı Alpha'daki versionCode 5 (SDK 35). Alpha **duraklatıldı**, Yayın özeti'nde gönderim bekliyor |
 > | 3 | **Hassas konum beyanı** (Politika → Uygulama içeriği) | 👤 | Son tarih **27 Ocak 2027** |
 > | 4 | ~~`SUPABASE_PUBLISHABLE_KEY` → `.env`~~ | ✅ | 24 Kas'ta eklendi; Supabase panosu eski anahtarların **2027 başında** kalktığını söylüyor |

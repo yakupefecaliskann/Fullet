@@ -404,7 +404,13 @@ baştan yapmasın.
 > view'i onları saymaya başlar ve marka filtresindeki çip kendiliğinden
 > etkinleşir. Hiçbir yerde "Shell" sabit kodlu istisna bırakılmadı.
 
-### 10.4 `spatial_ref_sys` yazma yetkisi — ⏳ AÇIK (Support kapattı, öneri: PostGIS'i taşı)
+### 10.4 `spatial_ref_sys` yazma yetkisi — ✅ 24 Kasım 2026'da KAPANDI (PostGIS `extensions` şemasında)
+
+> **Uygulandı (24 Kas 2026, SQL Editor):** migration `20261124120000` başarıyla çalıştı.
+> Sonrası anon/publishable anahtarla doğrulandı: `get_nearby_stations` İstanbul 250,
+> Shell filtresi Ankara 50, `get_nearby_stations_v2` İzmir 50/50 fiyatlı;
+> `/rest/v1/spatial_ref_sys` artık **404** (okuma da yazma da Data API'de yok).
+> Yeni bir RPC/tetikleyici yazarken `search_path`'e `extensions` eklemeyi unutma.
 
 > **Migration hazır:** `supabase/migrations/20261124120000_postgis_extensions_semasina_tasindi.sql`
 > (tek transaction, sonunda konum + iki RPC + spatial_ref_sys doğrulaması; tutmazsa
