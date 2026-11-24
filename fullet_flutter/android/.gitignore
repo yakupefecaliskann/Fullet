@@ -8,3 +8,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Gradle 9 rapor çıktısı (problems-report.html)
+/build/
