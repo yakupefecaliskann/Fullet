@@ -96,7 +96,7 @@
 | targetSdkVersion | **36** (Android 16) — Play'in 31 Ağustos 2026 eşiğini karşılar |
 | compileSdkVersion | 36 |
 | Android Gradle Plugin | 8.11.1 |
-| Gradle | 8.14 |
+| Gradle | 9.2.1 (24 Kas 2026: Android Studio JDK 25 ile 8.14 çalışmıyor) |
 | NDK | 27.0.12077973 |
 | Kotlin | 2.3.10 |
 | Play'e yüklenecek dosya | `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` |
