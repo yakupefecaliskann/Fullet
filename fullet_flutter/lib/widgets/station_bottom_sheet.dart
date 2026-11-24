@@ -262,8 +262,9 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                     // Konum istasyonunda "Fiyat teyit aşamasında" demek yanlış
                     // bir vaat olurdu: teyit edilecek bir kaynak yok.
                     label: station.isLocationOnly
-                        ? 'ℹ️ Bu marka için resmi fiyat kaynağı yok — '
-                            'istasyon yalnızca konum olarak gösteriliyor'
+                        // Bant tek satır: uzun metin "…yalnı" diye kesiliyordu
+                        // (24 Kas 2026, Infinix X6528B'de görüldü).
+                        ? 'ℹ️ Resmi fiyat yok · yalnızca konum'
                         : _priceStatusLabel(
                             priceStatus,
                             priceUpdatedAt,
@@ -506,35 +507,41 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: widget.onPriceAlertTap,
-                          child: Container(
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: border),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.notifications_active_outlined,
-                                    color: FulColors.primary, size: 18),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Fiyat Alarmı Kur',
-                                  style: TextStyle(
-                                    fontFamily: 'Outfit',
-                                    color: textColor,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
+                        // Konum istasyonunda fiyat yok: alarm hiçbir zaman
+                        // tetiklenemez (PriceAlertService taze fiyat ister).
+                        if (!station.isLocationOnly) ...[
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: widget.onPriceAlertTap,
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: border),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                      Icons.notifications_active_outlined,
+                                      color: FulColors.primary,
+                                      size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Fiyat Alarmı Kur',
+                                    style: TextStyle(
+                                      fontFamily: 'Outfit',
+                                      color: textColor,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                         if (widget.smartScore != null) ...[
                           const SizedBox(height: 8),
                           GestureDetector(

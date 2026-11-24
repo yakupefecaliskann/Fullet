@@ -1,5 +1,35 @@
 # Fullet — Sürüm Notları
 
+## 1.0.7 (versionCode 10) — Kasım 2026
+
+### 📋 Play Console "Yenilikler" alanına yapıştırılacak metin
+
+```text
+Yakıt ve garaj hatırlatıcıları yeniden çalışıyor. Fiyatı yayınlanmayan
+istasyonlarda gereksiz fiyat alarmı düğmesi kaldırıldı ve bilgi notu
+sadeleştirildi.
+```
+
+### 🎯 Uzun sürüm (iç kullanım)
+
+1.0.6 Play'den kurulup Infinix X6528B'de (Android 13) test edilirken logcat'te
+`flutter_local_notifications: RuntimeException: Missing type parameter` görüldü
+(denetim §H-K5). R8 tam mod Gson'un `TypeToken` generic `Signature` bilgisini
+siliyordu; `loadScheduledNotifications` düşüyor, her hatırlatıcıdan önce çağrılan
+`cancel()` de onu kullandığı için **yakıt ve garaj hatırlatıcıları 1.0.3'ten
+(R8'in açıldığı 4 Ağu 2026) beri hiçbir kullanıcıda kurulmadı** — `dumpsys alarm`
+0 kayıt gösterdi, hata Dart tarafında `catch (_)` ile yutuluyordu.
+
+- `proguard-rules.pro`: eklenti README'sinin işaret ettiği Gson kuralları +
+  `com.dexterous.**` korunuyor; `res/raw/keep.xml` bildirim ikonunu koruyor.
+- Konum istasyonu panelinde "Fiyat Alarmı Kur" gizlendi (alarm taze fiyat
+  ister, hiç tetiklenemezdi); bant metni tek satıra sığacak şekilde kısaldı.
+
+**Not:** Bu sürümden önceki büyüme/tutundurma analizlerinde N2/N3 hatırlatıcı
+bildirimlerinin etkisi ölçülemez — hiç gönderilmediler.
+
+---
+
 ## 1.0.6 (versionCode 9) — Kasım 2026
 
 ---

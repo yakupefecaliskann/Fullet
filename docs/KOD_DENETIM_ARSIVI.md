@@ -2986,6 +2986,7 @@ sunucuda** uygulanmasıydı.
 | **H-K2** | Şarj çipi: hiçbir bot elektrik fiyatı toplamıyor, çip her zaman boş; mağaza metni "elektrik için filtrele" diyordu | ✅ çip kaldırıldı, ⏳ mağaza metni |
 | **H-K3** | Fiyat alarmı: eşik = mevcut fiyat ve koşul `<=` → fiyat düşmeden "fiyatı düştü". Diyalog "sunucu tarafında tetiklenir" ve "1 ücretsiz alarm" diyordu (ikisi de yanlış) | ✅ 1.0.6 |
 | **H-K4** | `timezone` yerel konumu UTC'ye kuruyor; "09:30" hatırlatıcısı 12:30'da | ✅ 1.0.6 |
+| **H-K5** | Release'de R8 Gson `Signature`'ını siliyor → `flutter_local_notifications` "Missing type parameter"; yakıt/garaj hatırlatıcıları 1.0.3'ten (4 Ağu) beri HİÇ kurulmadı. 1.0.6 Play'den kurulup cihazda bulundu (`dumpsys alarm` = 0) | ✅ 1.0.7 proguard + keep.xml |
 | **H-Y1** | "Kullanım Koşulları" (`terms.html`) 404 | ✅ sayfa yayında |
 | **H-Y2** | Admin panel `staleBrands` Shell'i sayıyor → kalıcı "Kontrol gerekli" | ✅ `LOCATION_ONLY_BRANDS`, testle `ops_report`'a kilitli |
 | **H-Y3** | Gizlilik politikası fiyat alarmlarını beyan etmiyordu | ✅ |
