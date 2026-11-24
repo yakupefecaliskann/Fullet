@@ -432,6 +432,26 @@ def _run_news_bot(*, failures, outages, mode):
         failures.append("news_bot.py")
 
 
+def _quarantine_decision(mode: str, env) -> str:
+    """Tazelik bakımı ("quarantine_old_prices.py") bu koşuda ne yapmalı?
+
+    "run"  : canlı fiyat koşusu, bakım çalışır.
+    "skip" : fiyat koşusu ama DRY-RUN (FULLET_ALLOW_DB_WRITE != "1").
+    "none" : fiyat koşusu değil.
+
+    24 Kas 2026: DRY-RUN'da script bilerek exit 1 veriyor ("[SAFE] ...");
+    orkestratör bunu başarısızlık sayıp koşuyu kırmızıya boyuyor VE canlı
+    `system_alerts`'e "quarantine_old_prices.py failed" hata alarmı yazıyordu
+    (telemetri istemcisi DRY-RUN'da da bağlı). Yazmayan bir test koşusu
+    üretimde sahte alarm açmamalı.
+    """
+    if mode not in ("prices", "all"):
+        return "none"
+    if env.get("FULLET_ALLOW_DB_WRITE") != "1":
+        return "skip"
+    return "run"
+
+
 def main():
     args = parse_args()
     print(f"Fullet scraper orchestrator starting. Mode: {args.mode}")
@@ -457,7 +477,10 @@ def main():
     # blok yalnızca mode == "all" iken çalışıyordu — ama cron hiçbir zaman
     # "all" göndermiyor (prices/news/stations), yani bu adım üretimde HİÇ
     # koşmadı (yol haritası S1-5).
-    if args.mode in ("prices", "all"):
+    quarantine = _quarantine_decision(args.mode, os.environ)
+    if quarantine == "skip":
+        print("\n[DRY] quarantine_old_prices.py atlandı: FULLET_ALLOW_DB_WRITE != 1.")
+    if quarantine == "run":
         print("\n=====================================")
         print("Running: quarantine_old_prices.py")
         print("=====================================")
