@@ -2992,7 +2992,7 @@ sunucuda** uygulanmasıydı.
 | **H-Y3** | Gizlilik politikası fiyat alarmlarını beyan etmiyordu | ✅ |
 | **H-Y4** | "Verilerimi sil" Firebase hesabını silmiyordu | ✅ 1.0.6 |
 | **H-Y5** | Workflow rotasyonda olmayan shell_bot için her koşuda Chromium kuruyordu | ✅ kaldırıldı, testle kilitli |
-| **H-G1** | Uygulama eski `anon` anahtarıyla çıkıyor; Supabase "2027 başı" kaldırıyor | 🟡 1.0.6 publishable anahtarla yayında; GitHub secret'ları ve admin panel sırada |
+| **H-G1** | Uygulama eski `anon` anahtarıyla çıkıyor; Supabase "2027 başı" kaldırıyor | 🟡 24 Kas: uygulama (1.0.6+), GitHub secret'ları (`sb_secret_` github_actions + publishable) ve admin panel YENİ anahtarlarda; sağlık kontrolü 33/33 OK (run 45454639164). Eski `SUPABASE_KEY` yedeği silindi. KALAN: 1.0.5 kurulumları eriyince Supabase'de legacy anahtarları kapat (2027 başından önce) |
 | **H-G2** | `spatial_ref_sys`: Support (SU-547101) 11 Kas'ta kapattı; öneri PostGIS'i `extensions` şemasına taşımak | ✅ 24 Kas migration `20261124120000`; REST 404, RPC'ler doğrulandı |
 | **H-G3** | Public git geçmişinde 3 Google API anahtarı (secret scanning, 16 Ağu) | ✅ Expo dönemi anahtar projede yok; Maps anahtarı Android + 2 SHA-1 + tek API'ye kısıtlı; bütçe uyarısı (₺1/ay) kurulu |
 | **H-T** | Dış son tarihler: Supabase anahtarı 2026 sonu · cron 60 gün ~9 Oca 2027 · Play hassas konum beyanı 27 Oca 2027 · bellek/DEX eşikleri Şub 2027 · Zero-Tap Sign-In Nis 2027 | 📋 |
