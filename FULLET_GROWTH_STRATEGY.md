@@ -1079,8 +1079,8 @@ maliyetini de hesaba katarak sana gerçekten kâr eden istasyonu söyler.
 ⛽ TÜRKİYE GENELİNDE 6.000'DEN FAZLA İSTASYON
 Opet, Petrol Ofisi, TotalEnergies, Türkiye Petrolleri ve Aytemiz
 istasyonlarının güncel akaryakıt fiyatları tek haritada. Shell istasyonları konum
-olarak gösterilir. Benzin, motorin, LPG
-ve elektrik için ayrı ayrı filtrele.
+olarak gösterilir. Benzin, motorin ve LPG
+için ayrı ayrı filtrele.
 
 🧠 AKILLI SEÇİM — "EN UCUZ" DEĞİL, "EN MANTIKLI"
 3 km öteye gidip litrede 40 kuruş kazanmak gerçekten kâr mı? Fullet bu hesabı
@@ -1111,7 +1111,7 @@ Sürekli gittiğin istasyonları favorine ekle, tüm istasyonlar arasında arama
 Gece sürüşünde göz yormayan koyu harita teması.
 
 🔔 HATIRLATMALAR
-Depo döngün geldiğinde ve fiyatlar hareketlendiğinde haberin olsun.
+Depo döngün geldiğinde hatırlatalım. Giriş yaparsan istasyona fiyat alarmı kur; uygulamayı açtığında fiyat eşiğin altına inmişse haber verelim.
 
 NASIL ÇALIŞIYOR?
 Fullet fiyatları hazır bir listeden almaz. Her marka için ayrı veri toplama

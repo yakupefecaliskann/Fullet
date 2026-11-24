@@ -6,7 +6,24 @@
 
 ---
 
-## 0. Durum Panosu — 14 Ekim 2026
+## 0. Durum Panosu — 24 Kasım 2026
+
+> ### 1.0.6+9 hazırlanıyor (denetim §H)
+>
+> | # | İş | Kim | Not |
+> |---|---|---|---|
+> | 1 | 1.0.6 AAB'si + "Yenilikler" (`RELEASE_NOTES.md` §1.0.6) | 🤖/👤 | Shell konum pinleri, alarm, saat dilimi, Şarj çipi, hesap silme |
+> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | ✅ taslak | 24 Kas'ta düzeltilip **taslak** kaydedildi; AAB ile aynı gönderimde gidecek |
+> | 2b | Politika uyarısı "Android 16 hedefle" | ✅ taslak | Kaynağı Alpha'daki versionCode 5 (SDK 35). Alpha **duraklatıldı**, Yayın özeti'nde gönderim bekliyor |
+> | 3 | **Hassas konum beyanı** (Politika → Uygulama içeriği) | 👤 | Son tarih **27 Ocak 2027** |
+> | 4 | ~~`SUPABASE_PUBLISHABLE_KEY` → `.env`~~ | ✅ | 24 Kas'ta eklendi; Supabase panosu eski anahtarların **2027 başında** kalktığını söylüyor |
+> | 5 | ~~`build/symbols/1.0.6+9` arşivle~~ | ✅ | `C:\dev\Fullet-arsiv.0.6+9\` (AAB + iki ABI sembolü). Buluta da kopyala |
+> | 7 | ~~Kota + bütçe uyarısı~~ | ✅ | Zaten kurulu: "Fullet sifir maliyet", aylık ₺1, %50/90/100 (efecaliskan3458 hesabı) |
+> | 6 | Bellek/DEX eşikleri (Şub 2027), Zero-Tap Sign-In (Nis 2027) | 👀 | Android vitals'tan izle |
+> | ✅ | Tacir beyanı | — | 10 Kas 2026 onaylandı ("Tacir olmayan") |
+> | ✅ | BP'siz açıklama | — | Yayında (23 Kas'ta public listede doğrulandı) |
+
+## Önceki pano — 14 Ekim 2026
 
 > ### ✅ 1.0.5 YAYINDA (10 Kasım 2026'da public liste ve `app_heartbeats` ile doğrulandı)
 >
@@ -53,7 +70,7 @@
 
 | # | İş | Kim | Not |
 |---|---|---|---|
-| 1 | Kota + bütçe uyarısı kur | 👤 | "Sıfır maliyet" hedefi için sürpriz fatura riski. §2.2 |
+| 1 | ~~Kota + bütçe uyarısı kur~~ | ✅ | 24 Kas'ta kurulu olduğu doğrulandı |
 | 2 | ~~W2 ASO incelemesinin sonucu~~ | ✅ | **18 Eyl 2026: YAYINDA**, public listede doğrulandı. Ölçülen etki: haftalık kurulum ~5 → ~17 (bkz. `docs/KOD_DENETIM_ARSIVI.md` §F-K3) |
 | 3 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
 | 4 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |
@@ -61,8 +78,8 @@
 | 6 | ~~1.0.5+8 AAB'sini Play'e yükle~~ | ✅ | Yayında |
 | 7 | ~~Ölü tabloları düşür + `fiyat-push` sil~~ | ✅ | 10 Kas 2026'da kapatıldı |
 | 8 | ~~Shell fiyat kaynağı kararı~~ | ✅ | 10 Kas 2026: fiyatsız, konum olarak gösteriliyor. `BACKEND_RUNBOOK.md` §10.3 |
-| 9 | Güncel açıklamanın yayına girmesi | ⏳ | 10 Kas 2026'da incelemeye gönderildi. Onay sonrası public listede BP'nin kalktığını doğrula |
-| 10 | **Tacir durumunu beyan et** | 👤 | Son tarih **1 Şub 2027**. Yapılmazsa uygulama Play'den kaldırılır |
+| 9 | ~~Güncel açıklamanın yayına girmesi~~ | ✅ | Yayında |
+| 10 | ~~Tacir durumunu beyan et~~ | ✅ | 10 Kas 2026'da onaylandı |
 | 11 | "Android 16 hedefle" politika uyarısı | 👀 | Üretim `targetSdk 36`. Eski Alpha kodu 5 sebep olabilir, doğrulanmadı |
 
 > 🔥 **11 Ağustos 2026 — canlıda boş harita olayı çözüldü.** App signing SHA-1
@@ -81,7 +98,7 @@
 | targetSdkVersion | **36** (Android 16) — Play'in 31 Ağustos 2026 eşiğini karşılar |
 | compileSdkVersion | 36 |
 | Android Gradle Plugin | 8.11.1 |
-| Gradle | 8.14 |
+| Gradle | 9.2.1 (24 Kas 2026: Android Studio JDK 25 ile 8.14 çalışmıyor) |
 | NDK | 27.0.12077973 |
 | Kotlin | 2.3.10 |
 | Play'e yüklenecek dosya | `fullet_flutter/build/app/outputs/bundle/release/app-release.aab` |

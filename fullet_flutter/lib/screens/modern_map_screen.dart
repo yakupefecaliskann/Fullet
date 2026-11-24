@@ -92,6 +92,7 @@ class _ModernMapScreenState extends State<ModernMapScreen>
   String? _drivingError;
   LatLng? _lastDrivingFetchLocation;
   DateTime? _lastDrivingFetchAt;
+
   /// M4: `null` = sistem temasını takip et. Kullanıcı harita temasını elle
   /// değiştirdiğinde dolar ve **SharedPreferences'a yazılır** (eskiden yazılmıyordu,
   /// seçim her açılışta sıfırlanıyordu). Tema düğmesine uzun basmak `null`'a
@@ -455,6 +456,26 @@ class _ModernMapScreenState extends State<ModernMapScreen>
     return result;
   }
 
+  /// Haritada ÇİZİLECEK istasyonlar: seçili yakıtı fiyatlı satanlar +
+  /// yalnızca konum olarak gösterilen istasyonlar (bkz.
+  /// [Station.isLocationOnly]).
+  ///
+  /// Konum istasyonları yalnızca ÇİZİM içindir: "en ucuz", "en mantıklı",
+  /// "en yakın" ve sürüş hedefi hesapları [_filteredStations] ile fiyatlı
+  /// havuzdan yapılmaya devam eder. Bu istasyonun seçili yakıtı satıp
+  /// satmadığını bilmiyoruz; kullanıcıyı oraya "en yakın" diye yollamak yanlış
+  /// olurdu.
+  List<Station> _mapStations({required String fuelType}) {
+    return _stations.where((station) {
+      if (!station.isVisibleInApp) return false;
+      if (_selectedBrands.isNotEmpty &&
+          !_selectedBrands.contains(canonicalBrandKey(station.brand))) {
+        return false;
+      }
+      return station.hasDisplayablePriceFor(fuelType) || station.isLocationOnly;
+    }).toList(growable: false);
+  }
+
   String? _nearestStationIdFor(List<Station> stations) {
     String? nearestId;
     double bestDistance = double.infinity;
@@ -695,7 +716,9 @@ class _ModernMapScreenState extends State<ModernMapScreen>
     final smartResult = _smartResult;
     final nearestStationId = _nearestStationId;
     final zoom = _currentZoom;
-    final displayStations = _filteredStations(fuelType: selectedFuel);
+    // Çizim havuzu konum istasyonlarını da içerir; hesaplar (_smartResult,
+    // _nearestStationId) fiyatlı havuzdan gelir. Bkz. _mapStations.
+    final displayStations = _mapStations(fuelType: selectedFuel);
     final markerFutures = <Future<Marker>>[];
 
     if (zoom < 11.0 && displayStations.length > 25) {
@@ -752,7 +775,6 @@ class _ModernMapScreenState extends State<ModernMapScreen>
     final hasPrice = priceNum != null;
     final stationId = station.id.isNotEmpty
         ? station.id
-
         : '${station.brand}-$latitude-$longitude';
     // S2-2: taç, marker'ın gösterdiği fiyatın ta kendisiyle tutarlı olmalı —
     // eskiden burada `trustedPriceValueFor` vardı ve marker bayat fiyatı
@@ -766,7 +788,8 @@ class _ModernMapScreenState extends State<ModernMapScreen>
                 stationId == smartResult?.mostLogicalStationId) ||
             (_focusMode == MapFocusMode.nearest &&
                 stationId == nearestStationId));
-    final isSelected = station.id.isNotEmpty && station.id == _visibleStation?.id;
+    final isSelected =
+        station.id.isNotEmpty && station.id == _visibleStation?.id;
     final icon = await MarkerIconFactory.stationPrice(
       brand: station.brand,
       priceText: formatMarkerPrice(priceStr),
@@ -1050,7 +1073,9 @@ class _ModernMapScreenState extends State<ModernMapScreen>
       ('Benzin', 'Kursunsuz 95'),
       ('Motorin', 'Motorin'),
       ('LPG', 'LPG'),
-      ('Şarj', 'Elektrik'),
+      // 'Şarj' (Elektrik) çipi 1.0.6'da kaldırıldı: hiçbir bot şarj fiyatı
+      // toplamıyor ve backend_health_check Elektrik satırını geçersiz sayıyor.
+      // Çip her zaman boş harita döndürüyordu (24 Kasım 2026 denetimi).
     ];
     final isDark = _currentIsDark;
 
@@ -1837,7 +1862,8 @@ class _ModernMapScreenState extends State<ModernMapScreen>
                     unawaited(_setDarkModeOverride(null));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Harita teması sistem ayarını takip ediyor'),
+                        content:
+                            Text('Harita teması sistem ayarını takip ediyor'),
                         duration: Duration(seconds: 2),
                       ),
                     );
@@ -1873,8 +1899,7 @@ class _ModernMapScreenState extends State<ModernMapScreen>
             ),
           ),
 
-          if (_filteredStations(fuelType: prefs.selectedFuel).isEmpty &&
-              !_isLoading)
+          if (_mapStations(fuelType: prefs.selectedFuel).isEmpty && !_isLoading)
             _buildEmptyState(prefs),
 
           if (_isLoading)
@@ -2002,8 +2027,8 @@ class _ModernMapScreenState extends State<ModernMapScreen>
                   unawaited(SavingsService.recordPurchase(score.savingsTL));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text(
-                          'Kaydedildi — tahmini tasarrufun güncellendi'),
+                      content:
+                          Text('Kaydedildi — tahmini tasarrufun güncellendi'),
                     ),
                   );
                 },
@@ -2084,9 +2109,8 @@ class _BrandFilterChip extends StatelessWidget {
     // Soluk ama okunur: 0.38 Material'in "disabled" opaklığı ve her iki temada
     // kontrast eşiğini geçiyor. Tamamen devre dışı bir görünüm vermiyoruz
     // çünkü çip HÂLÂ dokunulabilir — dokunmak açıklamayı getiriyor.
-    final textColor = isUnavailable
-        ? baseTextColor.withValues(alpha: 0.38)
-        : baseTextColor;
+    final textColor =
+        isUnavailable ? baseTextColor.withValues(alpha: 0.38) : baseTextColor;
     final border = isSelected
         ? FulColors.primary
         : (isDark ? FulColors.darkBorder : FulColors.lightBorder)
@@ -2489,7 +2513,8 @@ class _StationSearchSheetState extends State<_StationSearchSheet> {
                     icon: Icons.search_rounded,
                     selected: _mode == _SearchSheetMode.search,
                     isDark: isDark,
-                    onTap: () => setState(() => _mode = _SearchSheetMode.search),
+                    onTap: () =>
+                        setState(() => _mode = _SearchSheetMode.search),
                   ),
                 ),
                 const SizedBox(width: 8),

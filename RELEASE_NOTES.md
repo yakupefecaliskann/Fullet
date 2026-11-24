@@ -1,5 +1,56 @@
 # Fullet — Sürüm Notları
 
+## 1.0.6 (versionCode 9) — Kasım 2026
+
+---
+
+### 📋 Play Console "Yenilikler" alanına yapıştırılacak metin
+
+```text
+Shell istasyonları artık haritada: resmi fiyat kaynağı olmadığı için fiyatsız,
+konum olarak görünüyor. Fiyat alarmı yalnızca fiyat gerçekten eşiğin altına
+indiğinde haber veriyor. Yakıt hatırlatıcısı sabah 09:30'da geliyor. Veri
+bulunmayan Şarj filtresi kaldırıldı. Ayarlar'dan hesabını tamamen
+silebilirsin. Hata düzeltmeleri.
+```
+
+### 🎯 Uzun sürüm (iç kullanım)
+
+24 Kasım 2026 denetiminin (`docs/KOD_DENETIM_ARSIVI.md` §H) uygulamaya düşen
+maddeleri:
+
+- **Shell haritada yoktu (H-K1).** 10 Kasım'da sunucu Shell'i "konum olarak
+  görünür" yaptı ama 1.0.5 gösterilebilir fiyatı olmayan istasyonu haritadan
+  süzüyordu; 1317 istasyon yalnızca aramada vardı. Aynı gün marka view'i Shell'i
+  "veri var" saydığı için çip etkinleşmiş, dokununca boş harita + "haritayı
+  kaydırarak ara" metni dönmüştü (F-K2 regresyonu). Artık `Station.isLocationOnly`
+  istasyonları soluk pin olarak çiziliyor; en ucuz / en mantıklı / en yakın ve
+  sürüş hedefi hesaplarına GİRMİYOR (o yakıtı satıp satmadıklarını bilmiyoruz).
+  Panel "Fiyat teyit aşamasında" yerine kaynağın olmadığını söylüyor.
+- **Fiyat alarmı yanlış tetikleniyordu (H-K3).** Eşik mevcut fiyatla
+  dolduruluyor, koşul `<=` idi: kullanıcı eşiği değiştirmezse bir sonraki
+  açılışta fiyat düşmeden "fiyatı düştü" bildirimi alıyordu. Koşul `<`.
+  Diyalogdaki "sunucu tarafında tetiklenir" ve "1 ücretsiz alarm" metinleri
+  gerçeği söylemiyordu; düzeltildi.
+- **Hatırlatıcı 12:30'da çalıyordu (H-K4).** `timezone` paketi yerel konumu
+  UTC'ye kuruyor; `Europe/Istanbul` açıkça ayarlandı.
+- **Şarj çipi kaldırıldı (H-K2).** Hiçbir bot şarj fiyatı toplamıyor; çip
+  her zaman boş harita döndürüyordu. Kayıtlı "Elektrik" seçimi Benzin'e taşınıyor.
+- **Hesap silme (H-Y4).** "Verilerimi sil" artık Firebase hesabını da siliyor
+  (gerekirse Google ile yeniden doğrulayarak); eskiden yalnızca Supabase
+  satırlarını silip oturumu kapatıyordu.
+- **Supabase yeni anahtar desteği (H-G1).** `.env` içinde
+  `SUPABASE_PUBLISHABLE_KEY` varsa o kullanılıyor; eski `SUPABASE_ANON_KEY`
+  geri düşüş olarak kalıyor.
+- Küçükler: garaj bildirimindeki "eklemen" yazım hatası, onboarding'deki Shell
+  fiyat vaadi, yan menüdeki "Fiyatlar kamudan alınır" metni.
+
+Sunucu tarafında (sürüm beklemeden yayında): `terms.html` (yan menüdeki
+"Kullanım Koşulları" 404 veriyordu), gizlilik politikası ve veri silme
+sayfasına fiyat alarmları eklendi.
+
+---
+
 ## 1.0.5 (versionCode 8) — Ekim 2026
 
 ---

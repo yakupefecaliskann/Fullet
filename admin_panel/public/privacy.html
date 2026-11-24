@@ -84,7 +84,7 @@
     <main>
       <article>
         <h1>Fullet Gizlilik Politikası</h1>
-        <p class="meta">Son güncelleme: 16 Haziran 2026</p>
+        <p class="meta">Son güncelleme: 24 Kasım 2026</p>
 
         <p>
           Fullet, Türkiye'deki akaryakıt istasyonlarını, yakıt fiyatlarını ve
@@ -103,6 +103,8 @@
             taşımak ve yol tarifi akışını başlatmak için kullanılır. Konum
             koordinatı yalnızca yakındaki istasyonları getirmek için backend
             sorgusunda anlık olarak kullanılır; Fullet konum geçmişi listesi tutmaz.
+            Hassas konum, isteğe bağlı sürüş modunda yakındaki istasyonu yol
+            boyunca güncel tutmak için kullanılır.
           </li>
           <li>
             <strong>Cihazda saklanan tercihler:</strong> Yakıt tipi, araç tüketimi,
@@ -127,6 +129,12 @@
             hesabıyla giriş yapmayı seçerse, favorilerini cihazlar arasında
             eşitlemek için adı, e-posta adresi ve profil fotoğrafı bağlantısı
             Supabase'de saklanır. Giriş yapılmazsa bu veriler toplanmaz.
+          </li>
+          <li>
+            <strong>Fiyat alarmları (isteğe bağlı, giriş gerektirir):</strong>
+            Kurduğunuz alarmın istasyonu, yakıt tipi ve eşik fiyatı hesabınıza bağlı
+            olarak Supabase'de saklanır. Alarm, uygulamayı açtığınızda cihazınızda
+            kontrol edilir ve yerel bildirimle haber verilir.
           </li>
           <li>
             <strong>Anonim sağlık ölçümü:</strong> Uygulama sürümü, platform ve
@@ -154,8 +162,8 @@
         <p>
           Cihazda saklanan tercihler için, cihaz ayarlarından uygulama verilerini
           temizleyerek veya uygulamayı kaldırarak silme yapabilirsiniz. Google ile
-          giriş yaptıysanız hesap verilerinizin (ad, e-posta, profil bağlantısı ve
-          eşitlenen favoriler) silinmesini talep edebilirsiniz; analiz verilerinin
+          giriş yaptıysanız hesap verilerinizin (ad, e-posta, profil bağlantısı,
+          eşitlenen favoriler ve fiyat alarmları) silinmesini talep edebilirsiniz; analiz verilerinin
           silinmesini de isteyebilirsiniz. Ayrıntılar için
           <a href="./data-deletion.html">Veri Silme Talebi</a> sayfasına bakın.
         </p>
