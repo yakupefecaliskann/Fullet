@@ -7,7 +7,7 @@ import '../theme/ful_theme.dart';
 /// İstasyon detayından veya Ayarlar'dan açılır. Eşik fiyat mevcut fiyattan
 /// otomatik doldurulur. Girişsiz kullanıcı için zorla giriş ekranına atmak
 /// yerine iptal edilebilir, dürüst bir açıklama gösterir (alarm sunucu
-/// tarafı tetikleme gerektirdiği için hesapsız kurulamaz).
+/// hesaba bağlı saklandığı için hesapsız kurulamaz).
 class PriceAlertDialog extends StatefulWidget {
   final Station station;
   final String fuelType;
@@ -74,8 +74,8 @@ class _PriceAlertDialogState extends State<PriceAlertDialog> {
   Future<void> _save() async {
     final uid = widget.currentUserId;
     if (uid == null) return;
-    final threshold = double.tryParse(
-        _thresholdController.text.replaceAll(',', '.'));
+    final threshold =
+        double.tryParse(_thresholdController.text.replaceAll(',', '.'));
     if (threshold == null || threshold <= 0) return;
 
     setState(() => _saving = true);
@@ -148,8 +148,8 @@ class _PriceAlertDialogState extends State<PriceAlertDialog> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Alarmlar sunucu tarafında tetiklendiği için hesabına bağlanır — '
-          'favoriler gibi bu da senin verinle senkronize olacak.',
+          'Alarmlar hesabına bağlı saklanır; favoriler gibi cihazlar arasında '
+          'senkronize olur.',
           style: TextStyle(
             fontFamily: 'Outfit',
             fontSize: 13,
@@ -207,8 +207,8 @@ class _PriceAlertDialogState extends State<PriceAlertDialog> {
         const SizedBox(height: 4),
         Text(
           '${widget.station.displayName} • ${widget.fuelType}',
-          style: TextStyle(
-              fontFamily: 'Outfit', fontSize: 12, color: mutedColor),
+          style:
+              TextStyle(fontFamily: 'Outfit', fontSize: 12, color: mutedColor),
         ),
         const SizedBox(height: 16),
         Text(
@@ -223,8 +223,7 @@ class _PriceAlertDialogState extends State<PriceAlertDialog> {
         const SizedBox(height: 8),
         TextField(
           controller: _thresholdController,
-          keyboardType:
-              const TextInputType.numberWithOptions(decimal: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
             suffixText: '₺',
             border: OutlineInputBorder(),
@@ -233,7 +232,8 @@ class _PriceAlertDialogState extends State<PriceAlertDialog> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Şu an 1 ücretsiz alarm hakkın var. Ek alarmlar ileride eklenecek.',
+          'Fiyatı uygulamayı her açtığında kontrol eder, eşiğin altına '
+          'inmişse haber veririz.',
           style: TextStyle(
             fontFamily: 'Outfit',
             fontSize: 11,

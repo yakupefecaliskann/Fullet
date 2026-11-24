@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/price_alert.dart';
 import '../models/station.dart';
 import '../providers/user_preferences_provider.dart';
+import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/price_alert_service.dart';
 import '../services/savings_service.dart';
@@ -95,7 +96,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
       builder: (ctx) => AlertDialog(
         title: const Text('Verilerini sil'),
         content: const Text(
-          'Favorilerin ve fiyat alarmların kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+          'Hesabın, favorilerin ve fiyat alarmların kalıcı olarak silinecek. Bu işlem geri alınamaz.',
         ),
         actions: [
           TextButton(
@@ -112,7 +113,9 @@ class _SettingsSheetState extends State<SettingsSheet> {
     if (confirmed != true || !mounted) return;
     setState(() => _deletingData = true);
     try {
+      // Önce Supabase: hesap silindikten sonra RLS için geçerli token kalmaz.
       await SupabaseService.deleteUserData(user.uid);
+      await AuthService.deleteAccount(user);
       await widget.onSignOut?.call();
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -169,7 +172,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
               ),
             ),
             const SizedBox(height: 20),
-
             _SavingsSummaryCard(
               textColor: textColor,
               mutedColor: mutedColor,
@@ -177,7 +179,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
               border: border,
             ),
             const SizedBox(height: 24),
-
             _SettingsSectionLabel('SÜRÜŞ TERCİHLERİ', mutedColor),
             const SizedBox(height: 8),
             _DrivingPrefsCard(
@@ -192,7 +193,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
               },
             ),
             const SizedBox(height: 24),
-
             _SettingsSectionLabel('BİLDİRİMLER', mutedColor),
             const SizedBox(height: 8),
             _NotificationToggleCard(
@@ -216,7 +216,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
               ),
             ],
             const SizedBox(height: 24),
-
             _SettingsSectionLabel('HESAP', mutedColor),
             const SizedBox(height: 8),
             AccountSection(
@@ -247,7 +246,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
               ),
             ],
             const SizedBox(height: 24),
-
             _SettingsSectionLabel('UYGULAMA', mutedColor),
             const SizedBox(height: 8),
             GestureDetector(
@@ -266,8 +264,8 @@ class _SettingsSheetState extends State<SettingsSheet> {
                 ),
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 13),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 decoration: BoxDecoration(
                   color: cardBg,
                   borderRadius: BorderRadius.circular(14),
@@ -537,8 +535,7 @@ class _PriceAlertsListState extends State<_PriceAlertsList> {
                 .firstWhere((s) => true, orElse: () => null);
             return Container(
               margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: widget.cardBg,
                 borderRadius: BorderRadius.circular(14),
@@ -615,8 +612,7 @@ class _SavingsSummaryCardState extends State<_SavingsSummaryCard> {
       future: _future,
       builder: (context, snapshot) {
         final savings = snapshot.data ?? 0;
-        if (snapshot.connectionState != ConnectionState.done ||
-            savings <= 0) {
+        if (snapshot.connectionState != ConnectionState.done || savings <= 0) {
           return const SizedBox.shrink();
         }
         return Container(

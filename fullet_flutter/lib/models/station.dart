@@ -107,6 +107,20 @@ class Station {
 
   bool get isLowPriority => visibilityStatus == 'low_priority';
 
+  /// Hiçbir yakıtta gösterilebilir fiyatı olmayan ama sunucunun GÖRÜNÜR
+  /// bıraktığı istasyon: "yalnızca konum" (10 Kasım 2026 kararı, §G-K4).
+  ///
+  /// Sunucu (`fullet-resolve-station-visibility`) fiyatı olmayan istasyonu
+  /// gizler; tek bilinçli istisna resmi fiyat kaynağı olmayan markalardır
+  /// (bugün Shell). Yani istemciye fiyatsız ama görünür gelen bir istasyon
+  /// tanım gereği konum amaçlıdır. Marka adı burada KASTEN sabit kodlanmıyor:
+  /// kaynak geri gelince istasyon kendiliğinden fiyatlı istasyona döner.
+  ///
+  /// 24 Kasım 2026 denetimi: 1.0.5 bu istasyonları haritadan tamamen
+  /// süzüyordu — 1317 Shell istasyonu yalnızca aramada görünüyordu.
+  bool get isLocationOnly =>
+      isVisibleInApp && !prices.any((price) => price.isDisplayable);
+
   bool get isVisibleInApp =>
       visibilityStatus == 'visible' || visibilityStatus == 'low_priority';
 

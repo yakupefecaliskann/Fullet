@@ -1,3 +1,9 @@
+> ## ⚠️ BAYAT — 24 Kasım 2026
+> Bu belge 1.0.2 dönemini anlatır. BP kaldırıldı (10 Kas 2026), Shell fiyat
+> kaynağı kapandı ve istasyonlar yalnızca konum olarak gösteriliyor, push
+> altyapısı yok, kişisel fiyat alarmı istemci tarafında çalışıyor. Güncel durum:
+> `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, `BACKEND_RUNBOOK.md`, `docs/KOD_DENETIM_ARSIVI.md` §G–H.
+
 > ## ⚠️ KISMEN BAYAT — 3 Ağustos 2026
 > Belgede geçen push/bildirim altyapısı (`supabase/functions/fiyat-push`,
 > `scraper/summary_push.py`) **kaldırıldı**. Yerel bildirimler geçerli.

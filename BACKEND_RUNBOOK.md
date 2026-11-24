@@ -404,7 +404,14 @@ baştan yapmasın.
 > view'i onları saymaya başlar ve marka filtresindeki çip kendiliğinden
 > etkinleşir. Hiçbir yerde "Shell" sabit kodlu istisna bırakılmadı.
 
-### 10.4 `spatial_ref_sys` yazma yetkisi — ⏳ Supabase Support'ta
+### 10.4 `spatial_ref_sys` yazma yetkisi — ⏳ AÇIK (Support kapattı, öneri: PostGIS'i taşı)
+
+> **24 Kasım 2026:** Talep SU-547101, 11 Kasım'da otomatik yanıtla kapatıldı.
+> Supabase yetki değiştirmeyi önermiyor; çözüm PostGIS'i `extensions` şemasına
+> taşımak (yedek → `DROP EXTENSION postgis` → `extensions`'ta yeniden kur →
+> veriyi geri yükle). `istasyonlar.konum` (geography) kolonu, GIST indeksi ve
+> `get_nearby_stations*` fonksiyonları buna bağlı; fonksiyonların `search_path`'i
+> `extensions`'ı içermeli. Plansız yapılmaz, bakım penceresi ister.
 
 10 Kasım 2026: SQL Editor'dan denendi, `42501 must be owner` verdi ve hiçbir satır
 uygulanmadı. Supabase Support talebi açıldı (proje erişimi kapalı gönderildi).
@@ -423,6 +430,9 @@ Plan artık indeksi kullanıyor: 1000 istasyonluk sorgu 5,3 sn'den 3,2 sn'ye ind
 Tam ülke listesi anon zaman aşımına (3 sn) hâlâ yakın, gözlemlemeye devam edin.
 
 ### 10.6 Alarm kanalı
+
+> 23 Kasım 2026: secret hâlâ yok. GitHub başarısız koşuları zaten e-postayla
+> bildiriyor; Discord ek bir kanal.
 
 GitHub → Settings → Secrets and variables → Actions → `DISCORD_WEBHOOK_URL`.
 Workflow okumaya hazır; secret yokken bildirim sessizce atlanır. Bildirim yalnızca

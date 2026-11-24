@@ -328,5 +328,49 @@ class OpsReportVisibilityTest(unittest.TestCase):
         )
 
 
+class LocationOnlyBrandsSyncTest(unittest.TestCase):
+    """Admin paneli `ops_report` ile aynı "yalnızca konum" listesini taşımalı.
+
+    24 Kasım 2026 denetimi: istisna 10 Kasım'da yalnızca ops_report'a
+    eklenmişti; panel Shell'in 74 günlük fiyatı yüzünden kalıcı "Kontrol
+    gerekli" gösteriyordu. İki liste ayrışırsa ilk CI koşusunda kırılır.
+    """
+
+    def test_admin_panel_listesi_ops_report_ile_ayni(self):
+        import re
+        from pathlib import Path
+
+        app = (Path(__file__).resolve().parents[1] / "admin_panel" / "src" / "App.jsx")
+        text = app.read_text(encoding="utf-8")
+        match = re.search(r"LOCATION_ONLY_BRANDS = new Set\(\[([^\]]*)\]\)", text)
+        self.assertIsNotNone(match, "App.jsx içinde LOCATION_ONLY_BRANDS bulunamadı")
+        panel = set(re.findall(r"'([^']+)'", match.group(1)))
+        self.assertEqual(panel, set(ops_report.LOCATION_ONLY_BRANDS))
+
+
+class PlaywrightWorkflowSyncTest(unittest.TestCase):
+    """Tarayıcı isteyen bot rotasyondaysa workflow Chromium kurmalı.
+
+    1.0.6 bakımında `playwright install chromium` adımı kaldırıldı çünkü
+    shell_bot.py rotasyonda değil. Bot geri eklenip adım unutulursa her koşu
+    "Executable doesn't exist" ile düşerdi; bu test o eşleşmeyi kilitler.
+    """
+
+    def test_shell_bot_rotasyondaysa_chromium_kuruluyor(self):
+        from pathlib import Path
+
+        import run_all_bots
+
+        workflow = (
+            Path(__file__).resolve().parents[1] / ".github" / "workflows" / "otopilot.yml"
+        ).read_text(encoding="utf-8")
+        installs = any(
+            line.strip().startswith("playwright install")
+            for line in workflow.splitlines()
+        )
+        if "shell_bot.py" in run_all_bots.PRICE_BOTS:
+            self.assertTrue(installs, "shell_bot rotasyonda ama Chromium kurulmuyor")
+
+
 if __name__ == "__main__":
     unittest.main()

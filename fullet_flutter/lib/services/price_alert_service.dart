@@ -51,6 +51,18 @@ class PriceAlertService {
         .eq('id', alertId);
   }
 
+  /// "Bu fiyatın ALTINA inince haber ver" — eşitlik tetiklemez.
+  ///
+  /// 1.0.5'te koşul `price <= threshold` idi ve diyalog eşiği mevcut fiyatla
+  /// dolduruyordu: kullanıcı eşiği değiştirmeden kaydederse bir sonraki
+  /// açılışta fiyat hiç düşmeden "fiyatı düştü" bildirimi alıyordu
+  /// (24 Kasım 2026 denetimi).
+  static bool shouldTrigger(
+      {required double? price, required double threshold}) {
+    if (price == null || !price.isFinite) return false;
+    return price < threshold;
+  }
+
   /// Uygulama her açıldığında çağrılır: kullanıcının aktif alarmlarını
   /// güncel fiyatlarla karşılaştırır, eşiğin altına inenler için yerel
   /// bildirim gösterir. Aynı alarmın her açılışta tekrar tekrar
@@ -71,7 +83,10 @@ class PriceAlertService {
         final station = stationsById[alert.stationId];
         if (station == null) continue;
         final price = station.trustedPriceValueFor(alert.fuelType);
-        if (price == null || price > alert.thresholdPrice) continue;
+        if (price == null ||
+            !shouldTrigger(price: price, threshold: alert.thresholdPrice)) {
+          continue;
+        }
 
         await NotificationService.showPriceAlertNotification(
           id: alert.id.hashCode,
@@ -85,8 +100,10 @@ class PriceAlertService {
         // UTC sanır. Türkiye'de (UTC+3) bu, tetiklenme zamanını 3 saat GERİDE
         // gösterir; yukarıdaki 24 saatlik tekrar-bildirim koruması 21 saatte
         // açılır ve kullanıcı aynı alarmı günde iki kez alabilir.
-        await SupabaseService.client.from('price_alerts').update(
-            {'son_tetiklenme': now.toUtc().toIso8601String()}).eq('id', alert.id);
+        await SupabaseService.client
+            .from('price_alerts')
+            .update({'son_tetiklenme': now.toUtc().toIso8601String()}).eq(
+                'id', alert.id);
       }
     } catch (e) {
       appLog('checkAlerts failed: $e');

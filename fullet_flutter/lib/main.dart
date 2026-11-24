@@ -71,10 +71,16 @@ Future<void> main() async {
   // dotenv.env, load başarısız olduysa NotInitializedError FIRLATIR
   // (flutter_dotenv 6.0.1, dotenv.dart:39). Yalnızca load'ı try/catch'e almak
   // çökmeyi bir satır aşağı taşırdı; isInitialized kontrolü şart.
-  final supabaseUrl =
-      dotenv.isInitialized ? dotenv.env['SUPABASE_URL'] : null;
-  final supabaseAnonKey =
-      dotenv.isInitialized ? dotenv.env['SUPABASE_ANON_KEY'] : null;
+  final supabaseUrl = dotenv.isInitialized ? dotenv.env['SUPABASE_URL'] : null;
+  // Supabase eski `anon` JWT anahtarlarını 2026 sonunda kaldırıyor (kesin gün
+  // açıklanmadı). Yeni `sb_publishable_` anahtarı varsa o kullanılır; eski
+  // anahtar yalnızca geçiş döneminde geri düşüş olarak okunur.
+  final supabaseAnonKey = dotenv.isInitialized
+      ? _firstNonEmpty([
+          dotenv.env['SUPABASE_PUBLISHABLE_KEY'],
+          dotenv.env['SUPABASE_ANON_KEY'],
+        ])
+      : null;
   if (supabaseUrl == null ||
       supabaseUrl.isEmpty ||
       supabaseAnonKey == null ||
@@ -105,6 +111,13 @@ Future<void> main() async {
       child: const FulletApp(),
     ),
   );
+}
+
+String? _firstNonEmpty(List<String?> values) {
+  for (final value in values) {
+    if (value != null && value.trim().isNotEmpty) return value.trim();
+  }
+  return null;
 }
 
 /// L6: `future:` her `build()` çağrısında yeni bir Future üretmemeli — yeniden
@@ -194,7 +207,7 @@ class _ConfigurationErrorApp extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Text(
-              'Fullet yapılandırması eksik. SUPABASE_URL ve SUPABASE_ANON_KEY kontrol edilmeli.',
+              'Fullet yapılandırması eksik. SUPABASE_URL ve SUPABASE_PUBLISHABLE_KEY kontrol edilmeli.',
               textAlign: TextAlign.center,
             ),
           ),

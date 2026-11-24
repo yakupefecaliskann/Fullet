@@ -146,6 +146,12 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
 
   String _sourceLabel(Station station) {
     final src = station.dataSource.toLowerCase();
+    // Konum istasyonunun veri_kaynagi bir istasyon BULUCUSU (find.shell.com),
+    // fiyat listesi değil. "Shell resmi fiyat listesi" yazmak, artık var
+    // olmayan bir kaynağı ima ediyordu.
+    if (station.isLocationOnly) {
+      return '${station.brand} resmi istasyon bulucusu (yalnızca konum)';
+    }
     if (src.contains('opet')) return 'Opet resmi fiyat listesi';
     if (src.contains('bp')) return 'BP resmi fiyat listesi';
     if (src.contains('petrolofisi')) return 'Petrol Ofisi resmi fiyat listesi';
@@ -253,12 +259,17 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                 if (shouldShowPriceStatus)
                   _PriceStatusBand(
                     status: priceStatus,
-                    label: _priceStatusLabel(
-                      priceStatus,
-                      priceUpdatedAt,
-                      scopeIsRegional: priceScopeIsRegional,
-                      province: station.city,
-                    ),
+                    // Konum istasyonunda "Fiyat teyit aşamasında" demek yanlış
+                    // bir vaat olurdu: teyit edilecek bir kaynak yok.
+                    label: station.isLocationOnly
+                        ? 'ℹ️ Bu marka için resmi fiyat kaynağı yok — '
+                            'istasyon yalnızca konum olarak gösteriliyor'
+                        : _priceStatusLabel(
+                            priceStatus,
+                            priceUpdatedAt,
+                            scopeIsRegional: priceScopeIsRegional,
+                            province: station.city,
+                          ),
                     color: priceStatusColor(priceStatus),
                   ),
 
@@ -364,12 +375,14 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                                   height: 38,
                                   decoration: BoxDecoration(
                                     color: widget.isFavorite
-                                        ? FulColors.danger.withValues(alpha: 0.12)
+                                        ? FulColors.danger
+                                            .withValues(alpha: 0.12)
                                         : cardBg,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: widget.isFavorite
-                                          ? FulColors.danger.withValues(alpha: 0.4)
+                                          ? FulColors.danger
+                                              .withValues(alpha: 0.4)
                                           : border,
                                     ),
                                   ),
@@ -416,8 +429,7 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                               cardBg: cardBg,
                               border: border,
                               label: _fuelLabel(widget.selectedFuel),
-                              value:
-                                  hasPrice ? '$priceText ₺' : 'Fiyat yok',
+                              value: hasPrice ? '$priceText ₺' : 'Fiyat yok',
                               valueColor: hasPrice
                                   ? priceStatusColor(priceStatus)
                                   : mutedColor,
@@ -468,7 +480,8 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: FulColors.primary.withValues(alpha: 0.45),
+                                  color:
+                                      FulColors.primary.withValues(alpha: 0.45),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),
@@ -536,7 +549,8 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text('⛽', style: TextStyle(fontSize: 16)),
+                                  const Text('⛽',
+                                      style: TextStyle(fontSize: 16)),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Buradan Aldım',
@@ -625,7 +639,9 @@ class _StationBottomSheetState extends State<StationBottomSheet> {
                                     ],
                                   ),
                                   SizedBox(
-                                    height: MediaQuery.of(context).padding.bottom + 16,
+                                    height:
+                                        MediaQuery.of(context).padding.bottom +
+                                            16,
                                   ),
                                 ],
                               )
@@ -991,7 +1007,8 @@ void _showSmartScoreInfoSheet(BuildContext context, {required bool isDark}) {
           const _SmartScoreInfoRow(
               label: '🏆 En İyi Seçim', detail: 'Skor 85 ve üzeri'),
           const _SmartScoreInfoRow(label: '👍 İyi Seçim', detail: 'Skor 65–84'),
-          const _SmartScoreInfoRow(label: '⚠️ Orta Seçim', detail: 'Skor 40–64'),
+          const _SmartScoreInfoRow(
+              label: '⚠️ Orta Seçim', detail: 'Skor 40–64'),
           const _SmartScoreInfoRow(
               label: '⬇️ Daha İyisi Var', detail: 'Skor 40 altı'),
           const SizedBox(height: 14),
@@ -1097,7 +1114,8 @@ class _FillCostCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.calculate_rounded, color: FulColors.primary, size: 18),
+          const Icon(Icons.calculate_rounded,
+              color: FulColors.primary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

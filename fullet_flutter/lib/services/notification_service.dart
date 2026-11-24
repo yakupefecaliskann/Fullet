@@ -8,12 +8,21 @@ import 'analytics_service.dart';
 const _fuelReminderEnabledKey = 'fuel_reminder_enabled';
 const _fuelReminderTargetAtKey = 'fuel_reminder_target_at';
 
+/// Bildirim zamanlamasının saat dilimi. Bkz. [NotificationService.initialize].
+const appTimeZone = 'Europe/Istanbul';
+
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     tz_data.initializeTimeZones();
+    // `initializeTimeZones()` yerel konumu UTC'ye KURAR (timezone 0.9.4,
+    // env.dart: `_local = _UTC`). 1.0.5'e kadar bu satır yoktu ve "sabah
+    // 09:30" hatırlatıcısı Türkiye'de 12:30'da çalıyordu. Uygulama yalnızca
+    // Türkiye konumlarını kabul ettiği (`_locationFromPosition`) ve Türkiye
+    // sabit UTC+3 olduğu için cihaz saat dilimini okumaya gerek yok.
+    tz.setLocalLocation(tz.getLocation(appTimeZone));
 
     const AndroidInitializationSettings android =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -128,7 +137,7 @@ class NotificationService {
 
     await _plugin.zonedSchedule(
       NotificationIds.garageReminder,
-      'Aracını henüz eklemen 🚗',
+      'Aracını henüz eklemedin 🚗',
       'Garajını doldur, sana özel akıllı hesap başlasın',
       scheduled,
       const NotificationDetails(

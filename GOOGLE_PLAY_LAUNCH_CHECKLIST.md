@@ -6,7 +6,22 @@
 
 ---
 
-## 0. Durum Panosu — 14 Ekim 2026
+## 0. Durum Panosu — 24 Kasım 2026
+
+> ### 1.0.6+9 hazırlanıyor (denetim §H)
+>
+> | # | İş | Kim | Not |
+> |---|---|---|---|
+> | 1 | 1.0.6 AAB'si + "Yenilikler" (`RELEASE_NOTES.md` §1.0.6) | 🤖/👤 | Shell konum pinleri, alarm, saat dilimi, Şarj çipi, hesap silme |
+> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | 👤 | AAB ile **aynı** gönderimde değiştir (§inceleme mekaniği) |
+> | 3 | **Hassas konum beyanı** (Politika → Uygulama içeriği) | 👤 | Son tarih **27 Ocak 2027** |
+> | 4 | `SUPABASE_PUBLISHABLE_KEY` → `fullet_flutter/.env` | 👤 | Eski anahtar 2026 sonu kalkıyor; 1.0.6 kodu hazır |
+> | 5 | `build/symbols/1.0.6+9` arşivle | 👤 | 1.0.4/1.0.5 sembolleri kayıp (depo yeniden klonlandı) |
+> | 6 | Bellek/DEX eşikleri (Şub 2027), Zero-Tap Sign-In (Nis 2027) | 👀 | Android vitals'tan izle |
+> | ✅ | Tacir beyanı | — | 10 Kas 2026 onaylandı ("Tacir olmayan") |
+> | ✅ | BP'siz açıklama | — | Yayında (23 Kas'ta public listede doğrulandı) |
+
+## Önceki pano — 14 Ekim 2026
 
 > ### ✅ 1.0.5 YAYINDA (10 Kasım 2026'da public liste ve `app_heartbeats` ile doğrulandı)
 >
@@ -61,8 +76,8 @@
 | 6 | ~~1.0.5+8 AAB'sini Play'e yükle~~ | ✅ | Yayında |
 | 7 | ~~Ölü tabloları düşür + `fiyat-push` sil~~ | ✅ | 10 Kas 2026'da kapatıldı |
 | 8 | ~~Shell fiyat kaynağı kararı~~ | ✅ | 10 Kas 2026: fiyatsız, konum olarak gösteriliyor. `BACKEND_RUNBOOK.md` §10.3 |
-| 9 | Güncel açıklamanın yayına girmesi | ⏳ | 10 Kas 2026'da incelemeye gönderildi. Onay sonrası public listede BP'nin kalktığını doğrula |
-| 10 | **Tacir durumunu beyan et** | 👤 | Son tarih **1 Şub 2027**. Yapılmazsa uygulama Play'den kaldırılır |
+| 9 | ~~Güncel açıklamanın yayına girmesi~~ | ✅ | Yayında |
+| 10 | ~~Tacir durumunu beyan et~~ | ✅ | 10 Kas 2026'da onaylandı |
 | 11 | "Android 16 hedefle" politika uyarısı | 👀 | Üretim `targetSdk 36`. Eski Alpha kodu 5 sebep olabilir, doğrulanmadı |
 
 > 🔥 **11 Ağustos 2026 — canlıda boş harita olayı çözüldü.** App signing SHA-1
