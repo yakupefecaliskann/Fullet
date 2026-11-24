@@ -2983,7 +2983,7 @@ sunucuda** uygulanmasıydı.
 | # | Bulgu | Durum |
 |---|---|---|
 | **H-K1** | Shell sunucuda görünür, uygulama fiyatsız istasyonu haritadan süzüyor: 1317 istasyon yalnızca aramada. View değişikliği çipi etkinleştirdi → boş harita + "kaydırarak ara" (F-K2 regresyonu). Panel "Fiyat teyit aşamasında" + "Shell resmi fiyat listesi" diyordu | ✅ 1.0.6 (`Station.isLocationOnly`, `_mapStations`) |
-| **H-K2** | Şarj çipi: hiçbir bot elektrik fiyatı toplamıyor, çip her zaman boş; mağaza metni "elektrik için filtrele" diyordu | ✅ çip kaldırıldı, ⏳ mağaza metni |
+| **H-K2** | Şarj çipi: hiçbir bot elektrik fiyatı toplamıyor, çip her zaman boş; mağaza metni "elektrik için filtrele" diyordu | ✅ çip kaldırıldı (1.0.6); mağaza metni 24 Kas'ta yayında |
 | **H-K3** | Fiyat alarmı: eşik = mevcut fiyat ve koşul `<=` → fiyat düşmeden "fiyatı düştü". Diyalog "sunucu tarafında tetiklenir" ve "1 ücretsiz alarm" diyordu (ikisi de yanlış) | ✅ 1.0.6 |
 | **H-K4** | `timezone` yerel konumu UTC'ye kuruyor; "09:30" hatırlatıcısı 12:30'da | ✅ 1.0.6 |
 | **H-K5** | Release'de R8 Gson `Signature`'ını siliyor → `flutter_local_notifications` "Missing type parameter"; yakıt/garaj hatırlatıcıları 1.0.3'ten (4 Ağu) beri HİÇ kurulmadı. 1.0.6 Play'den kurulup cihazda bulundu (`dumpsys alarm` = 0) | ✅ 1.0.7 proguard + keep.xml |
@@ -2992,10 +2992,10 @@ sunucuda** uygulanmasıydı.
 | **H-Y3** | Gizlilik politikası fiyat alarmlarını beyan etmiyordu | ✅ |
 | **H-Y4** | "Verilerimi sil" Firebase hesabını silmiyordu | ✅ 1.0.6 |
 | **H-Y5** | Workflow rotasyonda olmayan shell_bot için her koşuda Chromium kuruyordu | ✅ kaldırıldı, testle kilitli |
-| **H-G1** | Uygulama eski `anon` anahtarıyla çıkıyor; Supabase "2027 başı" kaldırıyor | 🟡 1.0.6 publishable anahtarla yayında; GitHub secret'ları ve admin panel sırada |
+| **H-G1** | Uygulama eski `anon` anahtarıyla çıkıyor; Supabase "2027 başı" kaldırıyor | 🟡 24 Kas: uygulama (1.0.6+), GitHub secret'ları (`sb_secret_` github_actions + publishable) ve admin panel YENİ anahtarlarda; sağlık kontrolü 33/33 OK (run 45454639164). Eski `SUPABASE_KEY` yedeği silindi. KALAN: 1.0.5 kurulumları eriyince Supabase'de legacy anahtarları kapat (2027 başından önce) |
 | **H-G2** | `spatial_ref_sys`: Support (SU-547101) 11 Kas'ta kapattı; öneri PostGIS'i `extensions` şemasına taşımak | ✅ 24 Kas migration `20261124120000`; REST 404, RPC'ler doğrulandı |
 | **H-G3** | Public git geçmişinde 3 Google API anahtarı (secret scanning, 16 Ağu) | ✅ Expo dönemi anahtar projede yok; Maps anahtarı Android + 2 SHA-1 + tek API'ye kısıtlı; bütçe uyarısı (₺1/ay) kurulu |
-| **H-T** | Dış son tarihler: Supabase anahtarı 2026 sonu · cron 60 gün ~9 Oca 2027 · Play hassas konum beyanı 27 Oca 2027 · bellek/DEX eşikleri Şub 2027 · Zero-Tap Sign-In Nis 2027 | 📋 |
+| **H-T** | Dış son tarihler: Supabase legacy anahtarları 2027 başı (geçiş yapıldı, yalnızca kapatma kaldı) · cron 60 gün ~23 Oca 2027 (24 Kas birleştirmeleriyle sıfırlandı) · Play hassas konum beyanı 27 Oca 2027 (form henüz açılmadı) · bellek/DEX eşikleri Şub 2027 · Zero-Tap Sign-In Nis 2027 | 📋 |
 
 Ayrıca: 1.0.4/1.0.5 Crashlytics sembolleri depo yeniden klonlandığında
 kaybolmuş (diskte bulunamadı). 14/16/22 Kasım kırmızıları Opet+Total
