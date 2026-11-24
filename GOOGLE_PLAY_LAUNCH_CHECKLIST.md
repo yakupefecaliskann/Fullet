@@ -18,7 +18,7 @@
 > | 2b | Politika uyarısı "Android 16 hedefle" | ✅ | Kaynağı Alpha'daki versionCode 5 (SDK 35); Alpha duraklatıldı |
 > | 2c | 2★ yorum ("sadece petrol ofisi") | ✅ yanıtlandı | 24 Kas 20:47 |
 > | 3 | **Hassas konum beyanı** (Politika → Uygulama içeriği) | 👤 | Son tarih **27 Ocak 2027** |
-> | 4 | Supabase yeni anahtarlar | 🟡 | Uygulama 1.0.6+ publishable anahtarla çıkıyor; GitHub secret'ları + admin panel sırada (BACKEND_RUNBOOK §10.7) |
+> | 4 | Supabase yeni anahtarlar | ✅/🟡 | Uygulama, GitHub secret'ları ve admin panel 24 Kas'ta yeni anahtara geçti (sağlık kontrolü 33/33). Kalan: 1.0.5 kurulumları eriyince legacy anahtarları kapat |
 > | 5 | Sembol arşivi | ✅ | `C:\dev\Fullet-arsiv\1.0.6+9\` ve `\1.0.7+10\` (AAB + iki ABI sembolü + mapping). Buluta da kopyala |
 > | 7 | Kota + bütçe uyarısı | ✅ | "Fullet sifir maliyet", aylık ₺1, %50/90/100 |
 > | 6 | Bellek/DEX eşikleri (Şub 2027), Zero-Tap Sign-In (Nis 2027) | 👀 | Android vitals'tan izle |
