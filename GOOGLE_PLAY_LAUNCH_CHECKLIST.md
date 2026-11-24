@@ -13,10 +13,12 @@
 > | # | İş | Kim | Not |
 > |---|---|---|---|
 > | 1 | 1.0.6 AAB'si + "Yenilikler" (`RELEASE_NOTES.md` §1.0.6) | 🤖/👤 | Shell konum pinleri, alarm, saat dilimi, Şarj çipi, hesap silme |
-> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | 👤 | AAB ile **aynı** gönderimde değiştir (§inceleme mekaniği) |
+> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | ✅ taslak | 24 Kas'ta düzeltilip **taslak** kaydedildi; AAB ile aynı gönderimde gidecek |
+> | 2b | Politika uyarısı "Android 16 hedefle" | ✅ taslak | Kaynağı Alpha'daki versionCode 5 (SDK 35). Alpha **duraklatıldı**, Yayın özeti'nde gönderim bekliyor |
 > | 3 | **Hassas konum beyanı** (Politika → Uygulama içeriği) | 👤 | Son tarih **27 Ocak 2027** |
-> | 4 | `SUPABASE_PUBLISHABLE_KEY` → `fullet_flutter/.env` | 👤 | Eski anahtar 2026 sonu kalkıyor; 1.0.6 kodu hazır |
-> | 5 | `build/symbols/1.0.6+9` arşivle | 👤 | 1.0.4/1.0.5 sembolleri kayıp (depo yeniden klonlandı) |
+> | 4 | ~~`SUPABASE_PUBLISHABLE_KEY` → `.env`~~ | ✅ | 24 Kas'ta eklendi; Supabase panosu eski anahtarların **2027 başında** kalktığını söylüyor |
+> | 5 | ~~`build/symbols/1.0.6+9` arşivle~~ | ✅ | `C:\dev\Fullet-arsiv.0.6+9\` (AAB + iki ABI sembolü). Buluta da kopyala |
+> | 7 | ~~Kota + bütçe uyarısı~~ | ✅ | Zaten kurulu: "Fullet sifir maliyet", aylık ₺1, %50/90/100 (efecaliskan3458 hesabı) |
 > | 6 | Bellek/DEX eşikleri (Şub 2027), Zero-Tap Sign-In (Nis 2027) | 👀 | Android vitals'tan izle |
 > | ✅ | Tacir beyanı | — | 10 Kas 2026 onaylandı ("Tacir olmayan") |
 > | ✅ | BP'siz açıklama | — | Yayında (23 Kas'ta public listede doğrulandı) |
@@ -68,7 +70,7 @@
 
 | # | İş | Kim | Not |
 |---|---|---|---|
-| 1 | Kota + bütçe uyarısı kur | 👤 | "Sıfır maliyet" hedefi için sürpriz fatura riski. §2.2 |
+| 1 | ~~Kota + bütçe uyarısı kur~~ | ✅ | 24 Kas'ta kurulu olduğu doğrulandı |
 | 2 | ~~W2 ASO incelemesinin sonucu~~ | ✅ | **18 Eyl 2026: YAYINDA**, public listede doğrulandı. Ölçülen etki: haftalık kurulum ~5 → ~17 (bkz. `docs/KOD_DENETIM_ARSIVI.md` §F-K3) |
 | 3 | Android 15/16 cihazda edge-to-edge doğrulaması | 👤 | Test cihazı API 33; API 36 davranışı orada tetiklenmiyor |
 | 4 | `build/symbols/1.0.4+7` arşivle | 👤 | Yoksa bu sürümün Crashlytics stack trace'leri okunamaz. §6 |

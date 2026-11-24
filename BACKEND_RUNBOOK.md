@@ -406,6 +406,11 @@ baştan yapmasın.
 
 ### 10.4 `spatial_ref_sys` yazma yetkisi — ⏳ AÇIK (Support kapattı, öneri: PostGIS'i taşı)
 
+> **Migration hazır:** `supabase/migrations/20261124120000_postgis_extensions_semasina_tasindi.sql`
+> (tek transaction, sonunda konum + iki RPC + spatial_ref_sys doğrulaması; tutmazsa
+> hiçbir şey değişmez). Canlı bağımlılıklar 24 Kas'ta ölçüldü: eklenti dışı yalnızca
+> `istasyonlar.konum` ve indeksi. Dashboard SQL Editor'da çalıştırılmalı.
+>
 > **24 Kasım 2026:** Talep SU-547101, 11 Kasım'da otomatik yanıtla kapatıldı.
 > Supabase yetki değiştirmeyi önermiyor; çözüm PostGIS'i `extensions` şemasına
 > taşımak (yedek → `DROP EXTENSION postgis` → `extensions`'ta yeniden kur →
@@ -439,6 +444,13 @@ Workflow okumaya hazır; secret yokken bildirim sessizce atlanır. Bildirim yaln
 yeni açılan alarmda gider.
 
 ### 10.7 Eski Supabase anahtarlarından geçiş
+
+> **24 Kasım 2026:** Supabase panosu "Legacy API keys will be retired in early 2027"
+> diyor. Publishable anahtar (`sb_publishable_…`) zaten vardı; `fullet_flutter/.env`'ye
+> `SUPABASE_PUBLISHABLE_KEY` olarak eklendi ve 1.0.6 onu okuyor (RPC, view ve RLS
+> yazma reddi bu anahtarla doğrulandı). Sıradaki: 1.0.6 yayılınca GitHub secret'ları
+> (`SUPABASE_ANON_KEY` → publishable, `SUPABASE_SERVICE_ROLE_KEY` → `sb_secret_`) ve
+> admin panel; en son panodan eskileri kapat.
 
 Tarihi Dashboard → Settings → API Keys ekranından takip et. `otopilot.yml` ve
 `backend_health_check.py` yeni `sb_secret_` / `sb_publishable_` biçimini tanıyor.
