@@ -65,21 +65,16 @@ jobs:
           cache: "pip"
           cache-dependency-path: scraper/requirements.txt
 
-      # Chromium ~150 MB; her run'da indirmek Actions dakikasi yakar.
-      # Key requirements.txt'e bagli: playwright surumu degisince cache yenilenir.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('scraper/requirements.txt') }}
-
       - name: Install dependencies
         working-directory: ./scraper
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip check
-          playwright install chromium
+          # Chromium KURULMUYOR: tarayıcı isteyen tek bot shell_bot.py ve
+          # 10 Kasım 2026'dan beri rotasyonda değil (run_all_bots.PRICE_BOTS).
+          # Shell'e resmi kaynak dönerse shell_bot ile birlikte
+          # `playwright install chromium` adımı da geri eklenmeli.
 
       - name: Resolve bot mode
         id: mode
