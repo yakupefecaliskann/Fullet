@@ -8,17 +8,19 @@
 
 ## 0. Durum Panosu — 24 Kasım 2026
 
-> ### 1.0.6+9 hazırlanıyor (denetim §H)
+> ### 1.0.6 yayında, 1.0.7+10 incelemede (24 Kas 2026)
 >
-> | # | İş | Kim | Not |
+> | # | İş | Durum | Not |
 > |---|---|---|---|
-> | 1 | 1.0.6 AAB'si + "Yenilikler" | ⏳ incelemede | 24 Kas 2026'da Alpha duraklatmasıyla birlikte gönderildi; "Yönetilen yayınlama" kapalı → onayda otomatik yayına girer |
-> | 2 | Mağaza açıklamasında "elektrik" ve "fiyatlar hareketlendiğinde" ifadeleri | ⏳ taslak | Taslak kaydı gönderime GİRMEDİ (yalnızca taslak). 1.0.6 onaylanınca tek başına gönder — şimdi göndermek incelemeyi sıfırlar |
-> | 2b | Politika uyarısı "Android 16 hedefle" | ✅ taslak | Kaynağı Alpha'daki versionCode 5 (SDK 35). Alpha **duraklatıldı**, Yayın özeti'nde gönderim bekliyor |
+> | 1 | 1.0.6+9 (Shell konum pinleri, alarm/saat dilimi düzeltmeleri) | ✅ yayında | 24 Kas'ta aynı gün onaylandı; Infinix X6528B'ye Play'den kurulup doğrulandı (harita, Shell pinleri, Şarj çipi yok) |
+> | 1b | 1.0.7+10 (hatırlatıcılar R8 yüzünden hiç kurulmuyordu, §H-K5) | ⏳ incelemede | 24 Kas'ta Üretim'e gönderildi; onayda otomatik yayına girer. Sonra cihazda `dumpsys alarm \| grep fullet` > 0 doğrula |
+> | 2 | Mağaza açıklaması ("elektrik" / "fiyatlar hareketlendiğinde" düzeltmesi) | ✅ yayında | Herkese açık sayfada doğrulandı |
+> | 2b | Politika uyarısı "Android 16 hedefle" | ✅ | Kaynağı Alpha'daki versionCode 5 (SDK 35); Alpha duraklatıldı |
+> | 2c | 2★ yorum ("sadece petrol ofisi") | ✅ yanıtlandı | 24 Kas 20:47 |
 > | 3 | **Hassas konum beyanı** (Politika → Uygulama içeriği) | 👤 | Son tarih **27 Ocak 2027** |
-> | 4 | ~~`SUPABASE_PUBLISHABLE_KEY` → `.env`~~ | ✅ | 24 Kas'ta eklendi; Supabase panosu eski anahtarların **2027 başında** kalktığını söylüyor |
-> | 5 | ~~`build/symbols/1.0.6+9` arşivle~~ | ✅ | `C:\dev\Fullet-arsiv.0.6+9\` (AAB + iki ABI sembolü). Buluta da kopyala |
-> | 7 | ~~Kota + bütçe uyarısı~~ | ✅ | Zaten kurulu: "Fullet sifir maliyet", aylık ₺1, %50/90/100 (efecaliskan3458 hesabı) |
+> | 4 | Supabase yeni anahtarlar | 🟡 | Uygulama 1.0.6+ publishable anahtarla çıkıyor; GitHub secret'ları + admin panel sırada (BACKEND_RUNBOOK §10.7) |
+> | 5 | Sembol arşivi | ✅ | `C:\dev\Fullet-arsiv\1.0.6+9\` ve `\1.0.7+10\` (AAB + iki ABI sembolü + mapping). Buluta da kopyala |
+> | 7 | Kota + bütçe uyarısı | ✅ | "Fullet sifir maliyet", aylık ₺1, %50/90/100 |
 > | 6 | Bellek/DEX eşikleri (Şub 2027), Zero-Tap Sign-In (Nis 2027) | 👀 | Android vitals'tan izle |
 > | ✅ | Tacir beyanı | — | 10 Kas 2026 onaylandı ("Tacir olmayan") |
 > | ✅ | BP'siz açıklama | — | Yayında (23 Kas'ta public listede doğrulandı) |
