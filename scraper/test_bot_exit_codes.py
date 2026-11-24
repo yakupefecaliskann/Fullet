@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from db_utils import MIN_TARGET_COVERAGE, finish_bot_run
 from models import SaveSummary
-from run_all_bots import _parse_scraped_records, _parse_target_coverage
+from run_all_bots import _parse_scraped_records, _parse_target_coverage, _quarantine_decision
 
 
 class FinishBotRunTest(unittest.TestCase):
@@ -263,6 +263,22 @@ class DegradedIsNotFailureTest(unittest.TestCase):
         calls = self._record("failed", ["failed", "success"])
         self.assertEqual(len(calls["alert"]), 1)
         self.assertEqual(calls["alert"][0]["severity"], "critical")
+
+
+class QuarantineDecisionTest(unittest.TestCase):
+    """DRY-RUN koşusu tazelik bakımını başarısızlık saymamalı (24 Kas 2026)."""
+
+    def test_live_price_run_runs_quarantine(self):
+        self.assertEqual(_quarantine_decision("prices", {"FULLET_ALLOW_DB_WRITE": "1"}), "run")
+        self.assertEqual(_quarantine_decision("all", {"FULLET_ALLOW_DB_WRITE": "1"}), "run")
+
+    def test_dry_run_skips_instead_of_failing(self):
+        self.assertEqual(_quarantine_decision("prices", {"FULLET_ALLOW_DB_WRITE": "0"}), "skip")
+        self.assertEqual(_quarantine_decision("all", {}), "skip")
+
+    def test_non_price_modes_do_nothing(self):
+        for mode in ("news", "stations", "health"):
+            self.assertEqual(_quarantine_decision(mode, {"FULLET_ALLOW_DB_WRITE": "1"}), "none")
 
 
 if __name__ == "__main__":
