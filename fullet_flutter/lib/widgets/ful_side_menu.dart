@@ -172,8 +172,7 @@ class FulSideMenu extends StatelessWidget {
 
                           Builder(builder: (context) {
                             final favStations = allStations
-                                .where((s) =>
-                                    favoriteStationIds.contains(s.id))
+                                .where((s) => favoriteStationIds.contains(s.id))
                                 .toList();
                             if (favStations.isEmpty) {
                               return const SizedBox.shrink();
@@ -185,8 +184,7 @@ class FulSideMenu extends StatelessWidget {
                                 const SizedBox(height: 16),
                                 _SectionLabel('FAVORİLERİM', mutedColor),
                                 const SizedBox(height: 8),
-                                ...visible.map((station) =>
-                                    FavoriteStationTile(
+                                ...visible.map((station) => FavoriteStationTile(
                                       station: station,
                                       selectedFuel: selectedFuel,
                                       onTap: () {
@@ -261,7 +259,7 @@ class FulSideMenu extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '$stationCount istasyon • Fiyatlar kamudan alınır',
+                            '$stationCount istasyon • Fiyatlar resmi marka kaynaklarından',
                             style: TextStyle(
                               fontFamily: 'Outfit',
                               fontSize: 10,
@@ -1104,8 +1102,7 @@ class AccountSectionState extends State<AccountSection> {
           CircleAvatar(
             radius: 22,
             backgroundColor: FulColors.primary.withValues(alpha: 0.15),
-            backgroundImage:
-                photoUrl != null ? NetworkImage(photoUrl) : null,
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
             child: photoUrl == null
                 ? Text(
                     name.isNotEmpty ? name[0].toUpperCase() : 'K',

@@ -16,6 +16,14 @@ class UserPreferencesProvider extends ChangeNotifier {
   Set<String> favoriteStationIds = {};
   List<String> recentStationIds = [];
 
+  /// Uygulamanın fiyat gösterebildiği yakıtlar. 1.0.5'e kadar 'Elektrik' de
+  /// seçilebiliyordu ama hiçbir zaman verisi olmadı; o seçimle kalan kullanıcı
+  /// çip kaldırıldıktan sonra da boş haritaya açılırdı.
+  static const supportedFuels = {'Kursunsuz 95', 'Motorin', 'LPG'};
+
+  static String _supportedFuel(String? stored) =>
+      supportedFuels.contains(stored) ? stored! : 'Kursunsuz 95';
+
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
   bool get hasVehicle => selectedMake != null && selectedModel != null;
@@ -31,7 +39,7 @@ class UserPreferencesProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     tankCapacity = prefs.getDouble('tankCapacity') ?? 50.0;
     fuelConsumption = prefs.getDouble('fuelConsumption') ?? 7.0;
-    selectedFuel = prefs.getString('defaultFuel') ?? 'Kursunsuz 95';
+    selectedFuel = _supportedFuel(prefs.getString('defaultFuel'));
     selectedMake = prefs.getString('selectedMake');
     selectedModel = prefs.getString('selectedModel');
     favoriteStationIds =
@@ -93,7 +101,7 @@ class UserPreferencesProvider extends ChangeNotifier {
       fuelConsumption = cons;
       await prefs.setDouble('fuelConsumption', cons);
     }
-    if (fuel != null) {
+    if (fuel != null && supportedFuels.contains(fuel)) {
       selectedFuel = fuel;
       await prefs.setString('defaultFuel', fuel);
     }
@@ -116,7 +124,8 @@ class UserPreferencesProvider extends ChangeNotifier {
     }
     favoriteStationIds = next;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('favoriteStationIds', favoriteStationIds.toList());
+    await prefs.setStringList(
+        'favoriteStationIds', favoriteStationIds.toList());
     notifyListeners();
 
     final uid = FirebaseAuth.instance.currentUser?.uid;

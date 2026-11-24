@@ -34,8 +34,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _OnboardingPage(
       icon: Icons.verified_rounded,
       title: 'Resmi kaynaklardan güvenilir fiyat',
-      description:
-          'Shell, Opet, Petrol Ofisi ve diğer resmi listelerden gelen verilerle karar ver.',
+      description: "Opet, Petrol Ofisi, TotalEnergies, TP ve Aytemiz'in resmi "
+          'fiyat listelerinden gelen verilerle karar ver.',
     ),
   ];
 
@@ -178,7 +178,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     height: 8,
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: selected ? 1 : 0.42),
+                      color:
+                          Colors.white.withValues(alpha: selected ? 1 : 0.42),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   );

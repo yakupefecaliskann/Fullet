@@ -23,6 +23,11 @@ const NEWS_STALE_HOURS = 48;
 const ACTIVE_NOW_MINUTES = 15;
 const PAGE_SIZE = 1000;
 const BRANDS = ['Shell', 'TotalEnergies', 'Türkiye Petrolleri', 'Opet', 'Petrol Ofisi', 'Aytemiz'];
+// Resmi fiyat kaynağı olmayan, yalnızca konum olarak gösterilen markalar.
+// scraper/ops_report.py LOCATION_ONLY_BRANDS ile AYNI olmalı (§G-K4). Bu liste
+// olmadan Shell'in 74 günlük fiyatı paneli kalıcı "Kontrol gerekli"de
+// tutuyordu ve gerçek bir bayatlama o sarının içinde görünmez olurdu.
+const LOCATION_ONLY_BRANDS = new Set(['Shell']);
 
 function ageHours(value) {
   if (!value) return null;
@@ -319,6 +324,7 @@ function App() {
     const openAlerts = data.alerts.filter((alert) => alert.status === 'open');
     const latestNews = data.news[0] || null;
     const staleBrands = BRANDS.filter((brand) => {
+      if (LOCATION_ONLY_BRANDS.has(brand)) return false;
       const latest = priceStats[brand]?.latest;
       const hours = ageHours(latest);
       return hours === null || hours > PRICE_STALE_HOURS;
@@ -442,7 +448,11 @@ function App() {
                     <td>{station?.active || 0} / {station?.visible || 0}</td>
                     <td>{price?.prices || 0} / {price?.unknownPrices || 0}</td>
                     <td>{ageLabel(price?.latest)}</td>
-                    <td><Badge tone={stale ? 'warn' : 'good'}>{stale ? 'Bayat' : 'Temiz'}</Badge></td>
+                    <td>
+                      {LOCATION_ONLY_BRANDS.has(brand)
+                        ? <Badge tone="good">Konum</Badge>
+                        : <Badge tone={stale ? 'warn' : 'good'}>{stale ? 'Bayat' : 'Temiz'}</Badge>}
+                    </td>
                   </tr>
                 );
               })}

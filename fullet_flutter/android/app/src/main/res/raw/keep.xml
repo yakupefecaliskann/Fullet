@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- shrinkResources açık: bildirim ikonu kod içinde ADIYLA ('@mipmap/ic_launcher')
+     çözülüyor, R8 bunu göremez. flutter_local_notifications README'si gereği. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@mipmap/ic_launcher,@drawable/*" />

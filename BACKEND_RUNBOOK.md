@@ -404,7 +404,25 @@ baştan yapmasın.
 > view'i onları saymaya başlar ve marka filtresindeki çip kendiliğinden
 > etkinleşir. Hiçbir yerde "Shell" sabit kodlu istisna bırakılmadı.
 
-### 10.4 `spatial_ref_sys` yazma yetkisi — ⏳ Supabase Support'ta
+### 10.4 `spatial_ref_sys` yazma yetkisi — ✅ 24 Kasım 2026'da KAPANDI (PostGIS `extensions` şemasında)
+
+> **Uygulandı (24 Kas 2026, SQL Editor):** migration `20261124120000` başarıyla çalıştı.
+> Sonrası anon/publishable anahtarla doğrulandı: `get_nearby_stations` İstanbul 250,
+> Shell filtresi Ankara 50, `get_nearby_stations_v2` İzmir 50/50 fiyatlı;
+> `/rest/v1/spatial_ref_sys` artık **404** (okuma da yazma da Data API'de yok).
+> Yeni bir RPC/tetikleyici yazarken `search_path`'e `extensions` eklemeyi unutma.
+
+> **Migration hazır:** `supabase/migrations/20261124120000_postgis_extensions_semasina_tasindi.sql`
+> (tek transaction, sonunda konum + iki RPC + spatial_ref_sys doğrulaması; tutmazsa
+> hiçbir şey değişmez). Canlı bağımlılıklar 24 Kas'ta ölçüldü: eklenti dışı yalnızca
+> `istasyonlar.konum` ve indeksi. Dashboard SQL Editor'da çalıştırılmalı.
+>
+> **24 Kasım 2026:** Talep SU-547101, 11 Kasım'da otomatik yanıtla kapatıldı.
+> Supabase yetki değiştirmeyi önermiyor; çözüm PostGIS'i `extensions` şemasına
+> taşımak (yedek → `DROP EXTENSION postgis` → `extensions`'ta yeniden kur →
+> veriyi geri yükle). `istasyonlar.konum` (geography) kolonu, GIST indeksi ve
+> `get_nearby_stations*` fonksiyonları buna bağlı; fonksiyonların `search_path`'i
+> `extensions`'ı içermeli. Plansız yapılmaz, bakım penceresi ister.
 
 10 Kasım 2026: SQL Editor'dan denendi, `42501 must be owner` verdi ve hiçbir satır
 uygulanmadı. Supabase Support talebi açıldı (proje erişimi kapalı gönderildi).
@@ -424,11 +442,21 @@ Tam ülke listesi anon zaman aşımına (3 sn) hâlâ yakın, gözlemlemeye deva
 
 ### 10.6 Alarm kanalı
 
+> 23 Kasım 2026: secret hâlâ yok. GitHub başarısız koşuları zaten e-postayla
+> bildiriyor; Discord ek bir kanal.
+
 GitHub → Settings → Secrets and variables → Actions → `DISCORD_WEBHOOK_URL`.
 Workflow okumaya hazır; secret yokken bildirim sessizce atlanır. Bildirim yalnızca
 yeni açılan alarmda gider.
 
 ### 10.7 Eski Supabase anahtarlarından geçiş
+
+> **24 Kasım 2026:** Supabase panosu "Legacy API keys will be retired in early 2027"
+> diyor. Publishable anahtar (`sb_publishable_…`) zaten vardı; `fullet_flutter/.env`'ye
+> `SUPABASE_PUBLISHABLE_KEY` olarak eklendi ve 1.0.6 onu okuyor (RPC, view ve RLS
+> yazma reddi bu anahtarla doğrulandı). Sıradaki: 1.0.6 yayılınca GitHub secret'ları
+> (`SUPABASE_ANON_KEY` → publishable, `SUPABASE_SERVICE_ROLE_KEY` → `sb_secret_`) ve
+> admin panel; en son panodan eskileri kapat.
 
 Tarihi Dashboard → Settings → API Keys ekranından takip et. `otopilot.yml` ve
 `backend_health_check.py` yeni `sb_secret_` / `sb_publishable_` biçimini tanıyor.

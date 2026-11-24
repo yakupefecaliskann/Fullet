@@ -2,15 +2,15 @@
 
 Bu dosya yedi denetim raporunun birleşimidir. **A–E kapatılmıştır**: tarihsel
 kayıttır, içlerindeki bulguların tamamı düzeltilmiş ve doğrulanmıştır.
-**F (14 Ekim 2026) ve G (10 Kasım 2026) KISMEN AÇIKTIR** — bulgularının bir kısmı
+**F (14 Ekim 2026), G (10 Kasım 2026) ve H (24 Kasım 2026) KISMEN AÇIKTIR** — bulgularının bir kısmı
 ürün sahibinin kararını ya da elle müdahalesini bekliyor; açık maddeler özet
 tablolarda `⏳` ve `🟡` ile işaretli. Güncel yayın durumu için
 `GOOGLE_PLAY_LAUNCH_CHECKLIST.md`, her sürümde tekrarlanan kontroller için
 `RELEASE_QA_CHECKLIST.md`.
 
-> **En acil madde:** Play Console tacir beyanının son tarihi **1 Şubat 2027**.
-> Yapılmazsa uygulama Google Play'den kaldırılır (§G-P1). Shell kararı
-> 10 Kasım 2026'da verildi (§G-K4).
+> **En acil madde (24 Kasım 2026):** eski Supabase `anon` anahtarı 2026 sonunda
+> kalkıyor ve 27 Ocak 2027'de Play hassas konum beyanı zorunlu (§H-T). Tacir
+> beyanı 10 Kasım'da onaylandı (§G-P1 kapandı).
 
 > **Bölüm C ve D'yi atlamayın.** 25 Ağustos 2026 denetimi, A ve B'nin sıfır
 > hatayla kapanmasına rağmen üretimde iki haftadır yanlış fiyat yayınlandığını
@@ -57,6 +57,7 @@ bilgi olmadan bir sonraki temizlik turu çalışan kodu siler.
 | **E** | *(doğrudan bu dosyaya yazıldı)* | Kalıcı kırmızı + ölü push tetikleyicisi — alarm körlüğü ve 235 MB çöp (E-Y1–Y3, E-G1, E-G2) | 18 Eylül 2026 |
 | **F** | *(doğrudan bu dosyaya yazıldı)* | Genel sağlık taraması — Shell karartması, ölçülen şeyin yanlışlığı, tutundurma çöküşü (F-K1–K3, F-Y1–Y2, F-G1–G3, F-O1–O4, F-D1) | **kısmen açık** (14 Ekim 2026) |
 | **G** | *(doğrudan bu dosyaya yazıldı)* | Periyodik denetim — BP'nin ölümü, bağlanmamış alarm kanalı, tarih bombası (G-K1–K3, G-Y1–Y4, G-G1–G3, G-O1–O4, G-D1) | **kısmen açık** (10 Kasım 2026) |
+| **H** | *(doğrudan bu dosyaya yazıldı)* | Tam denetim — sunucuda verilen kararın uygulamada tutmaması (H-K1–K4, H-Y1–Y5, H-G1–G3, H-T) | **kısmen açık** (24 Kasım 2026) |
 
 > A ve B bölümlerinin metni kaynak dosyalardan **birebir** taşınmıştır;
 > özetlenmemiş veya kısaltılmamıştır. Başlık seviyeleri de olduğu gibi
@@ -2960,3 +2961,62 @@ koşu onu çalıştırmamıştı. Pratik kural: **bir alarm yolunun çalıştı�
 bir mesajın ulaştığını görmeden kabul etme.** İkinci kural G-Y1'den: takvime
 bağlı her şey, kod değişmese de kırılabilir; bir sonraki push'u beklemeden
 görünür olması gerekir.
+
+---
+---
+
+# ═══ BÖLÜM H ═══ Sunucuda Verilen Karar, Uygulamada Tutmayan Karar
+
+*(doğrudan bu dosyaya yazıldı — 24 Kasım 2026)*
+
+**Tetikleyici:** Projeye 14 gündür dokunulmamıştı; kodun, otomasyonun, canlı
+verinin, Play listesinin ve Play/Supabase e-postalarının tam denetimi istendi.
+**Denetim anındaki sürüm:** 1.0.5+8 (Play'de canlı). Düzeltmeler 1.0.6+9'da.
+
+## Özet
+
+Veri hattı sağlıklıydı: beş fiyat botu yeşil, 7002 istasyon görünür, Aytemiz
+kaynağı kendiliğinden düzelmiş (921 istasyon taze; Ankara 69,35/89,85 ↔ PO
+69,40/90,00). Bozuk olan, G bölümünde verilen Shell kararının **yalnızca
+sunucuda** uygulanmasıydı.
+
+| # | Bulgu | Durum |
+|---|---|---|
+| **H-K1** | Shell sunucuda görünür, uygulama fiyatsız istasyonu haritadan süzüyor: 1317 istasyon yalnızca aramada. View değişikliği çipi etkinleştirdi → boş harita + "kaydırarak ara" (F-K2 regresyonu). Panel "Fiyat teyit aşamasında" + "Shell resmi fiyat listesi" diyordu | ✅ 1.0.6 (`Station.isLocationOnly`, `_mapStations`) |
+| **H-K2** | Şarj çipi: hiçbir bot elektrik fiyatı toplamıyor, çip her zaman boş; mağaza metni "elektrik için filtrele" diyordu | ✅ çip kaldırıldı (1.0.6); mağaza metni 24 Kas'ta yayında |
+| **H-K3** | Fiyat alarmı: eşik = mevcut fiyat ve koşul `<=` → fiyat düşmeden "fiyatı düştü". Diyalog "sunucu tarafında tetiklenir" ve "1 ücretsiz alarm" diyordu (ikisi de yanlış) | ✅ 1.0.6 |
+| **H-K4** | `timezone` yerel konumu UTC'ye kuruyor; "09:30" hatırlatıcısı 12:30'da | ✅ 1.0.6 |
+| **H-K5** | Release'de R8 Gson `Signature`'ını siliyor → `flutter_local_notifications` "Missing type parameter"; yakıt/garaj hatırlatıcıları 1.0.3'ten (4 Ağu) beri HİÇ kurulmadı. 1.0.6 Play'den kurulup cihazda bulundu (`dumpsys alarm` = 0) | ✅ 1.0.7 proguard + keep.xml |
+| **H-Y1** | "Kullanım Koşulları" (`terms.html`) 404 | ✅ sayfa yayında |
+| **H-Y2** | Admin panel `staleBrands` Shell'i sayıyor → kalıcı "Kontrol gerekli" | ✅ `LOCATION_ONLY_BRANDS`, testle `ops_report`'a kilitli |
+| **H-Y3** | Gizlilik politikası fiyat alarmlarını beyan etmiyordu | ✅ |
+| **H-Y4** | "Verilerimi sil" Firebase hesabını silmiyordu | ✅ 1.0.6 |
+| **H-Y5** | Workflow rotasyonda olmayan shell_bot için her koşuda Chromium kuruyordu | ✅ kaldırıldı, testle kilitli |
+| **H-G1** | Uygulama eski `anon` anahtarıyla çıkıyor; Supabase "2027 başı" kaldırıyor | 🟡 24 Kas: uygulama (1.0.6+), GitHub secret'ları (`sb_secret_` github_actions + publishable) ve admin panel YENİ anahtarlarda; sağlık kontrolü 33/33 OK (run 45454639164). Eski `SUPABASE_KEY` yedeği silindi. KALAN: 1.0.5 kurulumları eriyince Supabase'de legacy anahtarları kapat (2027 başından önce) |
+| **H-G2** | `spatial_ref_sys`: Support (SU-547101) 11 Kas'ta kapattı; öneri PostGIS'i `extensions` şemasına taşımak | ✅ 24 Kas migration `20261124120000`; REST 404, RPC'ler doğrulandı |
+| **H-G3** | Public git geçmişinde 3 Google API anahtarı (secret scanning, 16 Ağu) | ✅ Expo dönemi anahtar projede yok; Maps anahtarı Android + 2 SHA-1 + tek API'ye kısıtlı; bütçe uyarısı (₺1/ay) kurulu |
+| **H-T** | Dış son tarihler: Supabase legacy anahtarları 2027 başı (geçiş yapıldı, yalnızca kapatma kaldı) · cron 60 gün ~23 Oca 2027 (24 Kas birleştirmeleriyle sıfırlandı) · Play hassas konum beyanı 27 Oca 2027 (form henüz açılmadı) · bellek/DEX eşikleri Şub 2027 · Zero-Tap Sign-In Nis 2027 | 📋 |
+
+Ayrıca: 1.0.4/1.0.5 Crashlytics sembolleri depo yeniden klonlandığında
+kaybolmuş (diskte bulunamadı). 14/16/22 Kasım kırmızıları Opet+Total
+API'lerinin eşzamanlı connect-timeout'uydu; GitHub e-postayla bildirdi.
+
+## H-K1 — neden iki halka birden kırıldı
+
+G-K4 sunucuyu doğru değiştirdi, ama "fiyatı olmayanı gösterme" kuralı
+istemcide de vardı (`_stationsWithFuel`) ve orada kimse bakmadı. Doğrulama anon
+REST ile yapılmıştı ("Shell fiyatları unknown") — yani fiyatın
+**gösterilmediği** doğrulandı, istasyonun **gösterildiği** değil.
+
+Düzeltmenin şekli: çizim havuzu (`_mapStations`) ile hesap havuzu
+(`_filteredStations`) ayrıldı. Konum istasyonu çizilir ama "en yakın"
+olamaz — o yakıtı satıp satmadığını bilmiyoruz. Marka adı sabit kodlanmadı:
+kaynak dönünce istasyon kendiliğinden fiyatlı istasyon olur.
+
+### Genelleştirilebilir ders
+
+G: yazılmış olması, bağlı olması demek değildir.
+**H: sunucuda verilen bir görünürlük kararı, istemcideki aynı kuralın kopyası
+değişmeden tamamlanmış sayılmaz.** Doğrulama, kullanıcının ekranında
+"istasyon görünüyor mu?" sorusuyla yapılmalı; "fiyat gizli mi?" sorusu
+kararın yalnızca yarısını ölçer.

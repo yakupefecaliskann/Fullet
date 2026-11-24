@@ -656,7 +656,6 @@ class _CarInfo extends StatelessWidget {
       ],
     );
   }
-
 }
 
 class _EmptyCarSlot extends StatelessWidget {
@@ -733,7 +732,8 @@ class _FuelSelector extends StatelessWidget {
       ('Kursunsuz 95', Icons.local_gas_station_rounded, FulColors.primary),
       ('Motorin', Icons.water_drop_rounded, FulColors.info),
       ('LPG', Icons.compress_rounded, FulColors.nearest),
-      ('Elektrik', Icons.bolt_rounded, FulColors.logical),
+      // Elektrik kasıtlı olarak yok: şarj fiyatı toplanmıyor (bkz.
+      // modern_map_screen _buildFuelChipBar).
     ];
 
     return Row(

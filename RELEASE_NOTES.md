@@ -1,5 +1,86 @@
 # Fullet — Sürüm Notları
 
+## 1.0.7 (versionCode 10) — Kasım 2026
+
+### 📋 Play Console "Yenilikler" alanına yapıştırılacak metin
+
+```text
+Yakıt ve garaj hatırlatıcıları yeniden çalışıyor. Fiyatı yayınlanmayan
+istasyonlarda gereksiz fiyat alarmı düğmesi kaldırıldı ve bilgi notu
+sadeleştirildi.
+```
+
+### 🎯 Uzun sürüm (iç kullanım)
+
+1.0.6 Play'den kurulup Infinix X6528B'de (Android 13) test edilirken logcat'te
+`flutter_local_notifications: RuntimeException: Missing type parameter` görüldü
+(denetim §H-K5). R8 tam mod Gson'un `TypeToken` generic `Signature` bilgisini
+siliyordu; `loadScheduledNotifications` düşüyor, her hatırlatıcıdan önce çağrılan
+`cancel()` de onu kullandığı için **yakıt ve garaj hatırlatıcıları 1.0.3'ten
+(R8'in açıldığı 4 Ağu 2026) beri hiçbir kullanıcıda kurulmadı** — `dumpsys alarm`
+0 kayıt gösterdi, hata Dart tarafında `catch (_)` ile yutuluyordu.
+
+- `proguard-rules.pro`: eklenti README'sinin işaret ettiği Gson kuralları +
+  `com.dexterous.**` korunuyor; `res/raw/keep.xml` bildirim ikonunu koruyor.
+- Konum istasyonu panelinde "Fiyat Alarmı Kur" gizlendi (alarm taze fiyat
+  ister, hiç tetiklenemezdi); bant metni tek satıra sığacak şekilde kısaldı.
+
+**Not:** Bu sürümden önceki büyüme/tutundurma analizlerinde N2/N3 hatırlatıcı
+bildirimlerinin etkisi ölçülemez — hiç gönderilmediler.
+
+---
+
+## 1.0.6 (versionCode 9) — Kasım 2026
+
+---
+
+### 📋 Play Console "Yenilikler" alanına yapıştırılacak metin
+
+```text
+Shell istasyonları artık haritada: resmi fiyat kaynağı olmadığı için fiyatsız,
+konum olarak görünüyor. Fiyat alarmı yalnızca fiyat gerçekten eşiğin altına
+indiğinde haber veriyor. Yakıt hatırlatıcısı sabah 09:30'da geliyor. Veri
+bulunmayan Şarj filtresi kaldırıldı. Ayarlar'dan hesabını tamamen
+silebilirsin. Hata düzeltmeleri.
+```
+
+### 🎯 Uzun sürüm (iç kullanım)
+
+24 Kasım 2026 denetiminin (`docs/KOD_DENETIM_ARSIVI.md` §H) uygulamaya düşen
+maddeleri:
+
+- **Shell haritada yoktu (H-K1).** 10 Kasım'da sunucu Shell'i "konum olarak
+  görünür" yaptı ama 1.0.5 gösterilebilir fiyatı olmayan istasyonu haritadan
+  süzüyordu; 1317 istasyon yalnızca aramada vardı. Aynı gün marka view'i Shell'i
+  "veri var" saydığı için çip etkinleşmiş, dokununca boş harita + "haritayı
+  kaydırarak ara" metni dönmüştü (F-K2 regresyonu). Artık `Station.isLocationOnly`
+  istasyonları soluk pin olarak çiziliyor; en ucuz / en mantıklı / en yakın ve
+  sürüş hedefi hesaplarına GİRMİYOR (o yakıtı satıp satmadıklarını bilmiyoruz).
+  Panel "Fiyat teyit aşamasında" yerine kaynağın olmadığını söylüyor.
+- **Fiyat alarmı yanlış tetikleniyordu (H-K3).** Eşik mevcut fiyatla
+  dolduruluyor, koşul `<=` idi: kullanıcı eşiği değiştirmezse bir sonraki
+  açılışta fiyat düşmeden "fiyatı düştü" bildirimi alıyordu. Koşul `<`.
+  Diyalogdaki "sunucu tarafında tetiklenir" ve "1 ücretsiz alarm" metinleri
+  gerçeği söylemiyordu; düzeltildi.
+- **Hatırlatıcı 12:30'da çalıyordu (H-K4).** `timezone` paketi yerel konumu
+  UTC'ye kuruyor; `Europe/Istanbul` açıkça ayarlandı.
+- **Şarj çipi kaldırıldı (H-K2).** Hiçbir bot şarj fiyatı toplamıyor; çip
+  her zaman boş harita döndürüyordu. Kayıtlı "Elektrik" seçimi Benzin'e taşınıyor.
+- **Hesap silme (H-Y4).** "Verilerimi sil" artık Firebase hesabını da siliyor
+  (gerekirse Google ile yeniden doğrulayarak); eskiden yalnızca Supabase
+  satırlarını silip oturumu kapatıyordu.
+- **Supabase yeni anahtar desteği (H-G1).** `.env` içinde
+  `SUPABASE_PUBLISHABLE_KEY` varsa o kullanılıyor; eski `SUPABASE_ANON_KEY`
+  geri düşüş olarak kalıyor.
+- Küçükler: garaj bildirimindeki "eklemen" yazım hatası, onboarding'deki Shell
+  fiyat vaadi, yan menüdeki "Fiyatlar kamudan alınır" metni.
+
+Sunucu tarafında (sürüm beklemeden yayında): `terms.html` (yan menüdeki
+"Kullanım Koşulları" 404 veriyordu), gizlilik politikası ve veri silme
+sayfasına fiyat alarmları eklendi.
+
+---
+
 ## 1.0.5 (versionCode 8) — Ekim 2026
 
 ---
